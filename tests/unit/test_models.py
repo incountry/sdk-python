@@ -10,6 +10,7 @@ from incountry.models import (
     Country,
     CustomEncryptionOptions,
     FindFilter,
+    HttpOptions,
     Record,
     RecordFromServer,
     RecordListForBatch,
@@ -315,6 +316,32 @@ def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
     )
 
 
+@pytest.mark.parametrize(
+    "http_options", [{}, {"timeout": 1}, {"timeout": 100}],
+)
+@pytest.mark.error_path
+def test_valid_http_options(http_options):
+    HttpOptions.when.called_with(**http_options).should_not.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "http_options",
+    [
+        {"timeout": -1},
+        {"timeout": 0},
+        {"timeout": []},
+        {"timeout": {}},
+        {"timeout": ""},
+        {"timeout": ()},
+        {"timeout": True},
+        {"timeout": False},
+    ],
+)
+@pytest.mark.error_path
+def test_invalid_http_options(http_options):
+    HttpOptions.when.called_with(**http_options).should.throw(ValidationError)
+
+
 @pytest.mark.parametrize("record", TEST_RECORDS)
 @pytest.mark.happy_path
 def test_valid_record(record):
@@ -454,6 +481,13 @@ def test_invalid_secrets_data_current_version_not_found(keys_data):
             "endpoint": "http://popapi.com",
             "debug": True,
         },
+        {
+            "environment_id": "environment_id",
+            "api_key": "api_key",
+            "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
+            "endpoint": "http://popapi.com",
+            "debug": True,
+        },
     ],
 )
 @pytest.mark.happy_path
@@ -465,6 +499,66 @@ def test_valid_storage(storage_params):
             assert isinstance(getattr(item, param), SecretKeyAccessor)
         else:
             assert getattr(item, param) == storage_params[param]
+
+
+@pytest.mark.parametrize(
+    "options", [{"http_options": {"timeout": 1}}],
+)
+@pytest.mark.happy_path
+def test_valid_options_storage(options):
+    StorageWithEnv.when.called_with(
+        **{
+            "environment_id": "environment_id",
+            "api_key": "api_key",
+            "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
+            "options": options,
+        }
+    ).should_not.throw(Exception)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        [],
+        {},
+        (),
+        "",
+        -1,
+        0,
+        1,
+        None,
+        True,
+        False,
+        {"http_options": []},
+        {"http_options": {}},
+        {"http_options": ()},
+        {"http_options": ""},
+        {"http_options": -1},
+        {"http_options": 0},
+        {"http_options": 1},
+        {"http_options": None},
+        {"http_options": True},
+        {"http_options": False},
+        {"http_options": {"timeout": -1}},
+        {"http_options": {"timeout": 0}},
+        {"http_options": {"timeout": []}},
+        {"http_options": {"timeout": {}}},
+        {"http_options": {"timeout": ""}},
+        {"http_options": {"timeout": ()}},
+        {"http_options": {"timeout": True}},
+        {"http_options": {"timeout": False}},
+    ],
+)
+@pytest.mark.happy_path
+def test_invalid_options_storage(options):
+    StorageWithEnv.when.called_with(
+        **{
+            "environment_id": "environment_id",
+            "api_key": "api_key",
+            "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
+            "options": options,
+        }
+    ).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize(

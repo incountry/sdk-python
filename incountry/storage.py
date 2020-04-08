@@ -9,7 +9,7 @@ from .http_client import HttpClient
 from .models import Country, CustomEncryptionOptions, FindFilter, Record, RecordListForBatch, StorageWithEnv
 
 
-class Storage(object):
+class Storage:
     @validate_model(StorageWithEnv)
     def __init__(
         self,
@@ -19,6 +19,7 @@ class Storage(object):
         encrypt: bool = True,
         secret_key_accessor=None,
         debug: bool = False,
+        options: Dict[str, Any] = {},
     ):
         """
         Returns a client to talk to the InCountry storage network.
@@ -50,7 +51,13 @@ class Storage(object):
         self.secret_key_accessor = secret_key_accessor
         self.crypto = InCrypto(self.secret_key_accessor) if self.encrypt else InCrypto()
 
-        self.http_client = HttpClient(env_id=self.env_id, api_key=api_key, endpoint=endpoint, debug=self.debug,)
+        self.http_client = HttpClient(
+            env_id=self.env_id,
+            api_key=api_key,
+            endpoint=endpoint,
+            debug=self.debug,
+            options=options.get("http_options", {}),
+        )
 
         self.log("Using API key: ", api_key)
 
