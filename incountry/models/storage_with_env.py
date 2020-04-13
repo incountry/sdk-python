@@ -30,6 +30,8 @@ class StorageWithEnv(BaseModel):
 
     @validator("endpoint", pre=True, always=True)
     def endpoint_env(cls, value):
+        if value is not None and not isinstance(value, str) or isinstance(value, str) and len(value) == 0:
+            raise ValueError("should be a valid URL")
         return value or os.environ.get("INC_ENDPOINT")
 
     @validator("secret_key_accessor", always=True)
@@ -44,10 +46,4 @@ class StorageWithEnv(BaseModel):
                 f"Please provide a valid secret_key_accessor param of class {SecretKeyAccessor.__name__}"
             )
 
-        return value
-
-    @validator("endpoint", always=True, pre=True)
-    def validate_endpoint(cls, value):
-        if value is not None and not isinstance(value, str):
-            raise ValueError("should be a valid URL")
         return value

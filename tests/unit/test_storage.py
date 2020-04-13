@@ -68,7 +68,9 @@ def get_key_hash(key):
 
 @pytest.fixture()
 def client():
-    def cli(encrypt=True, endpoint=POPAPI_URL, secret_accessor=SecretKeyAccessor(lambda: SECRET_KEY)):
+    def cli(
+        encrypt=True, endpoint=POPAPI_URL, secret_accessor=SecretKeyAccessor(lambda: SECRET_KEY), custom_encryption=None
+    ):
         return Storage(
             encrypt=encrypt,
             debug=True,
@@ -76,6 +78,7 @@ def client():
             api_key="test",
             endpoint=endpoint,
             secret_key_accessor=secret_accessor,
+            custom_encryption_configs=custom_encryption,
         )
 
     return cli
@@ -564,11 +567,10 @@ def test_custom_endpoint(client, record, country):
 def test_custom_encryption_write(client, record, custom_encryption):
     key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
     secret_key_accessor = SecretKeyAccessor(
-        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isKey": True}]}
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}]}
     )
 
-    client = client(secret_accessor=secret_key_accessor)
-    client.set_custom_encryption(custom_encryption)
+    client = client(secret_accessor=secret_key_accessor, custom_encryption=custom_encryption)
 
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
@@ -603,13 +605,12 @@ def test_custom_encryption_write(client, record, custom_encryption):
 def test_custom_encryption_read(client, record, custom_encryption):
     key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
     secret_key_accessor = SecretKeyAccessor(
-        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isKey": True}]}
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}]}
     )
 
     country = "us"
 
-    client = client(secret_accessor=secret_key_accessor)
-    client.set_custom_encryption(custom_encryption)
+    client = client(secret_accessor=secret_key_accessor, custom_encryption=custom_encryption)
 
     stored_record = client.encrypt_record(dict(record))
     read_record_url = POPAPI_URL + "/v2/storage/records/" + country + "/" + stored_record["key"]
@@ -648,13 +649,15 @@ def test_primary_custom_encryption_with_default_encryption(client, custom_encryp
     secret_key_accessor_new = SecretKeyAccessor(
         lambda: {
             "currentVersion": 2,
-            "secrets": [{"secret": "password", "version": 1}, {"secret": key, "version": 2, "isKey": True}],
+            "secrets": [
+                {"secret": "password", "version": 1},
+                {"secret": key, "version": 2, "isForCustomEncryption": True},
+            ],
         }
     )
 
     client_old = client(secret_accessor=secret_key_accessor_old)
-    client_new = client(secret_accessor=secret_key_accessor_new)
-    client_new.set_custom_encryption(custom_encryption)
+    client_new = client(secret_accessor=secret_key_accessor_new, custom_encryption=custom_encryption)
 
     stored_record1 = client_old.encrypt_record(dict(record1))
     read_record1_url = POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record1["key"]
@@ -691,20 +694,21 @@ def test_custom_encryption_with_primary_default_encryption(client, custom_encryp
 
     key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
     secret_key_accessor_old = SecretKeyAccessor(
-        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isKey": True}]}
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}]}
     )
     secret_key_accessor_new = SecretKeyAccessor(
         lambda: {
             "currentVersion": 2,
-            "secrets": [{"secret": key, "version": 1, "isKey": True}, {"secret": "password", "version": 2}],
+            "secrets": [
+                {"secret": key, "version": 1, "isForCustomEncryption": True},
+                {"secret": "password", "version": 2},
+            ],
         }
     )
 
     custom_encryption_old = [{**custom_encryption[0], "isCurrent": True}]
-    client_old = client(secret_accessor=secret_key_accessor_old)
-    client_old.set_custom_encryption(custom_encryption_old)
-    client_new = client(secret_accessor=secret_key_accessor_new)
-    client_new.set_custom_encryption(custom_encryption)
+    client_old = client(secret_accessor=secret_key_accessor_old, custom_encryption=custom_encryption_old)
+    client_new = client(secret_accessor=secret_key_accessor_new, custom_encryption=custom_encryption)
 
     stored_record1 = client_old.encrypt_record(dict(record1))
     read_record1_url = POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record1["key"]
@@ -719,6 +723,33 @@ def test_custom_encryption_with_primary_default_encryption(client, custom_encryp
 
     assert rec1_res["record"]["key"] == record1["key"]
     assert rec2_res["record"]["key"] == record2["key"]
+
+
+@httpretty.activate
+@pytest.mark.parametrize("record", TEST_RECORDS)
+@pytest.mark.parametrize(
+    "custom_encryption",
+    [
+        [
+            {
+                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "version": "test",
+                "isCurrent": True,
+            }
+        ],
+    ],
+)
+@pytest.mark.error_path
+def test_custom_encryption_without_proper_keys(client, record, custom_encryption):
+    key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
+    secret_key_accessor = SecretKeyAccessor(
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isKey": True}]}
+    )
+
+    client.when.called_with(secret_accessor=secret_key_accessor, custom_encryption=custom_encryption).should.throw(
+        StorageClientError
+    )
 
 
 @httpretty.activate
@@ -842,102 +873,3 @@ def test_migrate_with_enc_disabled(client):
     client(encrypt=False).migrate.when.called_with("").should.have.raised(
         StorageClientError, "This method is only allowed with encryption enabled"
     )
-
-
-@pytest.mark.error_path
-def test_custom_enc_with_enc_disabled(client):
-    client(encrypt=False).set_custom_encryption.when.called_with("").should.have.raised(
-        StorageClientError, "This method is only allowed with encryption enabled"
-    )
-
-
-@pytest.mark.parametrize(
-    "custom_encryption_configs, expected_error",
-    [
-        (
-            [
-                {
-                    "encrypt": lambda input, key, key_version: True,
-                    "decrypt": lambda input, key, key_version: input,
-                    "version": "1",
-                    "isCurrent": True,
-                }
-            ],
-            "should return str",
-        ),
-        (
-            [
-                {
-                    "encrypt": lambda input, key, key_version: input,
-                    "decrypt": lambda input, key, key_version: True,
-                    "version": "1",
-                    "isCurrent": True,
-                }
-            ],
-            "should return str",
-        ),
-        (
-            [
-                {
-                    "encrypt": lambda input, key, key_version: input,
-                    "decrypt": lambda input, key, key_version: input + "1",
-                    "version": "1",
-                    "isCurrent": True,
-                }
-            ],
-            "decrypted data doesn't match the original input",
-        ),
-    ],
-)
-@pytest.mark.error_path
-def test_invalid_custom_enc(client, custom_encryption_configs, expected_error):
-    client().set_custom_encryption.when.called_with(custom_encryption_configs).should.have.raised(
-        StorageClientError, expected_error
-    )
-
-
-@pytest.mark.error_path
-def test_custom_enc_with_invalid_keys(client):
-    secret_accessor = SecretKeyAccessor(lambda: "password")
-
-    def enc(input, key, key_version):
-        if key == "password".encode("utf8"):
-            raise Exception("Unsupported key")
-        return input
-
-    custom_encryption_configs = [
-        {"encrypt": enc, "decrypt": lambda input, key, key_version: input, "version": "1", "isCurrent": True}
-    ]
-    client(secret_accessor=secret_accessor).set_custom_encryption.when.called_with(
-        custom_encryption_configs
-    ).should.have.raised(StorageClientError, "none of the available secrets are valid for custom encryption")
-
-
-@pytest.mark.error_path
-def test_custom_enc_with_errorful_enc(client):
-    secret_accessor = SecretKeyAccessor(lambda: "password")
-
-    def enc(input, key, key_version):
-        raise Exception("Bad enc")
-
-    custom_encryption_configs = [
-        {"encrypt": enc, "decrypt": lambda input, key, key_version: input, "version": "1", "isCurrent": True}
-    ]
-    client(secret_accessor=secret_accessor).set_custom_encryption.when.called_with(
-        custom_encryption_configs
-    ).should.have.raised(StorageClientError, "none of the available secrets are valid for custom encryption")
-
-
-@pytest.mark.error_path
-def test_custom_enc_with_errorful_dec(client):
-    secret_accessor = SecretKeyAccessor(lambda: "password")
-
-    def dec(input, key, key_version):
-        raise Exception("Bad dec")
-
-    custom_encryption_configs = [
-        {"encrypt": lambda input, key, key_version: input, "decrypt": dec, "version": "1", "isCurrent": True}
-    ]
-    client(secret_accessor=secret_accessor).set_custom_encryption.when.called_with(
-        custom_encryption_configs
-    ).should.have.raised(StorageClientError, "none of the available secrets are valid for custom encryption")

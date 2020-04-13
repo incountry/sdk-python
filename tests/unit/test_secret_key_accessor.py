@@ -43,71 +43,104 @@ def test_get_secret_old(password):
 
 
 @pytest.mark.parametrize(
-    "keys_data, proper_version, proper_key, proper_is_key",
+    "secrets_data",
     [
-        ({"currentVersion": 0, "secrets": [{"secret": "password0", "version": 0}]}, 0, "password0", False),
-        (
-            {
-                "currentVersion": 1,
-                "secrets": [{"secret": "password1", "version": 1}, {"secret": "password2", "version": 2}],
-            },
-            1,
-            "password1",
-            False,
-        ),
-        (
-            {
-                "currentVersion": 2,
-                "secrets": [{"secret": "password1", "version": 1}, {"secret": "password2", "version": 2}],
-            },
-            2,
-            "password2",
-            False,
-        ),
-        (
-            {
-                "currentVersion": 2,
-                "secrets": [
-                    {"secret": "password1", "version": 1},
-                    {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
-                ],
-            },
-            2,
-            "12345678901234567890123456789012",
-            True,
-        ),
+        {"currentVersion": 0, "secrets": [{"secret": "password0", "version": 0}]},
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": "password1", "version": 1}, {"secret": "password2", "version": 2}],
+        },
+        {
+            "currentVersion": 2,
+            "secrets": [{"secret": "password1", "version": 1}, {"secret": "password2", "version": 2}],
+        },
+        {
+            "currentVersion": 2,
+            "secrets": [
+                {"secret": "password1", "version": 1},
+                {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
+            ],
+        },
     ],
 )
 @pytest.mark.happy_path
-def test_get_secret(keys_data, proper_version, proper_key, proper_is_key):
-    secret_accessor = SecretKeyAccessor(lambda: keys_data)
+def test_get_secret(secrets_data):
+    secret_accessor = SecretKeyAccessor(lambda: secrets_data)
     [secret, secret_version, is_key] = secret_accessor.get_secret()
-    assert secret_version == proper_version
-    assert secret == proper_key
-    assert is_key == proper_is_key
+
+    current_secret_data = next(
+        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]), None,
+    )
+
+    assert secret_version == current_secret_data["version"]
+    assert secret == current_secret_data["secret"]
+    assert is_key == current_secret_data.get("isKey", False)
+
+    for secret_data in secrets_data["secrets"]:
+        [secret, secret_version, is_key] = secret_accessor.get_secret(secret_data["version"])
+        assert secret_version == secret_data["version"]
+        assert secret == secret_data["secret"]
+        assert is_key == secret_data.get("isKey", False)
 
 
 @pytest.mark.parametrize(
-    "keys_data, proper_version, proper_key, proper_is_key",
+    "secrets_data",
     [
-        (
-            {
-                "currentVersion": 2,
-                "secrets": [{"secret": "password1", "version": 1}, {"secret": "1234", "version": 2, "isKey": True}],
-            },
-            2,
-            "1234",
-            True,
-        ),
+        {"currentVersion": 0, "secrets": [{"secret": "custom key", "version": 0, "isForCustomEncryption": True}]},
+        {
+            "currentVersion": 1,
+            "secrets": [
+                {"secret": "custom key", "version": 1, "isForCustomEncryption": True},
+                {"secret": "password2", "version": 2},
+            ],
+        },
+        {
+            "currentVersion": 2,
+            "secrets": [
+                {"secret": "custom key", "version": 1, "isForCustomEncryption": True},
+                {"secret": "password2", "version": 2},
+            ],
+        },
+        {
+            "currentVersion": 2,
+            "secrets": [
+                {"secret": "password1", "version": 1},
+                {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
+                {"secret": "custom key", "version": 3, "isForCustomEncryption": True},
+            ],
+        },
     ],
 )
 @pytest.mark.happy_path
-def test_get_secret_ignoring_length_validation(keys_data, proper_version, proper_key, proper_is_key):
-    secret_accessor = SecretKeyAccessor(lambda: keys_data)
-    [secret, secret_version, is_key] = secret_accessor.get_secret(ignore_length_validation=True)
-    assert secret_version == proper_version
-    assert secret == proper_key
-    assert is_key == proper_is_key
+def test_get_secret_with_custom_keys(secrets_data):
+    secret_accessor = SecretKeyAccessor(lambda: secrets_data)
+    secret_accessor.enable_custom_encryption_keys()
+    [secret, secret_version, is_key] = secret_accessor.get_secret()
+
+    current_secret = next(
+        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]), None,
+    )
+
+    assert secret_version == current_secret["version"]
+    assert secret == current_secret["secret"]
+    assert is_key == current_secret.get("isKey", False)
+
+    for secret_data in secrets_data["secrets"]:
+        [secret, secret_version, is_key] = secret_accessor.get_secret(secret_data["version"])
+        assert secret_version == secret_data["version"]
+        assert secret == secret_data["secret"]
+        assert is_key == secret_data.get("isKey", False)
+
+
+@pytest.mark.parametrize(
+    "secrets_data", [{"currentVersion": 0, "secrets": [{"secret": "custom key", "version": 0}]}],
+)
+@pytest.mark.error_path
+def test_get_secret_returning_non_custom_key_for_custom_request(secrets_data):
+    secret_accessor = SecretKeyAccessor(lambda: secrets_data)
+    secret_accessor.get_secret.when.called_with(is_for_custom_encryption=True).should.have.raised(
+        "Requested secret for custom encryption. Got a regular one instead"
+    )
 
 
 @pytest.mark.error_path
@@ -132,46 +165,9 @@ def test_non_existing_version_requested(keys_data):
     "keys_data", INVALID_SECRETS_DATA,
 )
 @pytest.mark.error_path
-def test_invalid_keys_object(keys_data):
-    SecretKeyAccessor.when.called_with(lambda: keys_data).should.have.raised(StorageClientError)
-
-
-@pytest.mark.parametrize(
-    "keys_data", INVALID_SECRETS_DATA_WITH_SHORT_KEY,
-)
-@pytest.mark.error_path
-def test_invalid_keys_object_during_get_secret(keys_data):
-    global i
-    i = 0
-
-    def accessor_function():
-        global i
-        i = i + 1
-        if i <= 1:
-            return "password"
-        return keys_data
-
-    secret_accessor = SecretKeyAccessor(accessor_function)
-    secret_accessor.get_secret.when.called_with().should.have.raised(StorageClientError)
-
-
-@pytest.mark.parametrize(
-    "keys_data", INVALID_SECRETS_DATA,
-)
-@pytest.mark.error_path
-def test_invalid_keys_object_during_get_secrets_raw(keys_data):
-    global i
-    i = 0
-
-    def accessor_function():
-        global i
-        i = i + 1
-        if i <= 1:
-            return "password"
-        return keys_data
-
-    secret_accessor = SecretKeyAccessor(accessor_function)
-    secret_accessor.get_secrets_raw.when.called_with().should.have.raised(StorageClientError)
+def test_validation_failure_invalid_keys_object(keys_data):
+    secret_accessor = SecretKeyAccessor(lambda: keys_data)
+    secret_accessor.validate.when.called_with().should.have.raised(StorageClientError)
 
 
 @pytest.mark.error_path
@@ -179,24 +175,8 @@ def test_errorful_accessor_function():
     def accessor_function():
         raise Exception("HTTP 500")
 
-    SecretKeyAccessor.when.called_with(accessor_function).should.have.raised(
-        StorageClientError, "failed to retrieve secret keys data"
-    )
-
-
-@pytest.mark.error_path
-def test_errorful_accessor_function_after_successful_validation():
-    global i
-    i = 0
-
-    def accessor_function():
-        global i
-        i = i + 1
-        if i <= 1:
-            return "password"
-        raise Exception("HTTP 500")
-
     secret_accessor = SecretKeyAccessor(accessor_function)
-    secret_accessor.get_secrets_raw.when.called_with().should.have.raised(
+
+    secret_accessor.get_secret.when.called_with().should.have.raised(
         StorageClientError, "Failed to retrieve secret keys data"
     )

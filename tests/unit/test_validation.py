@@ -2,7 +2,7 @@ import pytest
 import sure  # noqa: F401
 from pydantic import BaseModel, StrictInt, StrictStr, validator
 
-from incountry import StorageClientError
+from incountry import StorageClientError, StorageError
 from incountry.validation import validate_model, validate_encryption_enabled
 
 POPAPI_URL = "https://popapi.com:8082"
@@ -77,3 +77,16 @@ def test_validate_encryption_enabled_works_properly():
 
     instance2 = TestClass(encrypt=False)
     instance2.test_method.when.called_with().should.throw(StorageClientError)
+
+
+@pytest.mark.error_path
+def test_validate_model_catches_method_errors():
+    error_text = "unexpected_exception"
+
+    class TestModel(BaseModel):
+        arg1: StrictStr = None
+
+    def test_function(arg1=None, arg2=None):
+        raise Exception(error_text)
+
+    validate_model(TestModel)(test_function).when.called_with(arg1="123").should.throw(StorageError, "Unexpected error")
