@@ -86,21 +86,18 @@ def test_get_secret(secrets_data):
 @pytest.mark.parametrize(
     "secrets_data",
     [
-        {
-            "currentVersion": 0,
-            "secrets": [{"secret": "custom key", "version": 0, "isKey": True, "isForCustomEncryption": True}],
-        },
+        {"currentVersion": 0, "secrets": [{"secret": "custom key", "version": 0, "isForCustomEncryption": True}]},
         {
             "currentVersion": 1,
             "secrets": [
-                {"secret": "custom key", "version": 1, "isKey": True, "isForCustomEncryption": True},
+                {"secret": "custom key", "version": 1, "isForCustomEncryption": True},
                 {"secret": "password2", "version": 2},
             ],
         },
         {
             "currentVersion": 2,
             "secrets": [
-                {"secret": "custom key", "version": 1, "isKey": True, "isForCustomEncryption": True},
+                {"secret": "custom key", "version": 1, "isForCustomEncryption": True},
                 {"secret": "password2", "version": 2},
             ],
         },
@@ -109,7 +106,7 @@ def test_get_secret(secrets_data):
             "secrets": [
                 {"secret": "password1", "version": 1},
                 {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
-                {"secret": "custom key", "version": 3, "isKey": True, "isForCustomEncryption": True},
+                {"secret": "custom key", "version": 3, "isForCustomEncryption": True},
             ],
         },
     ],
@@ -142,7 +139,7 @@ def test_get_secret_with_custom_keys(secrets_data):
 def test_get_secret_returning_non_custom_key_for_custom_request(secrets_data):
     secret_accessor = SecretKeyAccessor(lambda: secrets_data)
     secret_accessor.get_secret.when.called_with(is_for_custom_encryption=True).should.have.raised(
-        "Requested secret key for custom encryption. Got a regular key instead"
+        "Requested secret for custom encryption. Got a regular one instead"
     )
 
 

@@ -393,7 +393,7 @@ def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
             "secret_key_accessor": SecretKeyAccessor(
                 lambda: {
                     "currentVersion": 1,
-                    "secrets": [{"secret": "123", "version": 1, "isKey": True, "isForCustomEncryption": True}],
+                    "secrets": [{"secret": "123", "version": 1, "isForCustomEncryption": True}],
                 }
             ),
             "custom_encryption_configs": [
@@ -409,7 +409,7 @@ def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
             "secret_key_accessor": SecretKeyAccessor(
                 lambda: {
                     "currentVersion": 1,
-                    "secrets": [{"secret": "123", "version": 1, "isKey": True, "isForCustomEncryption": True}],
+                    "secrets": [{"secret": "123", "version": 1, "isForCustomEncryption": True}],
                 }
             ),
             "custom_encryption_configs": [
@@ -626,7 +626,10 @@ def test_valid_secrets_data(keys_data):
         {"currentVersion": 1, "secrets": [{"secret": "password", "version": -1}]},
         {"currentVersion": -1, "secrets": [{"secret": "password", "version": 1}]},
         {"currentVersion": 1, "secrets": [{"secret": "short key", "version": 1, "isKey": True}]},
-        {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1, "isForCustomEncryption": True}]},
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": "password", "version": 1, "isKey": True, "isForCustomEncryption": True}],
+        },
     ],
 )
 @pytest.mark.error_path
@@ -671,12 +674,7 @@ def test_valid_secrets_data_for_default_encryption(keys_data):
 
 @pytest.mark.parametrize(
     "keys_data",
-    [
-        {
-            "currentVersion": 1,
-            "secrets": [{"secret": "password", "version": 1, "isKey": True, "isForCustomEncryption": True}],
-        }
-    ],
+    [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1, "isForCustomEncryption": True}]}],
 )
 @pytest.mark.error_path
 def test_invalid_secrets_data_for_default_encryption(keys_data):
@@ -687,12 +685,7 @@ def test_invalid_secrets_data_for_default_encryption(keys_data):
 
 @pytest.mark.parametrize(
     "keys_data",
-    [
-        {
-            "currentVersion": 1,
-            "secrets": [{"secret": "password1", "version": 1, "isKey": True, "isForCustomEncryption": True}],
-        },
-    ],
+    [{"currentVersion": 1, "secrets": [{"secret": "password1", "version": 1, "isForCustomEncryption": True}]}],
 )
 @pytest.mark.error_path
 def test_valid_secrets_data_for_custom_encryption(keys_data):

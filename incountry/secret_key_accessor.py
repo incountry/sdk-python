@@ -71,7 +71,7 @@ class SecretKeyAccessor:
                 is_key = secret_data.get("isKey", False)
                 secret = secret_data.get("secret")
                 if is_for_custom_encryption and not secret_data.get("isForCustomEncryption", False):
-                    raise StorageClientError("Requested secret key for custom encryption. Got a regular key instead.")
+                    raise StorageClientError("Requested secret for custom encryption. Got a regular one instead.")
                 return (secret, version_to_search, is_key)
 
         raise StorageClientError("Secret not found for version {}".format(version_to_search))

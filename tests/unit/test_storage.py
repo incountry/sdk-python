@@ -567,10 +567,7 @@ def test_custom_endpoint(client, record, country):
 def test_custom_encryption_write(client, record, custom_encryption):
     key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
     secret_key_accessor = SecretKeyAccessor(
-        lambda: {
-            "currentVersion": 1,
-            "secrets": [{"secret": key, "version": 1, "isKey": True, "isForCustomEncryption": True}],
-        }
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}]}
     )
 
     client = client(secret_accessor=secret_key_accessor, custom_encryption=custom_encryption)
@@ -608,10 +605,7 @@ def test_custom_encryption_write(client, record, custom_encryption):
 def test_custom_encryption_read(client, record, custom_encryption):
     key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
     secret_key_accessor = SecretKeyAccessor(
-        lambda: {
-            "currentVersion": 1,
-            "secrets": [{"secret": key, "version": 1, "isKey": True, "isForCustomEncryption": True}],
-        }
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}]}
     )
 
     country = "us"
@@ -657,7 +651,7 @@ def test_primary_custom_encryption_with_default_encryption(client, custom_encryp
             "currentVersion": 2,
             "secrets": [
                 {"secret": "password", "version": 1},
-                {"secret": key, "version": 2, "isKey": True, "isForCustomEncryption": True},
+                {"secret": key, "version": 2, "isForCustomEncryption": True},
             ],
         }
     )
@@ -700,16 +694,13 @@ def test_custom_encryption_with_primary_default_encryption(client, custom_encryp
 
     key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
     secret_key_accessor_old = SecretKeyAccessor(
-        lambda: {
-            "currentVersion": 1,
-            "secrets": [{"secret": key, "version": 1, "isKey": True, "isForCustomEncryption": True}],
-        }
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}]}
     )
     secret_key_accessor_new = SecretKeyAccessor(
         lambda: {
             "currentVersion": 2,
             "secrets": [
-                {"secret": key, "version": 1, "isKey": True, "isForCustomEncryption": True},
+                {"secret": key, "version": 1, "isForCustomEncryption": True},
                 {"secret": "password", "version": 2},
             ],
         }

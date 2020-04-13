@@ -172,10 +172,7 @@ def test_custom_enc_dec(plaintext, custom_encryption):
     key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
 
     secret_key_accessor = SecretKeyAccessor(
-        lambda: {
-            "currentVersion": 1,
-            "secrets": [{"secret": key, "version": 1, "isKey": True, "isForCustomEncryption": True}],
-        }
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}]}
     )
 
     cipher = InCrypto(secret_key_accessor, custom_encryption)
@@ -261,7 +258,6 @@ def test_custom_enc_with_methods_not_returning_str(custom_encryption):
                 {
                     "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
                     "version": 1,
-                    "isKey": True,
                     "isForCustomEncryption": True,
                 }
             ],
@@ -285,7 +281,6 @@ def test_custom_enc_returning_nonstr_on_enc_after_successful_validation(custom_e
                 {
                     "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
                     "version": 1,
-                    "isKey": True,
                     "isForCustomEncryption": True,
                 }
             ],
@@ -321,7 +316,6 @@ def test_custom_enc_returning_nonstr_on_dec_after_successful_validation(custom_e
                 {
                     "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
                     "version": 1,
-                    "isKey": True,
                     "isForCustomEncryption": True,
                 }
             ],
@@ -356,7 +350,6 @@ def test_custom_enc_throwing_on_enc_after_successful_validation(custom_encryptio
                 {
                     "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
                     "version": 1,
-                    "isKey": True,
                     "isForCustomEncryption": True,
                 }
             ],
@@ -392,7 +385,6 @@ def test_custom_enc_throwing_on_dec_after_successful_validation(custom_encryptio
                 {
                     "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
                     "version": 1,
-                    "isKey": True,
                     "isForCustomEncryption": True,
                 }
             ],

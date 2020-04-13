@@ -9,19 +9,15 @@ class Secret(BaseModel):
 
     @validator("isForCustomEncryption")
     def validate_custom_encryption(cls, value, values):
-        if not values.get("isKey", False) and value:
-            raise ValueError('secret should also be a key ({ "isKey": true })')
+        if values.get("isKey", False) and value:
+            raise ValueError("secret can either be 'isKey' or 'isForCustomEncryption', not both")
         return value
 
     @validator("secret")
     def validate_secret_length(cls, value, values):
         from ..incountry_crypto import InCrypto
 
-        if (
-            values.get("isKey", False)
-            and not values.get("isForCustomEncryption", False)
-            and len(value) != InCrypto.KEY_LENGTH
-        ):
+        if values.get("isKey", False) and len(value) != InCrypto.KEY_LENGTH:
             raise ValueError(
                 f"wrong default key length. Should be {InCrypto.KEY_LENGTH}-characters 'utf8' encoded string. "
                 f"If it's a custom key, please provide 'isForCustomEncryption' param"
