@@ -1,13 +1,12 @@
+import traceback
 from typing import Callable
 
-from pydantic import BaseModel, conlist, validator, StrictBool, StrictInt, StrictStr
-
-from ..exceptions import InCryptoException
+from pydantic import BaseModel, validator, StrictBool, StrictInt, StrictStr
 
 CUSTOM_ENCRYPTION_METHODS_ARGS = ["input", "key", "key_version"]
 
 
-class CustomEncryptionConfigWithKey(BaseModel):
+class CustomEncryptionConfigMethodValidation(BaseModel):
     key: bytes
     keyVersion: StrictInt
     version: StrictStr
@@ -15,14 +14,25 @@ class CustomEncryptionConfigWithKey(BaseModel):
     encrypt: Callable
     decrypt: Callable
 
+    @validator("key", pre=True)
+    def validate_key(cls, value):
+        if not isinstance(value, bytes):
+            raise ValueError("value is not valid bytes")
+        return value
+
     @validator("encrypt", pre=True)
     def validate_enc(cls, value, values):
         plaintext = "incountry"
 
         try:
             enc = value(input=plaintext, key=values["key"], key_version=values["keyVersion"])
-        except Exception as e:
-            raise InCryptoException(e) from None
+        except Exception:
+            raise ValueError(
+                "should return str. Threw exception instead"
+                + "\n\n==Validation Error Traceback Start==\n\n"
+                + traceback.format_exc()
+                + "\n==Validation Error Traceback End=="
+            )
 
         if not isinstance(enc, str):
             raise ValueError(f"should return str. Got {type(enc).__name__}")
@@ -37,8 +47,13 @@ class CustomEncryptionConfigWithKey(BaseModel):
         try:
             enc = values["encrypt"](input=plaintext, key=values["key"], key_version=values["keyVersion"])
             dec = value(input=enc, key=values["key"], key_version=values["keyVersion"])
-        except Exception as e:
-            raise InCryptoException(e) from None
+        except Exception:
+            raise ValueError(
+                "should return str. Threw exception instead"
+                + "\n\n==Validation Error Traceback Start==\n\n"
+                + traceback.format_exc()
+                + "\n==Validation Error Traceback End=="
+            )
 
         if not isinstance(dec, str):
             raise ValueError(f"should return str. Got {type(dec).__name__}")
@@ -46,7 +61,3 @@ class CustomEncryptionConfigWithKey(BaseModel):
             raise ValueError(f"decrypted data doesn't match the original input")
 
         return value
-
-
-class CustomEncryptionOptionsWithKey(BaseModel):
-    configs: conlist(CustomEncryptionConfigWithKey, min_items=1)

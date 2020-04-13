@@ -427,7 +427,7 @@ InCountry Python SDK throws following Exceptions:
 
 - **StorageServerException** - thrown if SDK failed to communicate with InCountry servers or if server response validation failed.
 
-- **InCryptoException** - thrown during encryption/decryption procedures (both default and custom). This may be a sign of malformed/corrupt data or a wrong encryption key provided to the SDK.
+- **StorageCryptoException** - thrown during encryption/decryption procedures (both default and custom). This may be a sign of malformed/corrupt data or a wrong encryption key provided to the SDK.
 
 - **StorageException** - general exception. Inherited by all other exceptions
 
@@ -440,7 +440,7 @@ except StorageClientException as e:
     # some input validation error
 except StorageServerException as e:
     # some server error
-except InCryptoException as e:
+except StorageCryptoException as e:
     # some encryption error
 except StorageException as e:
     # general error
@@ -452,7 +452,7 @@ Custom Encryption Support
 -----
 SDK supports the ability to provide custom encryption/decryption methods if you decide to use your own algorithm instead of the default one.
 
-`Storage.set_custom_encryption(configs)` allows you to pass an array of custom encryption configurations with the following schema, which enables custom encryption:
+`Storage` constructor allows you to pass `custom_encryption_configs` param - an array of custom encryption configurations with the following schema, which enables custom encryption:
 
 ```python
 {
@@ -463,17 +463,37 @@ SDK supports the ability to provide custom encryption/decryption methods if you 
 }
 ```
 
-Both `encrypt` and `decrypt` attributes should be functions implementing the following interface
+Both `encrypt` and `decrypt` attributes should be functions implementing the following interface (with exactly same argument names)
 
 ```python
-encrypt(raw:str, key:bytes, key_version:int) -> str:
+encrypt(input:str, key:bytes, key_version:int) -> str:
     ...
 
-decrypt(raw:str, key:bytes, key_version:int) -> str:
+decrypt(input:str, key:bytes, key_version:int) -> str:
     ...
 ```
 They should accept raw data to encrypt/decrypt, key data (represented as bytes array) and key version received from `SecretKeyAccessor`.
 The resulted encrypted/decrypted data should be a string.
+
+---
+**NOTE**
+
+You should provide a specific encryption key via `secrets_data` passed to `SecretKeyAccessor`. This secret should use flag `isForCustomEncryption` instead of the regular `isKey`.
+
+```python
+secrets_data = {
+  "secrets": [{
+       "secret": "<secret for custom encryption>",
+       "version": 1,
+       "isForCustomEncryption": True,
+    }
+  }],
+  "currentVersion": 1,
+}
+
+secret_accessor = SecretKeyAccessor(lambda: secrets_data)
+```
+---
 
 `version` attribute is used to differ one custom encryption from another and from the default encryption as well.
 This way SDK will be able to successfully decrypt any old data if encryption changes with time.
@@ -485,14 +505,18 @@ If none of the configurations have `"isCurrent": True` then the SDK will use def
 Here's an example of how you can set up SDK to use custom encryption (using Fernet encryption method from https://cryptography.io/en/latest/fernet/)
 
 ```python
+import os
 
-def enc(text, key, key_ver):
-    cipher = Fernet(key)
-    return cipher.encrypt(text.encode("utf8")).decode("utf8")
+from incountry import InCrypto, SecretKeyAccessor, Storage
+from cryptography.fernet import Fernet
 
-def dec(ciphertext, key, key_ver):
+def enc(input, key, key_version):
     cipher = Fernet(key)
-    return cipher.decrypt(ciphertext.encode("utf8")).decode("utf8")
+    return cipher.encrypt(input.encode("utf8")).decode("utf8")
+
+def dec(input, key, key_version):
+    cipher = Fernet(key)
+    return cipher.decrypt(input.encode("utf8")).decode("utf8")
 
 custom_encryption_configs = [
     {
@@ -503,12 +527,12 @@ custom_encryption_configs = [
     }
 ]
 
-key = "<base64_key_data>" # Fernet uses 32-byte length key encoded using base64
+key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))  # Fernet uses 32-byte length key encoded using base64
 
 secret_key_accessor = SecretKeyAccessor(
     lambda: {
         "currentVersion": 1,
-        "secrets": [{"secret": key, "version": 1, "isKey": True}],
+        "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}],
     }
 )
 
@@ -516,9 +540,9 @@ storage = Storage(
     api_key="<api_key>",
     environment_id="<env_id>",
     secret_key_accessor=secret_key_accessor,
+    custom_encryption_configs=custom_encryption_configs,
 )
 
-storage.set_custom_encryption(custom_encryption_configs)
 storage.write(country="us", key="<key>", body="<body>")
 ```
 

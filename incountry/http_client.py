@@ -20,7 +20,7 @@ class HttpClient:
         self.debug = debug
 
         if self.endpoint is None:
-            self.log(f"Connecting to default endpoint: {HttpClient.DEFAULT_ENDPOINT}")
+            self.log(f"Connecting to default endpoint: https://<country>.api.incountry.io")
         else:
             self.log(f"Connecting to custom endpoint: {self.endpoint}")
 
