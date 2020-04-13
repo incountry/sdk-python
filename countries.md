@@ -31,7 +31,7 @@ Asia Pacific
 | IN  | India  |
 | ID  | Indonesia  |
 | JP  | Japan  |
-| KR  | Korea  |
+| KR  | South Korea  |
 | MY  | Malaysia  |
 | NZ  | New Zealand  |
 | PH  | Philippines  |
@@ -53,7 +53,7 @@ Europe
 | FI  | Finland  |
 | FR  | France  |
 | DE  | Germany  |
-| GB  | Great Britain  |
+| GB  | United Kingdom  |
 | HU  | Hungary  |
 | IS  | Iceland  |
 | IE  | Ireland  |
@@ -71,8 +71,8 @@ Europe
 | SK  | Slovakia  |
 | ES  | Spain |
 | SE  | Sweden |
-| SW  | Switzerland |
-| TK  | Turkey |
+| CH  | Switzerland |
+| TR  | Turkey |
 | UA  | Ukraine  |
 
 
