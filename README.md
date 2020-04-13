@@ -454,7 +454,7 @@ You should provide a specific encryption key via `secrets_data` passed to `Secre
 secrets_data = {
   "secrets": [{
        "secret": "<secret for custom encryption>",
-       "version": 1
+       "version": 1,
 	   "isForCustomEncryption": True,
     }
   }],
