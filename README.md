@@ -455,7 +455,7 @@ secrets_data = {
   "secrets": [{
        "secret": "<secret for custom encryption>",
        "version": 1,
-	   "isForCustomEncryption": True,
+       "isForCustomEncryption": True,
     }
   }],
   "currentVersion": 1,
