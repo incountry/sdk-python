@@ -4,9 +4,9 @@ from typing import List, Dict, Union, Any
 from .incountry_crypto import InCrypto
 from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash
 from .exceptions import InCryptoException
-from .validation import validate_model, validate_encryption_enabled, validate_custom_encryption_methods
+from .validation import validate_model, validate_encryption_enabled
 from .http_client import HttpClient
-from .models import Country, CustomEncryptionOptions, FindFilter, Record, RecordListForBatch, StorageWithEnv
+from .models import Country, FindFilter, Record, RecordListForBatch, StorageWithEnv
 
 
 class Storage:
@@ -18,6 +18,7 @@ class Storage:
         endpoint: str = None,
         encrypt: bool = True,
         secret_key_accessor=None,
+        custom_encryption_configs=None,
         debug: bool = False,
         options: Dict[str, Any] = {},
     ):
@@ -47,9 +48,7 @@ class Storage:
         self.debug = debug
         self.env_id = environment_id
         self.encrypt = encrypt
-        self.custom_encryption_configs = None
-        self.secret_key_accessor = secret_key_accessor
-        self.crypto = InCrypto(self.secret_key_accessor) if self.encrypt else InCrypto()
+        self.crypto = InCrypto(secret_key_accessor, custom_encryption_configs) if self.encrypt else InCrypto()
 
         self.http_client = HttpClient(
             env_id=self.env_id,
@@ -60,13 +59,6 @@ class Storage:
         )
 
         self.log("Using API key: ", api_key)
-
-    @validate_encryption_enabled
-    @validate_model(CustomEncryptionOptions)
-    @validate_custom_encryption_methods
-    def set_custom_encryption(self, configs: List[Dict[str, Any]]) -> None:
-        version_to_use = next((c["version"] for c in configs if c.get("isCurrent", False) is True), None)
-        self.crypto.set_custom_encryption(configs, version_to_use)
 
     @validate_model(Country)
     @validate_model(Record)

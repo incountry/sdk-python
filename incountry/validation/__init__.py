@@ -1,4 +1,4 @@
 from .validate_model import validate_model
 from .validate_http_response import validate_http_response
 from .validate_encryption_enabled import validate_encryption_enabled
-from .validate_custom_encryption_methods import validate_custom_encryption_methods
+from .validate_custom_encryption_config import validate_custom_encryption_config

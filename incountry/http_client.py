@@ -22,7 +22,7 @@ class HttpClient:
 
         if self.endpoint is None:
             self.log(
-                f"Connecting to default endpoint: {HttpClient.DEFAULT_ENDPOINT}. "
+                f"Connecting to default endpoint: https://<country>.api.incountry.io. "
                 f"Connection timeout {self.options.timeout}s"
             )
         else:

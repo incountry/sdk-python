@@ -8,13 +8,18 @@ from pydantic import ValidationError
 
 from incountry.models import (
     Country,
-    CustomEncryptionOptions,
+    CustomEncryptionConfig,
+    CustomEncryptionConfigMethodValidation,
     FindFilter,
     HttpOptions,
+    InCrypto,
     Record,
     RecordFromServer,
     RecordListForBatch,
     SecretsData,
+    SecretsDataForDefaultEncryption,
+    SecretsDataForCustomEncryption,
+    SecretKeyAccessor as SecretKeyAccessorModel,
     StorageWithEnv,
 )
 from incountry import SecretKeyAccessor
@@ -61,6 +66,7 @@ INVALID_RECORDS = [
         "version": "version",
     },
 ]
+
 INVALID_RECORDS_FOR_BATCH = [
     [],
     {},
@@ -73,6 +79,22 @@ INVALID_RECORDS_FOR_BATCH = [
     "record",
     *INVALID_RECORDS,
 ]
+
+VALID_STORAGE_PARAMS = {
+    "environment_id": "environment_id",
+    "api_key": "api_key",
+    "encrypt": True,
+    "endpoint": "https://us.api.incountry.io",
+    "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
+    "custom_encryption_configs": None,
+    "debug": True,
+}
+
+VALID_CUSTOM_ENCRYPTION_CONFIG = {
+    "encrypt": lambda input, key, key_version: input,
+    "decrypt": lambda input, key, key_version: input,
+    "version": "1",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -111,74 +133,108 @@ def test_invalid_country(country):
 
 
 @pytest.mark.parametrize(
-    "configs",
+    "config",
     [
-        [
-            {
-                "encrypt": lambda input, key, key_version: "text",
-                "decrypt": lambda input, key, key_version: "text",
-                "version": "1",
-                "isCurrent": True,
-            }
-        ]
+        {**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": True},
+        {**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": False},
+        {**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": "For Prod", "isCurrent": True},
     ],
 )
 @pytest.mark.happy_path
-def test_valid_custom_enc_configs(configs):
-    CustomEncryptionOptions.when.called_with(configs=configs).should_not.throw(Exception)
+def test_valid_custom_enc_config(config):
+    CustomEncryptionConfig.when.called_with(**config).should_not.throw(Exception)
 
 
 @pytest.mark.parametrize(
-    "configs, error_text",
+    "config, error_text",
     [
-        ([{"encrypt": True, "decrypt": lambda text: "text", "version": "1", "isCurrent": True}], "is not callable"),
-        ([{"encrypt": lambda text: "text", "decrypt": True, "version": "1", "isCurrent": True}], "is not callable"),
-        (
-            [{"encrypt": lambda text: "text", "decrypt": lambda text: "text", "version": 1, "isCurrent": True}],
-            "str type expected",
-        ),
-        (
-            [{"encrypt": lambda text: "text", "decrypt": lambda text: "text", "version": "1", "isCurrent": 1}],
-            "value is not a valid boolean",
-        ),
-        (
-            [
-                {
-                    "encrypt": lambda input, key, key_version: "text",
-                    "decrypt": lambda input, key, key_version: "text",
-                    "version": "1",
-                    "isCurrent": True,
-                },
-                {
-                    "encrypt": lambda input, key, key_version: "text",
-                    "decrypt": lambda input, key, key_version: "text",
-                    "version": "2",
-                    "isCurrent": True,
-                },
-            ],
-            "There must be at most one current version of custom encryption",
-        ),
-        (
-            [
-                {
-                    "encrypt": lambda input, key, key_version: "text",
-                    "decrypt": lambda input, key, key_version: "text",
-                    "version": "1",
-                    "isCurrent": True,
-                },
-                {
-                    "encrypt": lambda input, key, key_version: "text",
-                    "decrypt": lambda input, key, key_version: "text",
-                    "version": "1",
-                },
-            ],
-            "Versions must be unique",
-        ),
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": True}, "is not callable",),
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": True}, "is not callable",),
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": 1}, "str type expected",),
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": 1}, "value is not a valid boolean",),
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": lambda text, key, key_version: "text"}, "Invalid signature",),
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": lambda text, key, key_version: "text"}, "Invalid signature",),
+    ],
+)
+@pytest.mark.error_path
+def test_invalid_custom_encryption_config(config, error_text):
+    CustomEncryptionConfig.when.called_with(**config).should.throw(ValidationError, error_text)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": True, "key": b"password", "keyVersion": 1},
+        {**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": False, "key": b"password", "keyVersion": 1},
+        {
+            **VALID_CUSTOM_ENCRYPTION_CONFIG,
+            "version": "For Prod",
+            "isCurrent": True,
+            "key": b"password",
+            "keyVersion": 1,
+        },
     ],
 )
 @pytest.mark.happy_path
-def test_invalid_custom_enc_configs(configs, error_text):
-    CustomEncryptionOptions.when.called_with(configs=configs).should.throw(ValidationError, error_text)
+def test_valid_custom_enc_config_method_validation(config):
+    CustomEncryptionConfigMethodValidation.when.called_with(**config).should_not.throw(Exception)
+
+
+@pytest.mark.parametrize(
+    "config, error_text",
+    [
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": 1, "keyVersion": 1}, "value is not valid bytes"),
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": "password", "keyVersion": "1"}, "value is not a valid integer"),
+        (
+            {
+                **VALID_CUSTOM_ENCRYPTION_CONFIG,
+                "encrypt": lambda input, key, key_version: exec("raise Exception('encrypt error')"),
+                "key": b"password",
+                "keyVersion": 1,
+            },
+            "should return str. Threw exception instead",
+        ),
+        (
+            {
+                **VALID_CUSTOM_ENCRYPTION_CONFIG,
+                "decrypt": lambda input, key, key_version: exec("raise Exception('encrypt error')"),
+                "key": b"password",
+                "keyVersion": 1,
+            },
+            "should return str. Threw exception instead",
+        ),
+        (
+            {
+                **VALID_CUSTOM_ENCRYPTION_CONFIG,
+                "encrypt": lambda input, key, key_version: 1,
+                "key": b"password",
+                "keyVersion": 1,
+            },
+            "should return str",
+        ),
+        (
+            {
+                **VALID_CUSTOM_ENCRYPTION_CONFIG,
+                "decrypt": lambda input, key, key_version: 1,
+                "key": b"password",
+                "keyVersion": 1,
+            },
+            "should return str",
+        ),
+        (
+            {
+                **VALID_CUSTOM_ENCRYPTION_CONFIG,
+                "decrypt": lambda input, key, key_version: input + "1",
+                "key": b"password",
+                "keyVersion": 1,
+            },
+            "decrypted data doesn't match the original input",
+        ),
+    ],
+)
+@pytest.mark.error_path
+def test_invalid_custom_enc_config_method_validation(config, error_text):
+    CustomEncryptionConfigMethodValidation.when.called_with(**config).should.throw(ValidationError, error_text)
 
 
 @pytest.mark.happy_path
@@ -342,6 +398,161 @@ def test_invalid_http_options(http_options):
     HttpOptions.when.called_with(**http_options).should.throw(ValidationError)
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"secret_key_accessor": SecretKeyAccessor(lambda: "password")},
+        {
+            "secret_key_accessor": SecretKeyAccessor(
+                lambda: {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}
+            )
+        },
+        {
+            "secret_key_accessor": SecretKeyAccessor(
+                lambda: {
+                    "currentVersion": 1,
+                    "secrets": [{"secret": "12345678901234567890123456789012", "version": 1, "isKey": True}],
+                }
+            )
+        },
+        {
+            "secret_key_accessor": SecretKeyAccessor(
+                lambda: {
+                    "currentVersion": 1,
+                    "secrets": [{"secret": "123", "version": 1, "isForCustomEncryption": True}],
+                }
+            ),
+            "custom_encryption_configs": [
+                {
+                    "encrypt": lambda input, key, key_version: input,
+                    "decrypt": lambda input, key, key_version: input,
+                    "version": "test",
+                    "isCurrent": True,
+                }
+            ],
+        },
+        {
+            "secret_key_accessor": SecretKeyAccessor(
+                lambda: {
+                    "currentVersion": 1,
+                    "secrets": [{"secret": "123", "version": 1, "isForCustomEncryption": True}],
+                }
+            ),
+            "custom_encryption_configs": [
+                {
+                    "encrypt": lambda input, key, key_version: input,
+                    "decrypt": lambda input, key, key_version: input,
+                    "version": "test",
+                }
+            ],
+        },
+    ],
+)
+@pytest.mark.happy_path
+def test_valid_incrypto(params):
+    InCrypto.when.called_with(**params).should_not.throw(Exception)
+
+
+@pytest.mark.parametrize(
+    "secret_key_accessor",
+    [
+        (),
+        {},
+        [],
+        "",
+        "password",
+        0,
+        1,
+        SecretKeyAccessor(lambda: True),
+        SecretKeyAccessor(lambda: {"currentVersion": 1, "secrets": []}),
+    ],
+)
+@pytest.mark.happy_path
+def test_invalid_secret_key_accessor_param_for_incrypto(secret_key_accessor):
+    InCrypto.when.called_with(**{"secret_key_accessor": secret_key_accessor}).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "custom_encryption_configs",
+    [
+        (),
+        {},
+        [],
+        "",
+        "password",
+        0,
+        1,
+        [
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": "same version"},
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": "same version"},
+        ],
+        [
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": "version1", "isCurrent": True},
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": "version2", "isCurrent": True},
+        ],
+    ],
+)
+@pytest.mark.error_path
+def test_invalid_custom_encryption_configs_param_for_incrypto(custom_encryption_configs):
+    InCrypto.when.called_with(
+        **{
+            "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
+            "custom_encryption_configs": custom_encryption_configs,
+        }
+    ).should.throw(ValidationError)
+
+
+@pytest.mark.error_path
+def test_invalid_params_for_incrypto():
+    InCrypto.when.called_with(
+        **{
+            "secret_key_accessor": None,
+            "custom_encryption_configs": [
+                {
+                    "encrypt": lambda input, key, key_version: input,
+                    "decrypt": lambda input, key, key_version: input,
+                    "version": "some version",
+                }
+            ],
+        }
+    ).should.throw(ValidationError)
+
+
+@pytest.mark.error_path
+def test_no_suitable_enc_key_for_custom_encryption_for_incrypto():
+    secret_accessor = SecretKeyAccessor(lambda: "password")
+
+    def enc(input, key, key_version):
+        raise Exception("Unsupported key")
+
+    InCrypto.when.called_with(
+        **{
+            "secret_key_accessor": secret_accessor,
+            "custom_encryption_configs": [
+                {"encrypt": enc, "decrypt": lambda input, key, key_version: input, "version": "some version"}
+            ],
+        }
+    ).should.throw(ValidationError, "should return str. Threw exception instead")
+
+
+@pytest.mark.error_path
+def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
+    secret_accessor = SecretKeyAccessor(lambda: "password")
+
+    def dec(input, key, key_version):
+        raise Exception("Unsupported key")
+
+    InCrypto.when.called_with(
+        **{
+            "secret_key_accessor": secret_accessor,
+            "custom_encryption_configs": [
+                {"decrypt": dec, "encrypt": lambda input, key, key_version: input, "version": "some version"}
+            ],
+        }
+    ).should.throw(ValidationError, "should return str. Threw exception instead")
+
+
 @pytest.mark.parametrize("record", TEST_RECORDS)
 @pytest.mark.happy_path
 def test_valid_record(record):
@@ -399,14 +610,13 @@ def test_invalid_empty_records_for_batch():
             "currentVersion": 1,
             "secrets": [
                 {"secret": "password1", "version": 1, "isKey": False},
-                {"secret": "password2", "version": 2, "isKey": True},
+                {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
             ],
         },
         {
             "currentVersion": 2,
             "secrets": [{"secret": "password1", "version": 1}, {"secret": "password2", "version": 2}],
         },
-        {"currentVersion": 1, "secrets": [{"secret": "password1", "version": 1}]},
         {"currentVersion": 1, "secrets": [{"secret": "password1", "version": 1}]},
     ],
 )
@@ -442,6 +652,11 @@ def test_valid_secrets_data(keys_data):
         {"currentVersion": -1, "secrets": [{"secret": "password", "version": -1}]},
         {"currentVersion": 1, "secrets": [{"secret": "password", "version": -1}]},
         {"currentVersion": -1, "secrets": [{"secret": "password", "version": 1}]},
+        {"currentVersion": 1, "secrets": [{"secret": "short key", "version": 1, "isKey": True}]},
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": "password", "version": 1, "isKey": True, "isForCustomEncryption": True}],
+        },
     ],
 )
 @pytest.mark.error_path
@@ -455,7 +670,91 @@ def test_invalid_secrets_data(keys_data):
 @pytest.mark.error_path
 def test_invalid_secrets_data_current_version_not_found(keys_data):
     SecretsData.when.called_with(**keys_data).should.have.raised(
-        ValidationError, "non of the secret versions match currentVersion"
+        ValidationError, "none of the secret versions match currentVersion"
+    )
+
+
+@pytest.mark.parametrize(
+    "keys_data",
+    [
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": "12345678901234567890123456789012", "version": 1, "isKey": True}],
+        },
+        {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]},
+    ],
+)
+@pytest.mark.error_path
+def test_valid_secrets_data_for_default_encryption(keys_data):
+    item = SecretsDataForDefaultEncryption(**keys_data)
+
+    assert item.currentVersion == keys_data["currentVersion"]
+    for i, secret_data in enumerate(keys_data["secrets"]):
+        for k in ["secret", "version"]:
+            if k in secret_data:
+                assert secret_data[k] == item.secrets[i][k]
+        if "isKey" in secret_data:
+            assert secret_data["isKey"] == item.secrets[i]["isKey"]
+        else:
+            assert item.secrets[i]["isKey"] is False
+
+
+@pytest.mark.parametrize(
+    "keys_data",
+    [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1, "isForCustomEncryption": True}]}],
+)
+@pytest.mark.error_path
+def test_invalid_secrets_data_for_default_encryption(keys_data):
+    SecretsDataForDefaultEncryption.when.called_with(**keys_data).should.have.raised(
+        ValidationError, "found custom encryption keys when not using custom encryption"
+    )
+
+
+@pytest.mark.parametrize(
+    "keys_data",
+    [{"currentVersion": 1, "secrets": [{"secret": "password1", "version": 1, "isForCustomEncryption": True}]}],
+)
+@pytest.mark.error_path
+def test_valid_secrets_data_for_custom_encryption(keys_data):
+    item = SecretsDataForCustomEncryption(**keys_data)
+
+    assert item.currentVersion == keys_data["currentVersion"]
+    for i, secret_data in enumerate(keys_data["secrets"]):
+        for k in ["secret", "version"]:
+            if k in secret_data:
+                assert secret_data[k] == item.secrets[i][k]
+        if "isKey" in secret_data:
+            assert secret_data["isKey"] == item.secrets[i]["isKey"]
+        else:
+            assert item.secrets[i]["isKey"] is False
+
+
+@pytest.mark.parametrize(
+    "keys_data", [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}],
+)
+@pytest.mark.error_path
+def test_invalid_secrets_data_for_custom_encryption(keys_data):
+    SecretsDataForCustomEncryption.when.called_with(**keys_data).should.have.raised(
+        ValidationError, "custom encryption keys not provided when using custom encryption"
+    )
+
+
+@pytest.mark.happy_path
+def text_valid_secret_key_accessor():
+    def get_secrets():
+        return "password"
+
+    SecretKeyAccessorModel.when.called_with(accessor_function=lambda: "password").should_not.throw(ValidationError)
+    SecretKeyAccessorModel.when.called_with(accessor_function=get_secrets).should_not.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "accessor_function", [(), [], {}, 0, 1, "", "password", SecretKeyAccessor],
+)
+@pytest.mark.error_path
+def text_invalid_secret_key_accessor(accessor_function):
+    SecretKeyAccessorModel.when.called_with(accessor_function=accessor_function).should.throw(
+        ValidationError, "is not callable"
     )
 
 
@@ -641,8 +940,10 @@ def test_valid_storage_with_invalid_env_params(storage_params, env_params):
     "storage_params",
     [
         {},
-        {"environment_id": "environment_id", "encrypt": False},
-        {"api_key": "api_key", "encrypt": False},
+        {"environment_id": "environment_id"},
+        {"api_key": "api_key"},
+        {"encrypt": False},
+        {"encrypt": True},
         {"environment_id": "environment_id", "api_key": "api_key"},
         {"environment_id": "environment_id", "api_key": "api_key", "encrypt": 1},
         {"environment_id": "environment_id", "api_key": "api_key", "encrypt": 0},
@@ -656,20 +957,35 @@ def test_valid_storage_with_invalid_env_params(storage_params, env_params):
         {"environment_id": "environment_id", "api_key": 1, "encrypt": False},
         {"environment_id": 0, "api_key": "api_key", "encrypt": False},
         {"environment_id": "environment_id", "api_key": 0, "encrypt": False},
-        {
-            "environment_id": "environment_id",
-            "api_key": "api_key",
-            "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
-            "endpoint": "not a url",
-        },
-        {
-            "environment_id": "environment_id",
-            "api_key": "api_key",
-            "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
-            "endpoint": 1,
-        },
     ],
 )
 @pytest.mark.error_path
 def test_invalid_storage(storage_params):
     StorageWithEnv.when.called_with(**storage_params).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "secret_key_accessor", [{}, [], (), "", "password", 0, 1, StorageWithEnv],
+)
+@pytest.mark.error_path
+def test_invalid_secret_key_accessor_param_for_storage(secret_key_accessor):
+    StorageWithEnv.when.called_with(
+        **{**VALID_STORAGE_PARAMS, "secret_key_accessor": secret_key_accessor}
+    ).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "endpoint", [{}, [], (), "", "not a url", 0, 1, {"url": "http://api.com"}, ["http://api.com"], ("http://api.com",)],
+)
+@pytest.mark.error_path
+def test_invalid_endpoint_param_for_storage(endpoint):
+    StorageWithEnv.when.called_with(**{**VALID_STORAGE_PARAMS, "endpoint": endpoint}).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "endpoint", ["", "not a url", "1", "0"],
+)
+@pytest.mark.error_path
+def test_invalid_env_endpoint_param_for_storage(endpoint):
+    os.environ["INC_ENDPOINT"] = endpoint
+    StorageWithEnv.when.called_with(**{**VALID_STORAGE_PARAMS, "endpoint": None}).should.throw(ValidationError)

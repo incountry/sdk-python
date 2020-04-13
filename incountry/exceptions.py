@@ -3,7 +3,10 @@ class StorageError(Exception):
 
 
 class StorageClientError(StorageError):
-    pass
+    def __init__(self, message, original_exception=None):
+        super(StorageError, self).__init__(message)
+
+        self.original_exception = original_exception
 
 
 class StorageServerError(StorageError):
