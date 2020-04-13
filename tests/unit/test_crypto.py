@@ -409,4 +409,3 @@ def test_custom_enc_throwing_on_dec_after_successful_validation(custom_encryptio
     cipher.decrypt.when.called_with(enc).should.have.raised(
         StorageCryptoException, "Unexpected error during decryption"
     )
-
