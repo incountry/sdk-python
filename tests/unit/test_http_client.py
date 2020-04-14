@@ -23,8 +23,8 @@ def get_key_hash(key):
 
 @pytest.fixture()
 def client():
-    def cli(endpoint=POPAPI_URL):
-        return HttpClient(env_id="test", api_key="test", endpoint=endpoint, debug=True)
+    def cli(endpoint=POPAPI_URL, options={}):
+        return HttpClient(env_id="test", api_key="test", endpoint=endpoint, debug=True, options=options)
 
     return cli
 

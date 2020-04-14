@@ -3,6 +3,18 @@ from typing import Any
 
 from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, validator
 
+from .http_options import HttpOptions
+
+
+class Options(BaseModel):
+    http_options: HttpOptions
+
+    @validator("http_options", pre=True)
+    def check_options(cls, value):
+        if not isinstance(value, dict) or len(value) == 0:
+            raise ValueError("value is not a valid dict")
+        return value
+
 
 class StorageWithEnv(BaseModel):
     encrypt: StrictBool = True
@@ -11,6 +23,7 @@ class StorageWithEnv(BaseModel):
     endpoint: AnyHttpUrl = None
     secret_key_accessor: Any = None
     debug: StrictBool = False
+    options: Options = {}
 
     @validator("environment_id", pre=True, always=True)
     def environment_id_env(cls, value):

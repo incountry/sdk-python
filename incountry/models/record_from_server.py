@@ -1,4 +1,5 @@
 from pydantic import conint
+
 from .record import Record
 
 

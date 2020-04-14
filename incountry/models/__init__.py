@@ -2,6 +2,7 @@ from .country import Country
 from .custom_encryption_config import CustomEncryptionConfig
 from .custom_encryption_config_method_validation import CustomEncryptionConfigMethodValidation
 from .find_filter import FindFilter
+from .http_options import HttpOptions
 from .http_record_write import HttpRecordWrite
 from .http_record_batch_write import HttpRecordBatchWrite
 from .http_record_read import HttpRecordRead
