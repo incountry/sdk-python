@@ -4,7 +4,7 @@ import requests
 import json
 
 from .exceptions import StorageServerError
-from .models import HttpRecordWrite, HttpRecordBatchWrite, HttpRecordRead, HttpRecordFind, HttpRecordDelete
+from .models import HttpOptions, HttpRecordWrite, HttpRecordBatchWrite, HttpRecordRead, HttpRecordFind, HttpRecordDelete
 from .validation import validate_http_response
 from .__version__ import __version__
 
@@ -13,16 +13,20 @@ class HttpClient:
     PORTALBACKEND_URI = "https://portal-backend.incountry.com"
     DEFAULT_ENDPOINT = "https://us.api.incountry.io"
 
-    def __init__(self, env_id, api_key, endpoint=None, debug=False):
+    def __init__(self, env_id, api_key, endpoint=None, debug=False, options={}):
         self.api_key = api_key
         self.endpoint = endpoint
         self.env_id = env_id
         self.debug = debug
+        self.options = HttpOptions(**options)
 
         if self.endpoint is None:
-            self.log(f"Connecting to default endpoint: https://<country>.api.incountry.io")
+            self.log(
+                f"Connecting to default endpoint: https://<country>.api.incountry.io. "
+                f"Connection timeout {self.options.timeout}s"
+            )
         else:
-            self.log(f"Connecting to custom endpoint: {self.endpoint}")
+            self.log(f"Connecting to custom endpoint: {self.endpoint}. Connection timeout {self.options.timeout}s")
 
     @validate_http_response(HttpRecordWrite)
     def write(self, country, data):
@@ -51,7 +55,9 @@ class HttpClient:
     def request(self, country, path="", method="GET", data=None):
         try:
             endpoint = self.getendpoint(country, "/v2/storage/records/" + country + path)
-            res = requests.request(method=method, url=endpoint, headers=self.get_headers(), data=data)
+            res = requests.request(
+                method=method, url=endpoint, headers=self.get_headers(), data=data, timeout=self.options.timeout
+            )
 
             if res.status_code >= 400:
                 raise StorageServerError("{} {} - {}".format(res.status_code, res.url, res.text))
@@ -64,7 +70,7 @@ class HttpClient:
             raise StorageServerError(e) from None
 
     def get_midpop_country_codes(self):
-        r = requests.get(self.PORTALBACKEND_URI + "/countries")
+        r = requests.get(self.PORTALBACKEND_URI + "/countries", timeout=self.options.timeout)
         if r.status_code >= 400:
             raise StorageServerError("Unable to retrieve countries list")
         data = r.json()

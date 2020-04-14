@@ -12,16 +12,18 @@ Usage
 -----
 To access your data in InCountry using Python SDK, you need to create an instance of `Storage` class.
 ```python
-from incountry import Storage
-
-storage = Storage(
-    api_key="string",              # Required to be passed in, or as environment variable INC_API_KEY
-    environment_id="string",       # Required to be passed in, or as environment variable INC_ENVIRONMENT_ID
-    endpoint="string",             # Optional. Defines API URL. Can also be set up using environment variable INC_ENDPOINT
-    encrypt=bool,                  # Optional. If False, encryption is not used
-    debug=bool,                    # Optional. If True enables some debug logging
-    secret_key_accessor=accessor,  # Instance of SecretKeyAccessor class. Used to fetch encryption secret
-)
+class Storage:
+    def __init__(
+        self,
+        api_key: str = None,           # Required to be passed in, or as environment variable INC_API_KEY
+        environment_id: str = None,    # Required to be passed in, or as environment variable INC_API_KEY
+        secret_key_accessor=None,      # Instance of SecretKeyAccessor class. Used to fetch encryption secret
+        endpoint: str = None,          # Optional. Defines API URL. Can also be set up using environment variable INC_ENDPOINT
+        encrypt: bool = True,          # Optional. If False, encryption is not used
+        options: Dict[str, Any] = {},  # Optional. Use it to fine-tune some configurations
+        debug: bool = False,           # Optional. If True enables some debug logging
+    ):
+        ...
 ```
 
 `api_key` and `environment_id` can be fetched from your dashboard on `Incountry` site.
@@ -29,6 +31,34 @@ storage = Storage(
 `endpoint` defines API URL and is used to override default one.
 
 You can turn off encryption (not recommended). Set `encrypt` property to `false` if you want to do this.
+
+`options` allows you to configure http requests timeout by passing the following dict
+```python
+{
+    "http_options": {
+        "timeout": int # In seconds. Should be greater than 0
+    }
+}
+```
+
+Below is an example how to create a storage instance
+```python
+from incountry import Storage, SecretKeyAccessor
+
+storage = Storage(
+    api_key="<api_key>",
+    environment_id="<env_id>",
+    debug=True,
+    secret_key_accessor=SecretKeyAccessor(lambda: "password"),
+    options={
+        "http_options": {
+            "timeout": 5
+        }
+    }
+)
+```
+
+
 
 #### Encryption key/secret
 

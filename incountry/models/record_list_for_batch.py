@@ -1,6 +1,6 @@
 from pydantic import BaseModel, conlist, validator
 
-from ..models.record import Record
+from .record import Record
 
 MAX_RECORDS_IN_BATCH = 100
 
