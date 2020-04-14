@@ -39,7 +39,7 @@ def encrypt_record(crypto, record, salt):
     res = dict(record)
     body = {"meta": {}, "payload": None}
     for k in ["key", "key2", "key3", "profile_key"]:
-        if res.get(k):
+        if res.get(k, None):
             body["meta"][k] = res.get(k)
             res[k] = get_salted_hash(res[k], salt)
     if res.get("body"):
@@ -48,7 +48,8 @@ def encrypt_record(crypto, record, salt):
     [enc_data, key_version] = crypto.encrypt(json.dumps(body))
     res["body"] = enc_data
     res["version"] = key_version
-    return res
+
+    return {key: value for key, value in res.items() if value is not None}
 
 
 def decrypt_record(crypto, record):
@@ -65,4 +66,5 @@ def decrypt_record(crypto, record):
             for k in ["key", "key2", "key3", "profile_key"]:
                 if record.get(k) and body["meta"].get(k):
                     res[k] = body["meta"][k]
-    return res
+
+    return {key: value for key, value in res.items() if value is not None}
