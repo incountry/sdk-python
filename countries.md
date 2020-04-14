@@ -26,7 +26,6 @@ Asia Pacific
 | Country Code  | Country  |
 |:-:|:-:|
 | AU  | Australia  |
-| CN  | China  |
 | HK  | Hong Kong  |
 | IN  | India  |
 | ID  | Indonesia  |
@@ -47,7 +46,6 @@ Europe
 | AT  | Austria  |
 | BE  | Belgium  |
 | BG  | Bulgaria  |
-| CZ  | Czech Republic  |
 | DK  | Denmark  |
 | EE  | Estonia  |
 | FI  | Finland  |
@@ -65,7 +63,6 @@ Europe
 | NL  | Netherlands  |
 | NO  | Norway  |
 | PL  | Poland  |
-| PT  | Portugal  |
 | RO  | Romania  |
 | RU  | Russia  |
 | SK  | Slovakia  |
@@ -82,7 +79,6 @@ Middle East & Africa
 |:-:|:-:|
 | EG  | Egypt  |
 | IL  | Israel  |
-| SA  | Saudi Arabia  |
 | AE  | United Arab Emirates  |
 | ZA  | South Africa  |
 
