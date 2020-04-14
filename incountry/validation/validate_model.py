@@ -33,7 +33,9 @@ def validate_model(model):
             raise StorageClientException(f"Validation failed during {function.__qualname__}()") from e
         except StorageServerException as e:
             raise e
+        except StorageException as e:
+            raise e
         except Exception as e:
-            raise StorageException(f"Unexpected error during {function.__qualname__}()") from e
+            raise StorageException(f"{e.__class__.__qualname__} during {function.__qualname__}()") from e
 
     return decorator
