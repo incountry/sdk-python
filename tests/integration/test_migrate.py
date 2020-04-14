@@ -4,8 +4,8 @@ import os
 import sure  # noqa: F401
 import pytest
 from incountry import (
-    StorageClientError,
-    StorageServerError,
+    StorageClientException,
+    StorageServerException,
     Storage,
     SecretKeyAccessor,
 )
@@ -20,7 +20,7 @@ COUNTRY = os.environ.get("INT_INC_COUNTRY")
 def test_migrate_should_raise_error_without_encryption(storage: Storage, encrypt: bool) -> None:
 
     storage.migrate.when.called_with(country=COUNTRY).should.have.raised(
-        StorageClientError, re.compile(r"This method is only allowed with encryption enabled"),
+        StorageClientException, re.compile(r"This method is only allowed with encryption enabled"),
     )
 
 
@@ -62,5 +62,5 @@ def test_migrate_works_with_encryption(storage: Storage, encrypt: bool, expected
         read_record["record"][key].should.be.equal(expected_records[0][key])
     read_record["record"]["version"].should.be.equal(secrets_data["currentVersion"])
     storage.read.when.called_with(country=COUNTRY, key=expected_records[0]["key"]).should.have.raised(
-        StorageServerError
+        StorageServerException
     )

@@ -6,7 +6,7 @@ import sure  # noqa: F401
 import httpretty
 
 from incountry import (
-    StorageServerError,
+    StorageServerException,
     HttpClient,
     get_salted_hash,
 )
@@ -64,7 +64,7 @@ def test_request_invalid_response_code(client, response_code):
         httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY, status=response_code,
     )
 
-    client().request.when.called_with(country=COUNTRY, path="", method="GET").should.throw(StorageServerError)
+    client().request.when.called_with(country=COUNTRY, path="", method="GET").should.throw(StorageServerException)
 
 
 @httpretty.activate
@@ -92,7 +92,7 @@ def test_write_invalid_response(client, response):
     )
 
     client().write.when.called_with(country=COUNTRY, data="data").should.have.raised(
-        StorageServerError, "HTTP Response validation failed"
+        StorageServerException, "HTTP Response validation failed"
     )
 
 
@@ -121,7 +121,7 @@ def test_batch_write_invalid_response(client, response):
     )
 
     client().batch_write.when.called_with(country=COUNTRY, data="data").should.have.raised(
-        StorageServerError, "HTTP Response validation failed"
+        StorageServerException, "HTTP Response validation failed"
     )
 
 
@@ -156,7 +156,7 @@ def test_read_invalid_response(client, response):
     )
 
     client().read.when.called_with(country=COUNTRY, key=key_hash).should.have.raised(
-        StorageServerError, "HTTP Response validation failed"
+        StorageServerException, "HTTP Response validation failed"
     )
 
 
@@ -209,7 +209,7 @@ def test_find_invalid_response(client, query, response):
     )
 
     client().find.when.called_with(country=COUNTRY, data="data").should.have.raised(
-        StorageServerError, "HTTP Response validation failed"
+        StorageServerException, "HTTP Response validation failed"
     )
 
 
@@ -244,5 +244,5 @@ def test_delete_invalid_response(client, response):
     )
 
     client().delete.when.called_with(country=COUNTRY, key=key_hash).should.have.raised(
-        StorageServerError, "HTTP Response validation failed"
+        StorageServerException, "HTTP Response validation failed"
     )

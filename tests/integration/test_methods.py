@@ -2,7 +2,7 @@ import os
 import uuid
 from random import randint
 import operator
-from incountry import StorageServerError, Storage, RecordListForBatch
+from incountry import StorageServerException, Storage, RecordListForBatch
 import sure  # noqa: F401
 import pytest
 from typing import Dict, List, Any
@@ -88,7 +88,7 @@ def test_read_record(storage: Storage, encrypt: bool, key: str, clean_up_records
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
 def test_read_not_existing_record(storage: Storage, encrypt: bool) -> None:
     record_key = uuid.uuid4().hex
-    storage.read.when.called_with(country=COUNTRY, key=record_key).should.have.raised(StorageServerError)
+    storage.read.when.called_with(country=COUNTRY, key=record_key).should.have.raised(StorageServerException)
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
@@ -105,13 +105,13 @@ def test_delete_record(storage: Storage, encrypt: bool) -> None:
     delete_response.should.have.key("success")
     delete_response["success"].should.be(True)
 
-    storage.read.when.called_with(country=COUNTRY, key=key1).should.have.raised(StorageServerError)
+    storage.read.when.called_with(country=COUNTRY, key=key1).should.have.raised(StorageServerException)
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
 def test_delete_not_existing_record(storage: Storage, encrypt: bool) -> None:
     record_key = uuid.uuid4().hex
-    storage.delete.when.called_with(country=COUNTRY, key=record_key).should.have.raised(StorageServerError)
+    storage.delete.when.called_with(country=COUNTRY, key=record_key).should.have.raised(StorageServerException)
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])

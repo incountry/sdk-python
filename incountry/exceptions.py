@@ -1,17 +1,17 @@
-class StorageError(Exception):
+class StorageException(Exception):
     pass
 
 
-class StorageClientError(StorageError):
+class StorageClientException(StorageException):
     def __init__(self, message, original_exception=None):
-        super(StorageError, self).__init__(message)
+        super(StorageException, self).__init__(message)
 
         self.original_exception = original_exception
 
 
-class StorageServerError(StorageError):
+class StorageServerException(StorageException):
     pass
 
 
-class InCryptoException(StorageError):
+class StorageCryptoException(StorageException):
     pass

@@ -9,8 +9,8 @@ from cryptography.fernet import Fernet
 
 from incountry import (
     Storage,
-    StorageServerError,
-    StorageClientError,
+    StorageServerException,
+    StorageClientException,
     SecretKeyAccessor,
     InCrypto,
     HttpClient,
@@ -748,7 +748,7 @@ def test_custom_encryption_without_proper_keys(client, record, custom_encryption
     )
 
     client.when.called_with(secret_accessor=secret_key_accessor, custom_encryption=custom_encryption).should.throw(
-        StorageClientError
+        StorageClientException
     )
 
 
@@ -764,7 +764,7 @@ def test_read_not_found(client, record, encrypt):
         httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["key"], status=404,
     )
 
-    client(encrypt).read.when.called_with(country=COUNTRY, key=record["key"]).should.throw(StorageServerError)
+    client(encrypt).read.when.called_with(country=COUNTRY, key=record["key"]).should.throw(StorageServerException)
 
 
 @httpretty.activate
@@ -785,7 +785,7 @@ def test_find_error(client, query):
         body=json.dumps(get_default_find_response(0, [])),
     )
 
-    client().find.when.called_with(country=COUNTRY, **query).should.have.raised(StorageClientError)
+    client().find.when.called_with(country=COUNTRY, **query).should.have.raised(StorageClientException)
 
 
 @pytest.mark.parametrize(
@@ -820,11 +820,11 @@ def test_error_on_popapi_error(client, record, encrypt):
         httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["key"], status=400,
     )
 
-    client(encrypt).write.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerError)
-    client(encrypt).read.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerError)
-    client(encrypt).delete.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerError)
-    client(encrypt).find.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerError)
-    client(encrypt).find_one.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerError)
+    client(encrypt).write.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerException)
+    client(encrypt).read.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerException)
+    client(encrypt).delete.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerException)
+    client(encrypt).find.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerException)
+    client(encrypt).find_one.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerException)
 
 
 @pytest.mark.parametrize("record", [{}, {"country": COUNTRY}, {"key": "key1"}])
@@ -836,7 +836,7 @@ def test_error_write_insufficient_args(client, record):
 @pytest.mark.parametrize("records", [[], [{}]])
 @pytest.mark.error_path
 def test_error_batch_write_invalid_records(client, records):
-    client().batch_write.when.called_with(country=COUNTRY, records=records).should.have.raised(StorageClientError)
+    client().batch_write.when.called_with(country=COUNTRY, records=records).should.have.raised(StorageClientException)
 
 
 @pytest.mark.parametrize("record", [{"country": None, "key": None}])
@@ -865,11 +865,11 @@ def test_error_find_one_insufficient_args(client, record):
 
 @pytest.mark.error_path
 def test_error_migrate_without_encryption(client):
-    client(encrypt=False).migrate.when.called_with(country=COUNTRY).should.have.raised(StorageClientError)
+    client(encrypt=False).migrate.when.called_with(country=COUNTRY).should.have.raised(StorageClientException)
 
 
 @pytest.mark.error_path
 def test_migrate_with_enc_disabled(client):
     client(encrypt=False).migrate.when.called_with("").should.have.raised(
-        StorageClientError, "This method is only allowed with encryption enabled"
+        StorageClientException, "This method is only allowed with encryption enabled"
     )

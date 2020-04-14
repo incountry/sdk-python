@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import requests
 import json
 
-from .exceptions import StorageServerError
+from .exceptions import StorageServerException
 from .models import HttpOptions, HttpRecordWrite, HttpRecordBatchWrite, HttpRecordRead, HttpRecordFind, HttpRecordDelete
 from .validation import validate_http_response
 from .__version__ import __version__
@@ -60,19 +60,19 @@ class HttpClient:
             )
 
             if res.status_code >= 400:
-                raise StorageServerError("{} {} - {}".format(res.status_code, res.url, res.text))
+                raise StorageServerException("{} {} - {}".format(res.status_code, res.url, res.text))
 
             try:
                 return res.json()
             except Exception:
                 return res.text
         except Exception as e:
-            raise StorageServerError(e) from None
+            raise StorageServerException(e) from None
 
     def get_midpop_country_codes(self):
         r = requests.get(self.PORTALBACKEND_URI + "/countries", timeout=self.options.timeout)
         if r.status_code >= 400:
-            raise StorageServerError("Unable to retrieve countries list")
+            raise StorageServerException("Unable to retrieve countries list")
         data = r.json()
 
         return [country["id"].lower() for country in data["countries"] if country["direct"]]

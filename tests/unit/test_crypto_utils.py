@@ -1,7 +1,7 @@
 import pytest
 import sure  # noqa: F401
 
-from incountry import decrypt_record, encrypt_record, get_salted_hash, InCrypto, StorageClientError
+from incountry import decrypt_record, encrypt_record, get_salted_hash, InCrypto, StorageClientException
 
 from incountry.crypto_utils import hash, is_json
 
@@ -21,7 +21,7 @@ PREPARED_HASH = {
 )
 @pytest.mark.happy_path
 def test_hash_custom_key_args_validation(value, salt, error):
-    get_salted_hash.when.called_with(value, salt).should.have.raised(StorageClientError, error)
+    get_salted_hash.when.called_with(value, salt).should.have.raised(StorageClientException, error)
 
 
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ def test_hash_custom_key_args_validation(value, salt, error):
 )
 @pytest.mark.happy_path
 def test_encrypt_record_args_validation(crypto, record, salt, error):
-    encrypt_record.when.called_with(crypto, record, salt).should.have.raised(StorageClientError, error)
+    encrypt_record.when.called_with(crypto, record, salt).should.have.raised(StorageClientException, error)
 
 
 @pytest.mark.parametrize(
@@ -41,7 +41,7 @@ def test_encrypt_record_args_validation(crypto, record, salt, error):
 )
 @pytest.mark.happy_path
 def test_decrypt_record_args_validation(crypto, record, error):
-    decrypt_record.when.called_with(crypto, record).should.have.raised(StorageClientError, error)
+    decrypt_record.when.called_with(crypto, record).should.have.raised(StorageClientException, error)
 
 
 @pytest.mark.parametrize(

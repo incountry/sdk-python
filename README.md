@@ -452,6 +452,36 @@ Note: maximum number of records migrated per request is 100
 
 For a detailed example of a migration script please see `/examples/full_migration.py`
 
+Error Handling
+-----
+
+InCountry Python SDK throws following Exceptions:
+
+- **StorageClientException** - used for various input validation errors. Can be thrown by all public methods.
+
+- **StorageServerException** - thrown if SDK failed to communicate with InCountry servers or if server response validation failed.
+
+- **StorageCryptoException** - thrown during encryption/decryption procedures (both default and custom). This may be a sign of malformed/corrupt data or a wrong encryption key provided to the SDK.
+
+- **StorageException** - general exception. Inherited by all other exceptions
+
+We suggest gracefully handling all the possible exceptions:
+
+```python
+try:
+    # use InCountry Storage instance here
+except StorageClientException as e:
+    # some input validation error
+except StorageServerException as e:
+    # some server error
+except StorageCryptoException as e:
+    # some encryption error
+except StorageException as e:
+    # general error
+except Exception as e:
+    # something else happened not related to InCountry SDK
+```
+
 Custom Encryption Support
 -----
 SDK supports the ability to provide custom encryption/decryption methods if you decide to use your own algorithm instead of the default one.

@@ -5,7 +5,7 @@ import base64
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-from .exceptions import InCryptoException
+from .exceptions import StorageCryptoException
 from .secret_key_accessor import SecretKeyAccessor
 from .validation import validate_model
 from .models import InCrypto as InCryptoModel
@@ -50,7 +50,7 @@ class InCrypto:
         if enc_version == self.PT_ENC_VERSION:
             return self.decrypt_pt
         if self.secret_key_accessor is None:
-            raise InCryptoException("No secret_key_accessor provided. Cannot decrypt encrypted data")
+            raise StorageCryptoException("No secret_key_accessor provided. Cannot decrypt encrypted data")
         if enc_version == "1":
             return self.decrypt_v1
         if enc_version == "2":
@@ -59,7 +59,7 @@ class InCrypto:
         if self.custom_encryption_configs is not None and enc_version in self.custom_encryption_configs:
             return self.decrypt_custom
 
-        raise InCryptoException("Unknown decryptor version requested")
+        raise StorageCryptoException("Unknown decryptor version requested")
 
     def encrypt(self, raw):
         try:
@@ -68,7 +68,7 @@ class InCrypto:
 
             return self.encrypt_custom(raw)
         except Exception as e:
-            raise InCryptoException("Unexpected error during encryption") from e
+            raise StorageCryptoException("Unexpected error during encryption") from e
 
     def encrypt_custom(self, raw):
         try:
@@ -76,10 +76,10 @@ class InCrypto:
             custom_encryption = self.custom_encryption_configs[self.custom_encryption_version]
             encrypted = custom_encryption["encrypt"](input=raw, key=key, key_version=key_version)
         except Exception as e:
-            raise InCryptoException("Unexpected error during custom encryption 'encrypt'") from e
+            raise StorageCryptoException("Unexpected error during custom encryption 'encrypt'") from e
 
         if not isinstance(encrypted, str):
-            raise InCryptoException(
+            raise StorageCryptoException(
                 "Custom encryption 'encrypt' method should return string. Got " + str(type(encrypted))
             )
 
@@ -111,7 +111,7 @@ class InCrypto:
         parts = enc.split(":")
 
         if len(parts) != 2:
-            raise InCryptoException("Invalid ciphertext")
+            raise StorageCryptoException("Invalid ciphertext")
 
         [enc_version, packed_enc] = parts
 
@@ -120,7 +120,7 @@ class InCrypto:
         try:
             return decryptor(packed_enc, key_version=key_version, enc_version=enc_version)
         except Exception as e:
-            raise InCryptoException("Unexpected error during decryption") from e
+            raise StorageCryptoException("Unexpected error during decryption") from e
 
     def decrypt_pt(self, enc, key_version=None, enc_version=None):
         return base64.b64decode(enc).decode("utf8")
@@ -133,10 +133,10 @@ class InCrypto:
                 input=raw_enc, key=key, key_version=key_version
             )
         except Exception as e:
-            raise InCryptoException("Unexpected error during custom encryption 'decrypt'") from e
+            raise StorageCryptoException("Unexpected error during custom encryption 'decrypt'") from e
 
         if not isinstance(decrypted, str):
-            raise InCryptoException(
+            raise StorageCryptoException(
                 "Custom encryption 'decrypt' method should return string. Got " + str(type(decrypted))
             )
 
@@ -147,7 +147,7 @@ class InCrypto:
         min_len = InCrypto.SALT_LENGTH + InCrypto.IV_LENGTH + InCrypto.AUTH_TAG_LENGTH
 
         if len(b_data) < min_len:
-            raise InCryptoException("Wrong ciphertext size")
+            raise StorageCryptoException("Wrong ciphertext size")
 
         [salt, iv, enc, auth_tag] = [
             b_data[: InCrypto.SALT_LENGTH],
@@ -214,7 +214,7 @@ class InCrypto:
         b_data = base64.b64decode(enc)
         min_len = InCrypto.SALT_LENGTH + InCrypto.IV_LENGTH + InCrypto.AUTH_TAG_LENGTH
         if len(b_data) < min_len:
-            raise InCryptoException("Wrong ciphertext size")
+            raise StorageCryptoException("Wrong ciphertext size")
         return [
             b_data[: InCrypto.SALT_LENGTH],
             b_data[InCrypto.SALT_LENGTH : InCrypto.SALT_LENGTH + InCrypto.IV_LENGTH],

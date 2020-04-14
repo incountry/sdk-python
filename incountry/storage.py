@@ -3,7 +3,7 @@ from typing import List, Dict, Union, Any
 
 from .incountry_crypto import InCrypto
 from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash
-from .exceptions import InCryptoException
+from .exceptions import StorageCryptoException
 from .validation import validate_model, validate_encryption_enabled
 from .http_client import HttpClient
 from .models import Country, FindFilter, Record, RecordListForBatch, StorageWithEnv
@@ -122,7 +122,7 @@ class Storage:
         for record in response["data"]:
             try:
                 decoded_records.append(self.decrypt_record(record))
-            except InCryptoException as error:
+            except StorageCryptoException as error:
                 undecoded_records.append({"rawData": record, "error": error})
 
         result = {

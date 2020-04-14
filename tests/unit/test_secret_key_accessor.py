@@ -2,7 +2,7 @@ import pytest
 import sure  # noqa: F401
 
 
-from incountry import SecretKeyAccessor, StorageClientError
+from incountry import SecretKeyAccessor, StorageClientException
 
 
 INVALID_SECRETS_DATA = [
@@ -145,20 +145,20 @@ def test_get_secret_returning_non_custom_key_for_custom_request(secrets_data):
 
 @pytest.mark.error_path
 def test_non_callable_accessor_function():
-    SecretKeyAccessor.when.called_with("password").should.have.raised(StorageClientError)
+    SecretKeyAccessor.when.called_with("password").should.have.raised(StorageClientException)
 
 
 @pytest.mark.error_path
 def test_incorrect_version_requested():
     secret_accessor = SecretKeyAccessor(lambda: "some password")
-    secret_accessor.get_secret.when.called_with("non int").should.have.raised(StorageClientError)
+    secret_accessor.get_secret.when.called_with("non int").should.have.raised(StorageClientException)
 
 
 @pytest.mark.parametrize("keys_data", [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}])
 @pytest.mark.error_path
 def test_non_existing_version_requested(keys_data):
     secret_accessor = SecretKeyAccessor(lambda: keys_data)
-    secret_accessor.get_secret.when.called_with(version=0).should.have.raised(StorageClientError)
+    secret_accessor.get_secret.when.called_with(version=0).should.have.raised(StorageClientException)
 
 
 @pytest.mark.parametrize(
@@ -167,7 +167,7 @@ def test_non_existing_version_requested(keys_data):
 @pytest.mark.error_path
 def test_validation_failure_invalid_keys_object(keys_data):
     secret_accessor = SecretKeyAccessor(lambda: keys_data)
-    secret_accessor.validate.when.called_with().should.have.raised(StorageClientError)
+    secret_accessor.validate.when.called_with().should.have.raised(StorageClientException)
 
 
 @pytest.mark.error_path
@@ -178,5 +178,5 @@ def test_errorful_accessor_function():
     secret_accessor = SecretKeyAccessor(accessor_function)
 
     secret_accessor.get_secret.when.called_with().should.have.raised(
-        StorageClientError, "Failed to retrieve secret keys data"
+        StorageClientException, "Failed to retrieve secret keys data"
     )

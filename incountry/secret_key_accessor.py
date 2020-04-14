@@ -1,6 +1,6 @@
 from pydantic import ValidationError
 
-from .exceptions import StorageClientError
+from .exceptions import StorageClientException
 from .validation import validate_model
 from .validation.utils import get_formatted_validation_error
 from .models import (
@@ -25,10 +25,10 @@ class SecretKeyAccessor:
         try:
             secrets_data = self._accessor_function()
         except Exception as e:
-            raise StorageClientError("Failed to retrieve secret keys data") from e
+            raise StorageClientException("Failed to retrieve secret keys data") from e
 
         if not isinstance(secrets_data, (str, dict)):
-            raise StorageClientError(
+            raise StorageClientException(
                 f"SecretKeyAccessor validation error: "
                 f"accessor_function - should return either str or secrets_data dict"
             )
@@ -47,7 +47,7 @@ class SecretKeyAccessor:
             else:
                 SecretsDataForDefaultEncryption.validate(secrets_data)
         except ValidationError as e:
-            raise StorageClientError(
+            raise StorageClientException(
                 f"SecretKeyAccessor validation error: {get_formatted_validation_error(e)}", e
             ) from None
 
@@ -58,7 +58,7 @@ class SecretKeyAccessor:
 
     def get_secret(self, version=None, is_for_custom_encryption=False):
         if version is not None and not isinstance(version, int):
-            raise StorageClientError("Invalid secret version requested. Version should be of type `int`")
+            raise StorageClientException("Invalid secret version requested. Version should be of type `int`")
 
         secrets_data = self.get_secrets_raw()
         if isinstance(secrets_data, tuple):
@@ -71,7 +71,7 @@ class SecretKeyAccessor:
                 is_key = secret_data.get("isKey", False)
                 secret = secret_data.get("secret")
                 if is_for_custom_encryption and not secret_data.get("isForCustomEncryption", False):
-                    raise StorageClientError("Requested secret for custom encryption. Got a regular one instead.")
+                    raise StorageClientException("Requested secret for custom encryption. Got a regular one instead.")
                 return (secret, version_to_search, is_key)
 
-        raise StorageClientError("Secret not found for version {}".format(version_to_search))
+        raise StorageClientException("Secret not found for version {}".format(version_to_search))

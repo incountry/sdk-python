@@ -2,17 +2,17 @@ import hashlib
 import json
 
 from .incountry_crypto import InCrypto
-from .exceptions import StorageClientError
+from .exceptions import StorageClientException
 
 
 def validate_crypto(crypto):
     if not isinstance(crypto, InCrypto):
-        raise StorageClientError(f"'crypto' argument should be an instance of InCrypto. Got {type(crypto)}")
+        raise StorageClientException(f"'crypto' argument should be an instance of InCrypto. Got {type(crypto)}")
 
 
 def validate_is_string(value, arg_name):
     if not isinstance(value, str):
-        raise StorageClientError(f"'{arg_name}' argument should be of type string. Got {type(value)}")
+        raise StorageClientException(f"'{arg_name}' argument should be of type string. Got {type(value)}")
 
 
 def is_json(data):

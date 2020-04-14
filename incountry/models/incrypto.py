@@ -3,7 +3,7 @@ from typing import Any, List
 from pydantic import BaseModel, validator, root_validator
 
 from .custom_encryption_config import CustomEncryptionConfig
-from ..exceptions import StorageClientError
+from ..exceptions import StorageClientException
 from ..validation.utils import get_formatted_validation_error
 
 
@@ -41,7 +41,7 @@ class InCrypto(BaseModel):
 
         try:
             value.validate()
-        except StorageClientError as e:
+        except StorageClientException as e:
             if e.original_exception is not None:
                 raise ValueError(
                     "incorrect secrets data" + get_formatted_validation_error(e.original_exception, prefix="  ")
