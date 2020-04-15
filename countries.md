@@ -53,7 +53,6 @@ Europe
 | DE  | Germany  |
 | GB  | United Kingdom  |
 | HU  | Hungary  |
-| IS  | Iceland  |
 | IE  | Ireland  |
 | IT  | Italy  |
 | LV  | Latvia  |
