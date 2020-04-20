@@ -8,6 +8,11 @@ The recommended way to install the SDK is to use `pipenv` (or `pip`):
 $ pipenv install incountry
 ```
 
+Countries List
+----
+For a full list of supported countries and their codes please [follow this link](countries.md).
+
+
 Usage
 -----
 To access your data in InCountry using Python SDK, you need to create an instance of `Storage` class.
@@ -149,10 +154,10 @@ In such cases find() method return data will be as follows:
 
 ```python
 {
-    "data": [...],  # successfully decrypted records 
+    "data": [...],  # successfully decrypted records
     "errors": [{
         "rawData",  # raw record which caused decryption error
-        "error",    # decryption error description 
+        "error",    # decryption error description
     }, ...],
     "meta": { ... }
 }
