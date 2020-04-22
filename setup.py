@@ -21,7 +21,7 @@ URL = "https://github.com/incountry/incountry-sdks"
 EMAIL = "developers@incountry.com"
 AUTHOR = "InCountry"
 REQUIRES_PYTHON = ">=3.6.0"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 # What packages are required for this module to be executed?
 REQUIRED = ["requests", "cryptography"]
