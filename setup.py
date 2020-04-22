@@ -17,11 +17,11 @@ from setuptools import find_packages, setup, Command
 # Package meta-data.
 NAME = "incountry"
 DESCRIPTION = "InCountry Storage SDK"
-URL = "https://github.com/incountry/incountry-sdks"
+URL = "https://github.com/incountry/sdk-python"
 EMAIL = "developers@incountry.com"
 AUTHOR = "InCountry"
 REQUIRES_PYTHON = ">=3.6.0"
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 
 # What packages are required for this module to be executed?
 REQUIRED = ["requests", "cryptography"]
