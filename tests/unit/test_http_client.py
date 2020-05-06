@@ -127,7 +127,13 @@ def test_batch_write_invalid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [{"key": "key", "version": 1}],
+    "response",
+    [
+        {"key": "key", "version": 1},
+        {"key": "key", "version": 0},
+        {"key": "key", "version": -1},
+        {"key": "key", "version": None},
+    ],
 )
 @pytest.mark.happy_path
 def test_read_valid_response(client, response):
@@ -144,7 +150,7 @@ def test_read_valid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [{}, [], True, "", {"key": "key"}],
+    "response", [{}, [], True, "", {"key": "key", "version": "invalid version"}],
 )
 @pytest.mark.error_path
 def test_read_invalid_response(client, response):
@@ -197,7 +203,7 @@ def test_find_valid_response(client, response):
         {"meta": {"count": 1, "limit": 1, "offset": 1, "total": 1}, "data": [{"not_a_record_key": 0}]},
         {
             "meta": {"count": 1, "limit": 1, "offset": 1, "total": 1},
-            "data": [{"key": "key_for_record_without_version"}],
+            "data": [{"key": "key_for_record_with_invalid_version", "version": "good version"}],
         },
         {"data": [{"key": "key", "version": 1}]},
     ],
