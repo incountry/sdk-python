@@ -77,7 +77,7 @@ Note: even though SDK uses PBKDF2 to generate a cryptographically strong encrypt
   "secrets": [{
        "secret": str,
        "version": int, # Should be an integer greater than or equal to 0
-	   "isKey": bool,  # Should be True only for user-defined encryption keys
+       "isKey": bool,  # Should be True only for user-defined encryption keys
     }
   }, ....],
   "currentVersion": int,
@@ -279,10 +279,6 @@ key2="value1" # records with key2 equal to "value1"
 
 # list of values
 key3=["value1", "value2"] # records with key3 equal to "value1" or "value2"
-
-# dict with $not operator
-key2={"$not": "value1"} # records with key2 not equal "value1"
-key3={"$not": ["value1", "value2"]} # records with key3 equal neither to "value1" or "value2"
 ```
 
 
@@ -293,10 +289,6 @@ range_key=1 # records with range_key equal to 1
 
 # list of values
 range_key=[1, 2] # records with range_key equal to 1 or 2
-
-# dict with $not operator
-range_key={"$not": 1} # records with range_key not equal 1
-range_key={"$not": [1, 2]} # records with range_key equal neither to 1 or 2
 
 # dict with comparison operators
 range_key={"$gt": 1} # records with range_key greater than 1

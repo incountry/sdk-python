@@ -83,12 +83,14 @@ def test_validate_encryption_enabled_works_properly():
 def test_validate_model_catches_method_errors():
     error_text = "unexpected_exception"
 
+    expected_exception = Exception(error_text)
+
     class TestModel(BaseModel):
         arg1: StrictStr = None
 
     def test_function(arg1=None, arg2=None):
-        raise Exception(error_text)
+        raise expected_exception
 
     validate_model(TestModel)(test_function).when.called_with(arg1="123").should.throw(
-        StorageException, "Unexpected error"
+        StorageException, type(expected_exception).__qualname__
     )
