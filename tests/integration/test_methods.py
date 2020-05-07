@@ -150,6 +150,22 @@ def test_find_by_one_key(storage: Storage, encrypt: bool, expected_records: List
     expected_keys.should.equal(actual_keys)
 
 
+@pytest.mark.parametrize("key", ["key", "key2", "key3", "profile_key"])
+@pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+def test_find_by_one_key_with_not(
+    storage: Storage, encrypt: bool, expected_records: List[Dict[str, Any]], key: str,
+) -> None:
+    key_value = expected_records[0][key]
+    search = {key: {"$not": key_value}}
+    find_result = storage.find(country=COUNTRY, **search)
+    find_result.should.be.a("dict")
+    find_result.should.have.key("records")
+    find_result.should.have.key("meta")
+    actual_keys = [record[key] for record in find_result["records"]]
+    expected_keys = [record[key] for record in expected_records if record[key] != key_value]
+    assert set(expected_keys) == set(actual_keys)
+
+
 @pytest.mark.parametrize("key", ["key", "key2", "key3", "profile_key", "range_key"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
 def test_find_by_list_of_keys(
