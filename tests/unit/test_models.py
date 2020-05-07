@@ -570,9 +570,10 @@ def test_invalid_record(record):
 
 
 @pytest.mark.parametrize("record", TEST_RECORDS)
+@pytest.mark.parametrize("valid_version", [1, 0, -1, None])
 @pytest.mark.happy_path
-def test_valid_record_from_server(record):
-    record = {**record, "version": 1}
+def test_valid_record_from_server(record, valid_version):
+    record = {**record, "version": valid_version}
     item = RecordFromServer(**record)
 
     for key in ["key", "body", "key2", "key3", "profile_key", "range_key", "version"]:
@@ -581,8 +582,10 @@ def test_valid_record_from_server(record):
 
 
 @pytest.mark.parametrize("record", TEST_RECORDS)
+@pytest.mark.parametrize("invalid_version", ["", "1", "0", "-1", "None"])
 @pytest.mark.error_path
-def test_invalid_record_from_server(record):
+def test_invalid_record_from_server(record, invalid_version):
+    record = {**record, "version": invalid_version}
     RecordFromServer.when.called_with(**record).should.throw(ValidationError)
 
 
