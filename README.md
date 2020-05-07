@@ -279,6 +279,10 @@ key2="value1" # records with key2 equal to "value1"
 
 # list of values
 key3=["value1", "value2"] # records with key3 equal to "value1" or "value2"
+
+# dict with $not operator
+key2={"$not": "value1"} # records with key2 not equal "value1"
+key3={"$not": ["value1", "value2"]} # records with key3 equal neither to "value1" or "value2"
 ```
 
 
