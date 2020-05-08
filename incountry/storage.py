@@ -6,7 +6,7 @@ from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash
 from .exceptions import StorageCryptoException
 from .validation import validate_model, validate_encryption_enabled
 from .http_client import HttpClient
-from .models import Country, FindFilter, Record, RecordListForBatch, StorageWithEnv
+from .models import Country, FindFilter, FindFilterOperators, Record, RecordListForBatch, StorageWithEnv
 
 
 class Storage:
@@ -187,14 +187,24 @@ class Storage:
         if self.debug:
             print("[incountry] ", args)
 
+    def prepare_filter_string_param(self, value):
+        if isinstance(value, list):
+            return [get_salted_hash(x, self.env_id) for x in value]
+        return get_salted_hash(value, self.env_id)
+
     def prepare_filter_params(self, **filter_kwargs):
         filter_params = {}
         for k in ["key", "key2", "key3", "profile_key"]:
-            if filter_kwargs.get(k):
-                if filter_kwargs.get(k, None) and isinstance(filter_kwargs[k], list):
-                    filter_params[k] = [get_salted_hash(x, self.env_id) for x in filter_kwargs[k]]
-                elif filter_kwargs.get(k, None):
-                    filter_params[k] = get_salted_hash(filter_kwargs[k], self.env_id)
+            filter_value = filter_kwargs.get(k, None)
+            if filter_value is None:
+                continue
+            if FindFilterOperators.NOT in filter_value:
+                filter_params[k] = {}
+                filter_params[k][FindFilterOperators.NOT] = self.prepare_filter_string_param(
+                    filter_value[FindFilterOperators.NOT]
+                )
+            else:
+                filter_params[k] = self.prepare_filter_string_param(filter_value)
         if filter_kwargs.get("range_key", None):
             filter_params["range_key"] = filter_kwargs["range_key"]
         return filter_params

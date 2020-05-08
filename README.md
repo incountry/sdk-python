@@ -279,6 +279,10 @@ key2="value1" # records with key2 equal to "value1"
 
 # list of values
 key3=["value1", "value2"] # records with key3 equal to "value1" or "value2"
+
+# dict with $not operator
+key2={"$not": "value1"} # records with key2 not equal "value1"
+key3={"$not": ["value1", "value2"]} # records with key3 equal to neither "value1" or "value2"
 ```
 
 
@@ -313,7 +317,7 @@ version=[1, 2] # records with version equal to 1 or 2
 
 # dict with $not operator
 version={"$not": 1} # records with version not equal 1
-version={"$not": [1, 2]} # records with version equal neither to 1 or 2
+version={"$not": [1, 2]} # records with version equal to neither 1 or 2
 ```
 
 Here is the example of how `find` method can be used:
