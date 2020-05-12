@@ -23,6 +23,7 @@ class StorageWithEnv(BaseModel):
     endpoint: AnyHttpUrl = None
     secret_key_accessor: Any = None
     debug: StrictBool = False
+    normalize_keys: StrictBool = False
     options: Options = {}
 
     @validator("environment_id", pre=True, always=True)

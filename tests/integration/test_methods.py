@@ -182,6 +182,28 @@ def test_find_by_one_key_with_not_for_key(
     assert set(expected_keys) == set(actual_keys)
 
 
+@pytest.mark.parametrize("normalize_keys", [True, False], ids=["with normalized keys", "with non-normalized keys"])
+@pytest.mark.parametrize("key", ["key", "key2", "key3", "profile_key"])
+@pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+def test_find_by_one_key_normalization(
+    storage: Storage, encrypt: bool, normalize_keys: bool, expected_records: List[Dict[str, Any]], key: str,
+) -> None:
+    key_value = expected_records[0][key]
+    if normalize_keys:
+        key_value.should.equal(key_value.upper())
+    else:
+        key_value.should.equal(key_value.lower())
+
+    search = {key: key_value}
+    find_result = storage.find(country=COUNTRY, **search)
+    find_result.should.be.a("dict")
+    find_result.should.have.key("records")
+    find_result.should.have.key("meta")
+    actual_keys = [record[key] for record in find_result["records"]]
+    expected_keys = [record[key] for record in expected_records if record[key] == key_value]
+    expected_keys.should.equal(actual_keys)
+
+
 @pytest.mark.parametrize("key", ["key", "key2", "key3", "profile_key", "range_key"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
 def test_find_by_list_of_keys(
