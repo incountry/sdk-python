@@ -69,12 +69,16 @@ def get_key_hash(key):
 @pytest.fixture()
 def client():
     def cli(
-        encrypt=True, endpoint=POPAPI_URL, secret_accessor=SecretKeyAccessor(lambda: SECRET_KEY), custom_encryption=None
+        encrypt=True,
+        endpoint=POPAPI_URL,
+        secret_accessor=SecretKeyAccessor(lambda: SECRET_KEY),
+        custom_encryption=None,
+        environment_id="test",
     ):
         return Storage(
             encrypt=encrypt,
             debug=True,
-            environment_id="test",
+            environment_id=environment_id,
             api_key="test",
             endpoint=endpoint,
             secret_key_accessor=secret_accessor,
@@ -887,6 +891,20 @@ def test_custom_encryption_with_primary_default_encryption(client, custom_encryp
 
     assert rec1_res["record"]["key"] == record1["key"]
     assert rec2_res["record"]["key"] == record2["key"]
+
+
+@pytest.mark.parametrize("record", TEST_RECORDS)
+@pytest.mark.happy_path
+def test_enc_payload_for_different_envs(client, record):
+    client_1 = client(environment_id="test1")
+    client_2 = client(environment_id="test2")
+
+    record_via_client_1 = client_1.encrypt_record(record)
+    record_via_client_2 = client_2.encrypt_record(record)
+
+    for k in ["key", "key2", "key3", "profile_key"]:
+        if record.get(k, None):
+            assert record_via_client_1[k] != record_via_client_2[k]
 
 
 @httpretty.activate
