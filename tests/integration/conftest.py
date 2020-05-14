@@ -28,7 +28,7 @@ def storage(encrypt: bool, normalize_keys: bool) -> Storage:
             environment_id=ENVIRONMENT_ID,
             endpoint=ENDPOINT,
             secret_key_accessor=secret_key_accessor,
-            normalize_keys=normalize_keys,
+            options={"normalize_keys": normalize_keys},
         )
     else:
         storage = Storage(
@@ -37,7 +37,7 @@ def storage(encrypt: bool, normalize_keys: bool) -> Storage:
             api_key=API_KEY,
             environment_id=ENVIRONMENT_ID,
             endpoint=ENDPOINT,
-            normalize_keys=normalize_keys,
+            options={"normalize_keys": normalize_keys},
         )
 
     yield storage

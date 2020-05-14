@@ -20,7 +20,6 @@ class Storage:
         secret_key_accessor=None,
         custom_encryption_configs=None,
         debug: bool = False,
-        normalize_keys: bool = False,
         options: Dict[str, Any] = {},
     ):
         """
@@ -49,7 +48,7 @@ class Storage:
         self.debug = debug
         self.env_id = environment_id
         self.encrypt = encrypt
-        self.normalize_keys = normalize_keys
+        self.normalize_keys = options.get("normalize_keys", False)
         self.crypto = InCrypto(secret_key_accessor, custom_encryption_configs) if self.encrypt else InCrypto()
 
         self.http_client = HttpClient(

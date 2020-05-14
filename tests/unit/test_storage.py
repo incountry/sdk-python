@@ -84,7 +84,7 @@ def client():
             endpoint=endpoint,
             secret_key_accessor=secret_accessor,
             custom_encryption_configs=custom_encryption,
-            normalize_keys=normalize_keys,
+            options={"normalize_keys": normalize_keys},
         )
 
     return cli
