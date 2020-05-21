@@ -13,8 +13,8 @@ class HttpClient:
     PORTALBACKEND_URI = "https://portal-backend.incountry.com"
     DEFAULT_ENDPOINT = "https://us.api.incountry.io"
 
-    def __init__(self, env_id, api_key, endpoint=None, debug=False, options={}):
-        self.api_key = api_key
+    def __init__(self, env_id, auth_client, endpoint=None, debug=False, options={}):
+        self.auth_client = auth_client
         self.endpoint = endpoint
         self.env_id = env_id
         self.debug = debug
@@ -97,7 +97,7 @@ class HttpClient:
 
     def get_headers(self):
         return {
-            "Authorization": "Bearer " + self.api_key,
+            "Authorization": self.auth_client.get_token(),
             "x-env-id": self.env_id,
             "Content-Type": "application/json",
             "User-Agent": "SDK-Python/" + __version__,

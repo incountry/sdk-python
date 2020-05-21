@@ -1,13 +1,16 @@
 import os
 from typing import Any
 
-from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, validator
+from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, validator, root_validator
 
 from .http_options import HttpOptions
+
+DEFAULT_AUTH_ENDPOINT = "https://auth.incountry.io"
 
 
 class Options(BaseModel):
     http_options: HttpOptions
+    auth_endpoint: AnyHttpUrl = DEFAULT_AUTH_ENDPOINT
 
     @validator("http_options", pre=True)
     def check_options(cls, value):
@@ -19,6 +22,8 @@ class Options(BaseModel):
 class StorageWithEnv(BaseModel):
     encrypt: StrictBool = True
     environment_id: constr(strict=True, min_length=1) = None
+    client_id: constr(strict=True, min_length=1) = None
+    client_secret: constr(strict=True, min_length=1) = None
     api_key: constr(strict=True, min_length=1) = None
     endpoint: AnyHttpUrl = None
     secret_key_accessor: Any = None
@@ -35,11 +40,16 @@ class StorageWithEnv(BaseModel):
         return res
 
     @validator("api_key", pre=True, always=True)
-    def api_key_env(cls, value):
-        res = value or os.environ.get("INC_API_KEY")
-        if res is None:
-            raise ValueError("Cannot be None. Please pass a valid api_key param or set INC_API_KEY env var")
-        return res
+    def api_key_env(cls, value, values, config):
+        return value or os.environ.get("INC_API_KEY")
+
+    @validator("client_id", pre=True, always=True)
+    def client_id_env(cls, value, values):
+        return value or os.environ.get("INC_CLIENT_ID")
+
+    @validator("client_secret", pre=True, always=True)
+    def client_secret_env(cls, value, values):
+        return value or os.environ.get("INC_CLIENT_SECRET")
 
     @validator("endpoint", pre=True, always=True)
     def endpoint_env(cls, value):
@@ -60,3 +70,42 @@ class StorageWithEnv(BaseModel):
             )
 
         return value
+
+    @root_validator(pre=True)
+    def check_auth_methods(cls, values):
+        has_api_key = "api_key" in values
+        has_oauth_creds = "client_id" in values or "client_secret" in values
+        if has_api_key and has_oauth_creds:
+            raise ValueError(
+                "Please choose either API key autorization or oAuth (client_id + client_secret) authorization, not both"
+            )
+        if not has_api_key and not has_oauth_creds:
+            raise ValueError(
+                "Please choose either API key autorization or oAuth (client_id + client_secret) authorization, not none"
+            )
+
+        return values
+
+    @root_validator
+    def check_auth_methods_for_nones(cls, values):
+        has_api_key = values["api_key"] is not None
+        has_oauth_creds = values["client_id"] is not None or values["client_secret"] is not None
+
+        if has_api_key:
+            if values["api_key"] is None:
+                raise ValueError(
+                    f"  api_key - Cannot be None. Please pass a valid api_key param or set INC_API_KEY env var"
+                )
+
+        if has_oauth_creds:
+            if values["client_id"] is None:
+                raise ValueError(
+                    "  client_id - Cannot be None. Please pass a valid client_id param or set INC_CLIENT_ID env var"
+                )
+            if values["client_secret"] is None:
+                raise ValueError(
+                    f"  client_secret - Cannot be None. "
+                    f"Please pass a valid client_secret param or set INC_CLIENT_SECRET env var"
+                )
+
+        return values
