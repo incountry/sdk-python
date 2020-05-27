@@ -16,7 +16,7 @@ SECRETS_DATA = {
 
 
 @pytest.fixture
-def storage(encrypt: bool) -> Storage:
+def storage(encrypt: bool, normalize_keys: bool) -> Storage:
     """Creating storage"""
     secret_key_accessor = SecretKeyAccessor(lambda: SECRETS_DATA)
 
@@ -28,22 +28,33 @@ def storage(encrypt: bool) -> Storage:
             environment_id=ENVIRONMENT_ID,
             endpoint=ENDPOINT,
             secret_key_accessor=secret_key_accessor,
+            options={"normalize_keys": normalize_keys},
         )
     else:
-        storage = Storage(encrypt=False, debug=True, api_key=API_KEY, environment_id=ENVIRONMENT_ID, endpoint=ENDPOINT)
+        storage = Storage(
+            encrypt=False,
+            debug=True,
+            api_key=API_KEY,
+            environment_id=ENVIRONMENT_ID,
+            endpoint=ENDPOINT,
+            options={"normalize_keys": normalize_keys},
+        )
 
     yield storage
 
 
-def create_records(number_of_records: int) -> List[Dict]:
+def create_records(number_of_records: int, uppercase_values: bool = False) -> List[Dict]:
+    def gen_value():
+        return uuid.uuid4().hex.upper() if uppercase_values else uuid.uuid4().hex
+
     return [
         {
-            "key": uuid.uuid4().hex,
-            "key2": uuid.uuid4().hex,
-            "key3": uuid.uuid4().hex,
-            "profile_key": uuid.uuid4().hex,
+            "key": gen_value(),
+            "key2": gen_value(),
+            "key3": gen_value(),
+            "profile_key": gen_value(),
             "range_key": randint(-(2 ** 63), 2 ** 63 - 1),
-            "body": uuid.uuid4().hex,
+            "body": gen_value(),
         }
         for _ in range(number_of_records)
     ]
@@ -54,11 +65,16 @@ def number_of_records() -> int:
     yield 3
 
 
+@pytest.fixture(autouse=True)
+def normalize_keys() -> bool:
+    yield False
+
+
 @pytest.fixture
 def expected_records(
-    storage: Storage, number_of_records: int, country: str = COUNTRY
+    storage: Storage, number_of_records: int, normalize_keys: bool, country: str = COUNTRY
 ) -> Generator[List[Dict[str, Any]], None, None]:
-    data = create_records(number_of_records)
+    data = create_records(number_of_records, normalize_keys)
     for record in data:
         assert "key" in record.keys()
         response = storage.write(country=country, **record)

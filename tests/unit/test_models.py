@@ -808,7 +808,12 @@ def test_valid_storage(storage_params):
 
 
 @pytest.mark.parametrize(
-    "options", [{"http_options": {"timeout": 1}}],
+    "options",
+    [
+        {"http_options": {"timeout": 1}},
+        {"normalize_keys": True},
+        {"http_options": {"timeout": 1}, "normalize_keys": True},
+    ],
 )
 @pytest.mark.happy_path
 def test_valid_options_storage(options):
@@ -853,6 +858,14 @@ def test_valid_options_storage(options):
         {"http_options": {"timeout": ()}},
         {"http_options": {"timeout": True}},
         {"http_options": {"timeout": False}},
+        {"normalize_keys": []},
+        {"normalize_keys": {}},
+        {"normalize_keys": ()},
+        {"normalize_keys": ""},
+        {"normalize_keys": -1},
+        {"normalize_keys": 0},
+        {"normalize_keys": 1},
+        {"normalize_keys": None},
     ],
 )
 @pytest.mark.happy_path

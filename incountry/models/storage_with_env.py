@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, validator, root_validator
 
@@ -7,8 +7,16 @@ from .http_options import HttpOptions
 
 
 class Options(BaseModel):
-    http_options: HttpOptions
+    http_options: Optional[HttpOptions] = {}
     auth_endpoint: AnyHttpUrl = None
+    normalize_keys: StrictBool = False
+
+    @root_validator(pre=True)
+    def check_empty_options(cls, values):
+        if isinstance(values, dict) and len(values) == 0:
+            raise ValueError("Options cannot be empty dict")
+
+        return values
 
     @validator("http_options", pre=True)
     def check_options(cls, value):
