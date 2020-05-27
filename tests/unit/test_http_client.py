@@ -39,7 +39,7 @@ def get_oauth_token_client(
 ):
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT if endpoint is None else endpoint,
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINT if endpoint is None else endpoint,
         body=json.dumps({"access_token": str(uuid.uuid1()) if token is None else token, "expires_in": expires_in}),
     )
     return OAuthTokenClient(client_id=client_id, client_secret=client_secret, scope=scope, endpoint=endpoint)
@@ -392,7 +392,7 @@ def test_oauth_token_successful_retry_on_401(client):
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT,
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
@@ -423,7 +423,7 @@ def test_oauth_token_unseccessful_retry_on_401(client):
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT,
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
@@ -444,7 +444,7 @@ def test_oauth_token_unseccessful_retry_on_401(client):
 def test_oauth_work_with_same_token_during_expiration_period(monkeypatch):
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT,
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
         body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
     )
 
@@ -468,7 +468,7 @@ def test_oauth_fetch_new_token_when_expires(monkeypatch):
     def get_token():
         httpretty.register_uri(
             httpretty.POST,
-            OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT,
+            OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": token_ttl}),
         )
 
@@ -492,7 +492,7 @@ def test_oauth_fetch_new_token_for_different_hosts(monkeypatch):
     def get_token(host):
         httpretty.register_uri(
             httpretty.POST,
-            OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT,
+            OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": token_ttl}),
         )
 
@@ -512,7 +512,7 @@ def test_oauth_refetch_token(monkeypatch):
     def get_token(host):
         httpretty.register_uri(
             httpretty.POST,
-            OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT,
+            OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
         )
 
@@ -531,7 +531,7 @@ def test_oauth_throw_error():
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT,
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
         body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
         status=400,
     )
@@ -546,7 +546,7 @@ def test_httpclient_oauth_throw_error(client):
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT,
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
         body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
         status=400,
     )

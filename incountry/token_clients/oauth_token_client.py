@@ -13,7 +13,7 @@ class Token:
 
 
 class OAuthTokenClient(TokenClient):
-    DEFAULT_AUTH_TOKEN_ENDPOINT = "https://auth.incountry.com/oauth2/token"
+    DEFAULT_AUTH_ENDPOINT = "https://auth.incountry.com/oauth2/token"
     TOKEN_REFRESH_WINDOW_SECONDS = 30
 
     def __init__(
@@ -22,7 +22,7 @@ class OAuthTokenClient(TokenClient):
         self.client_id = client_id
         self.client_secret = client_secret
         self.scope = scope
-        self.endpoint = endpoint or OAuthTokenClient.DEFAULT_AUTH_TOKEN_ENDPOINT
+        self.endpoint = endpoint or OAuthTokenClient.DEFAULT_AUTH_ENDPOINT
 
         self.tokens = {}
 
