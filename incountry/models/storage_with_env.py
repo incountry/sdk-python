@@ -83,12 +83,6 @@ class StorageWithEnv(BaseModel):
         has_api_key = values.get("api_key", None) is not None
         has_oauth_creds = values.get("client_id", None) is not None or values.get("client_secret", None) is not None
 
-        if has_api_key:
-            if values["api_key"] is None:
-                raise ValueError(
-                    f"  api_key - Cannot be None. Please pass a valid api_key param or set INC_API_KEY env var"
-                )
-
         if has_oauth_creds:
             if values["client_id"] is None:
                 raise ValueError(
