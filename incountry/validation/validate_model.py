@@ -24,18 +24,24 @@ def validate_model(model):
         validated_data_dict = get_validated_data(function, model, **kwargs)
         func_args = getfullargspec(function)[0]
 
+        exception_context_str = f"during {function.__qualname__}()"
+
         for key in func_args:
             if key in validated_data_dict:
                 kwargs[key] = validated_data_dict[key]
         try:
             return function(**kwargs)
         except StorageClientException as e:
-            raise StorageClientException(f"Validation failed during {function.__qualname__}()") from e
+            if exception_context_str in str(e):
+                raise e
+            raise StorageClientException(f"Validation failed {exception_context_str}") from e
         except StorageServerException as e:
-            raise e
+            if exception_context_str in str(e):
+                raise e
+            raise StorageServerException(f"Server exception {exception_context_str}") from e
         except StorageException as e:
             raise e
         except Exception as e:
-            raise StorageException(f"{e.__class__.__qualname__} during {function.__qualname__}()") from e
+            raise StorageException(f"{e.__class__.__qualname__} {exception_context_str}") from e
 
     return decorator

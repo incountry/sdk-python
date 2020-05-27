@@ -5,12 +5,10 @@ from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, validator, root_
 
 from .http_options import HttpOptions
 
-DEFAULT_AUTH_ENDPOINT = "https://auth.incountry.io"
-
 
 class Options(BaseModel):
     http_options: HttpOptions
-    auth_endpoint: AnyHttpUrl = DEFAULT_AUTH_ENDPOINT
+    auth_endpoint: AnyHttpUrl = None
 
     @validator("http_options", pre=True)
     def check_options(cls, value):
@@ -39,18 +37,6 @@ class StorageWithEnv(BaseModel):
             )
         return res
 
-    @validator("api_key", pre=True, always=True)
-    def api_key_env(cls, value, values, config):
-        return value or os.environ.get("INC_API_KEY")
-
-    @validator("client_id", pre=True, always=True)
-    def client_id_env(cls, value, values):
-        return value or os.environ.get("INC_CLIENT_ID")
-
-    @validator("client_secret", pre=True, always=True)
-    def client_secret_env(cls, value, values):
-        return value or os.environ.get("INC_CLIENT_SECRET")
-
     @validator("endpoint", pre=True, always=True)
     def endpoint_env(cls, value):
         if value is not None and not isinstance(value, str) or isinstance(value, str) and len(value) == 0:
@@ -72,24 +58,22 @@ class StorageWithEnv(BaseModel):
         return value
 
     @root_validator(pre=True)
-    def check_auth_methods(cls, values):
-        has_api_key = "api_key" in values
-        has_oauth_creds = "client_id" in values or "client_secret" in values
-        if has_api_key and has_oauth_creds:
+    def validate_auth_methods(cls, values):
+        values["api_key"] = values.get("api_key", os.environ.get("INC_API_KEY"))
+        values["client_id"] = values.get("client_id", os.environ.get("INC_CLIENT_ID"))
+        values["client_secret"] = values.get("client_secret", os.environ.get("INC_CLIENT_SECRET"))
+
+        if values["api_key"] is not None and (values["client_id"] is not None or values["client_secret"] is not None):
             raise ValueError(
                 "Please choose either API key autorization or oAuth (client_id + client_secret) authorization, not both"
-            )
-        if not has_api_key and not has_oauth_creds:
-            raise ValueError(
-                "Please choose either API key autorization or oAuth (client_id + client_secret) authorization, not none"
             )
 
         return values
 
     @root_validator
     def check_auth_methods_for_nones(cls, values):
-        has_api_key = values["api_key"] is not None
-        has_oauth_creds = values["client_id"] is not None or values["client_secret"] is not None
+        has_api_key = values.get("api_key", None) is not None
+        has_oauth_creds = values.get("client_id", None) is not None or values.get("client_secret", None) is not None
 
         if has_api_key:
             if values["api_key"] is None:
@@ -107,5 +91,8 @@ class StorageWithEnv(BaseModel):
                     f"  client_secret - Cannot be None. "
                     f"Please pass a valid client_secret param or set INC_CLIENT_SECRET env var"
                 )
+
+        if not has_api_key and not has_oauth_creds:
+            raise ValueError("Please provide valid API key or oAuth (client_id + client_secret) credentials")
 
         return values

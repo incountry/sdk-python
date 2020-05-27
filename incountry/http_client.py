@@ -11,22 +11,23 @@ from .__version__ import __version__
 
 class HttpClient:
     PORTALBACKEND_URI = "https://portal-backend.incountry.com"
-    DEFAULT_ENDPOINT = "https://us.api.incountry.io"
+    DEFAULT_HOST = "https://us.api.incountry.io"
+    AUTH_TOTAL_RETRIES = 1
 
-    def __init__(self, env_id, auth_client, endpoint=None, debug=False, options={}):
-        self.auth_client = auth_client
-        self.endpoint = endpoint
+    def __init__(self, env_id, token_client, host=None, debug=False, options={}):
+        self.token_client = token_client
+        self.host = host
         self.env_id = env_id
         self.debug = debug
         self.options = HttpOptions(**options)
 
-        if self.endpoint is None:
+        if self.host is None:
             self.log(
-                f"Connecting to default endpoint: https://<country>.api.incountry.io. "
+                f"Connecting to default host: https://<country>.api.incountry.io. "
                 f"Connection timeout {self.options.timeout}s"
             )
         else:
-            self.log(f"Connecting to custom endpoint: {self.endpoint}. Connection timeout {self.options.timeout}s")
+            self.log(f"Connecting to custom host: {self.host}. Connection timeout {self.options.timeout}s")
 
     @validate_http_response(HttpRecordWrite)
     def write(self, country, data):
@@ -52,12 +53,22 @@ class HttpClient:
     def delete(self, country, key):
         return self.request(country, path="/" + key, method="DELETE")
 
-    def request(self, country, path="", method="GET", data=None):
+    def request(self, country, path="", method="GET", data=None, retries=AUTH_TOTAL_RETRIES):
         try:
-            endpoint = self.getendpoint(country, "/v2/storage/records/" + country + path)
+            host = self.get_pop_host(country)
+            url = self.get_request_url(host, "/v2/storage/records/", country, path)
+            auth_token = self.token_client.get_token(host=host, refetch=retries < HttpClient.AUTH_TOTAL_RETRIES)
+
             res = requests.request(
-                method=method, url=endpoint, headers=self.get_headers(), data=data, timeout=self.options.timeout
+                method=method,
+                url=url,
+                headers=self.get_headers(auth_token=auth_token),
+                data=data,
+                timeout=self.options.timeout,
             )
+
+            if res.status_code == 401 and self.token_client.can_refetch() and retries > 0:
+                return self.request(country=country, path=path, method=method, data=data, retries=retries - 1)
 
             if res.status_code >= 400:
                 raise StorageServerException("{} {} - {}".format(res.status_code, res.url, res.text))
@@ -66,8 +77,10 @@ class HttpClient:
                 return res.json()
             except Exception:
                 return res.text
+        except StorageServerException as e:
+            raise e
         except Exception as e:
-            raise StorageServerException(e) from None
+            raise StorageServerException(e)
 
     def get_midpop_country_codes(self):
         r = requests.get(self.PORTALBACKEND_URI + "/countries", timeout=self.options.timeout)
@@ -77,27 +90,24 @@ class HttpClient:
 
         return [country["id"].lower() for country in data["countries"] if country["direct"]]
 
-    def getendpoint(self, country, path):
-        if not path.startswith("/"):
-            path = "/" + path
-
-        if self.endpoint:
-            res = "{}{}".format(self.endpoint, path)
-            self.log("Endpoint: ", res)
-            return res
+    def get_pop_host(self, country):
+        if self.host:
+            return self.host
 
         midpops = self.get_midpop_country_codes()
-
         is_midpop = country in midpops
 
-        res = HttpClient.get_midpop_url(country) + path if is_midpop else "{}{}".format(self.DEFAULT_ENDPOINT, path)
+        return HttpClient.get_midpop_url(country) if is_midpop else self.DEFAULT_HOST
 
-        self.log("Endpoint: ", res)
-        return res
+    def get_request_url(self, host, *parts):
+        res_url = host.rstrip("/")
+        for part in parts:
+            res_url += "/" + part.strip("/")
+        return res_url.strip("/")
 
-    def get_headers(self):
+    def get_headers(self, auth_token):
         return {
-            "Authorization": self.auth_client.get_token(),
+            "Authorization": "Bearer " + auth_token,
             "x-env-id": self.env_id,
             "Content-Type": "application/json",
             "User-Agent": "SDK-Python/" + __version__,

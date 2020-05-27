@@ -676,7 +676,7 @@ def test_default_endpoint(client, record, country, countries):
 
     midpop_ids = [c["id"].lower() for c in countries if c["direct"]]
     is_midpop = country in midpop_ids
-    endpoint = HttpClient.get_midpop_url(country) if is_midpop else HttpClient.DEFAULT_ENDPOINT
+    endpoint = HttpClient.get_midpop_url(country) if is_midpop else HttpClient.DEFAULT_HOST
 
     countries_url = HttpClient.PORTALBACKEND_URI + "/countries"
     httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))

@@ -53,20 +53,21 @@ class Storage:
         self.encrypt = encrypt
         self.crypto = InCrypto(secret_key_accessor, custom_encryption_configs) if self.encrypt else InCrypto()
 
-        auth_client = (
+        token_client = (
             ApiKeyTokenClient(api_key=api_key)
             if api_key is not None
             else OAuthTokenClient(
                 client_id=client_id,
                 client_secret=client_secret,
+                scope=self.env_id,
                 endpoint=options.get("auth_endpoint"),
                 options=options.get("http_options", {}),
             )
         )
         self.http_client = HttpClient(
             env_id=self.env_id,
-            auth_client=auth_client,
-            endpoint=endpoint,
+            token_client=token_client,
+            host=endpoint,
             debug=self.debug,
             options=options.get("http_options", {}),
         )
