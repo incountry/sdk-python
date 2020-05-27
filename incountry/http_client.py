@@ -4,7 +4,7 @@ import requests
 import json
 
 from .exceptions import StorageServerException
-from .models import HttpOptions, HttpRecordWrite, HttpRecordBatchWrite, HttpRecordRead, HttpRecordFind, HttpRecordDelete
+from .models import HttpOptions, HttpRecordRead, HttpRecordFind
 from .validation import validate_http_response
 from .__version__ import __version__
 
@@ -29,12 +29,10 @@ class HttpClient:
         else:
             self.log(f"Connecting to custom host: {self.host}. Connection timeout {self.options.timeout}s")
 
-    @validate_http_response(HttpRecordWrite)
     def write(self, country, data):
         response = self.request(country, method="POST", data=json.dumps(data))
         return response
 
-    @validate_http_response(HttpRecordBatchWrite)
     def batch_write(self, country, data):
         response = self.request(country, path="/batchWrite", method="POST", data=json.dumps(data))
         return response
@@ -49,7 +47,6 @@ class HttpClient:
         response = self.request(country, path="/find", method="POST", data=json.dumps(data))
         return response
 
-    @validate_http_response(HttpRecordDelete)
     def delete(self, country, key):
         return self.request(country, path="/" + key, method="DELETE")
 

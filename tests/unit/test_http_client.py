@@ -104,6 +104,7 @@ def test_write_valid_response(client, response):
     "response", [{}, [], True, "", {"key": "key"}],
 )
 @pytest.mark.error_path
+@pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
 def test_write_invalid_response(client, response):
     httpretty.register_uri(
         httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body=json.dumps(response),
@@ -133,6 +134,7 @@ def test_batch_write_valid_response(client, response):
     "response", [{}, [], True, "", {"key": "key"}],
 )
 @pytest.mark.error_path
+@pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
 def test_batch_write_invalid_response(client, response):
     httpretty.register_uri(
         httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body=json.dumps(response),
@@ -259,6 +261,7 @@ def test_delete_valid_response(client, response):
     "response", [True, {"key": "key"}],
 )
 @pytest.mark.error_path
+@pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
 def test_delete_invalid_response(client, response):
     key = str(uuid.uuid1())
     key_hash = get_key_hash(key)
