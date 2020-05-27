@@ -13,7 +13,7 @@ class Token:
 
 
 class OAuthTokenClient(TokenClient):
-    DEFAULT_AUTH_TOKEN_ENDPOINT = "https://auth-emea.qa.incountry.com/oauth2/token"
+    DEFAULT_AUTH_TOKEN_ENDPOINT = "https://auth.incountry.com/oauth2/token"
     TOKEN_REFRESH_WINDOW_SECONDS = 30
 
     def __init__(
