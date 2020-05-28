@@ -73,7 +73,8 @@ class StorageWithEnv(BaseModel):
 
         if values["api_key"] is not None and (values["client_id"] is not None or values["client_secret"] is not None):
             raise ValueError(
-                "Please choose either API key autorization or oAuth (client_id + client_secret) authorization, not both"
+                f"Please choose either API key authorization or oAuth (client_id + client_secret) authorization, "
+                f"not both"
             )
 
         return values

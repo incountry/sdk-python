@@ -408,7 +408,7 @@ def test_oauth_token_successful_retry_on_401(client):
 
 @httpretty.activate
 @pytest.mark.error_path
-def test_oauth_token_unseccessful_retry_on_401(client):
+def test_oauth_token_unsuccessful_retry_on_401(client):
     key = str(uuid.uuid1())
     key_hash = get_key_hash(key)
 

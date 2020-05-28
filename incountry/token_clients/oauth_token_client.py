@@ -3,7 +3,7 @@ import time
 import requests
 
 from .token_client import TokenClient
-from ..exceptions import StorageServerException
+from ..exceptions import StorageServerException, StorageException
 
 
 class Token:
@@ -14,7 +14,6 @@ class Token:
 
 class OAuthTokenClient(TokenClient):
     DEFAULT_AUTH_ENDPOINT = "https://auth.incountry.com/oauth2/token"
-    TOKEN_REFRESH_WINDOW_SECONDS = 30
 
     def __init__(
         self, client_id: str, client_secret: str, scope: str, endpoint: str = None, options: dict = {},
@@ -34,7 +33,8 @@ class OAuthTokenClient(TokenClient):
 
         if isinstance(token, Token):
             return token.access_token
-        return ""
+
+        raise StorageServerException(f"Unable to find token for host {host}")
 
     def fetch_token(self, host):
         try:
@@ -56,8 +56,7 @@ class OAuthTokenClient(TokenClient):
     def refresh_access_token(self, host):
         token_data = self.fetch_token(host=host)
         self.tokens[host] = Token(
-            access_token=token_data["access_token"],
-            expires_at=time.time() + token_data["expires_in"] - OAuthTokenClient.TOKEN_REFRESH_WINDOW_SECONDS,
+            access_token=token_data["access_token"], expires_at=time.time() + token_data["expires_in"],
         )
 
     def can_refetch(self):
