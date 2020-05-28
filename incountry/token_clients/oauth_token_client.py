@@ -3,7 +3,7 @@ import time
 import requests
 
 from .token_client import TokenClient
-from ..exceptions import StorageServerException, StorageException
+from ..exceptions import StorageServerException
 
 
 class Token:
