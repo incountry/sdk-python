@@ -7,6 +7,7 @@ from .exceptions import StorageCryptoException
 from .validation import validate_model, validate_encryption_enabled
 from .http_client import HttpClient
 from .models import Country, FindFilter, FindFilterOperators, Record, RecordListForBatch, StorageWithEnv
+from .token_clients import ApiKeyTokenClient, OAuthTokenClient
 
 
 class Storage:
@@ -15,6 +16,8 @@ class Storage:
         self,
         environment_id: str = None,
         api_key: str = None,
+        client_id: str = None,
+        client_secret: str = None,
         endpoint: str = None,
         encrypt: bool = True,
         secret_key_accessor=None,
@@ -51,10 +54,21 @@ class Storage:
         self.normalize_keys = options.get("normalize_keys", False)
         self.crypto = InCrypto(secret_key_accessor, custom_encryption_configs) if self.encrypt else InCrypto()
 
+        token_client = (
+            ApiKeyTokenClient(api_key=api_key)
+            if api_key is not None
+            else OAuthTokenClient(
+                client_id=client_id,
+                client_secret=client_secret,
+                scope=self.env_id,
+                endpoint=options.get("auth_endpoint"),
+                options=options.get("http_options", {}),
+            )
+        )
         self.http_client = HttpClient(
             env_id=self.env_id,
-            api_key=api_key,
-            endpoint=endpoint,
+            token_client=token_client,
+            host=endpoint,
             debug=self.debug,
             options=options.get("http_options", {}),
         )

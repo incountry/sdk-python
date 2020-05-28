@@ -108,6 +108,10 @@ def clear_envs():
     yield
     if "INC_API_KEY" in os.environ:
         del os.environ["INC_API_KEY"]
+    if "INC_CLIENT_ID" in os.environ:
+        del os.environ["INC_CLIENT_ID"]
+    if "INC_CLIENT_SECRET" in os.environ:
+        del os.environ["INC_CLIENT_SECRET"]
     if "INC_ENVIRONMENT_ID" in os.environ:
         del os.environ["INC_ENVIRONMENT_ID"]
     if "INC_ENDPOINT" in os.environ:
@@ -898,6 +902,21 @@ def test_invalid_options_storage(options):
             {"environment_id": "environment_id", "api_key": "api_key", "encrypt": False},
             [{"env_var": "INC_ENDPOINT", "value": "http://popapi.com", "param": "endpoint"}],
         ),
+        (
+            {"environment_id": "environment_id", "encrypt": False, "client_secret": "client_secret_1"},
+            [{"env_var": "INC_CLIENT_ID", "value": "inc_client_id_1", "param": "client_id"}],
+        ),
+        (
+            {"environment_id": "environment_id", "encrypt": False, "client_id": "client_id_2"},
+            [{"env_var": "INC_CLIENT_SECRET", "value": "inc_client_secret_2", "param": "client_secret"}],
+        ),
+        (
+            {"environment_id": "environment_id", "encrypt": False},
+            [
+                {"env_var": "INC_CLIENT_ID", "value": "inc_client_id_3", "param": "client_id"},
+                {"env_var": "INC_CLIENT_SECRET", "value": "inc_client_secret_3", "param": "client_secret"},
+            ],
+        ),
     ],
 )
 @pytest.mark.happy_path
@@ -973,6 +992,17 @@ def test_valid_storage_with_invalid_env_params(storage_params, env_params):
         {"environment_id": "environment_id", "api_key": 1, "encrypt": False},
         {"environment_id": 0, "api_key": "api_key", "encrypt": False},
         {"environment_id": "environment_id", "api_key": 0, "encrypt": False},
+        {"environment_id": "environment_id", "api_key": "api_key", "encrypt": False, "client_id": "client_id"},
+        {"environment_id": "environment_id", "encrypt": False, "client_id": "client_id"},
+        {"environment_id": "environment_id", "encrypt": False, "client_secret": "client_secret"},
+        {"environment_id": "environment_id", "api_key": "api_key", "encrypt": False, "client_secret": "client_secret"},
+        {
+            "environment_id": "environment_id",
+            "api_key": "api_key",
+            "encrypt": False,
+            "client_id": "client_id",
+            "client_secret": "client_secret",
+        },
     ],
 )
 @pytest.mark.error_path
