@@ -51,7 +51,7 @@ class OAuthTokenClient(TokenClient):
 
             return res.json()
         except Exception as e:
-            raise StorageServerException(e) from None
+            raise StorageServerException("Error fetching oAuth token") from e
 
     def refresh_access_token(self, host):
         token_data = self.fetch_token(host=host)
