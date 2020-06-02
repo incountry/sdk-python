@@ -19,7 +19,9 @@ To access your data in InCountry using Python SDK, you need to create an instanc
 class Storage:
     def __init__(
         self,
-        api_key: str = None,           # Required to be passed in, or as environment variable INC_API_KEY
+        api_key: str = None,           # Required when using API key authorization, or as environment variable INC_API_KEY
+        client_id: str = None,         # Required when using oAuth authorization, can be also set via INC_CLIENT_ID
+        client_secret: str = None,     # Required when using oAuth authorization, can be also set via INC_CLIENT_SECRET
         environment_id: str = None,    # Required to be passed in, or as environment variable INC_API_KEY
         secret_key_accessor=None,      # Instance of SecretKeyAccessor class. Used to fetch encryption secret
         endpoint: str = None,          # Optional. Defines API URL. Can also be set up using environment variable INC_ENDPOINT
@@ -30,18 +32,20 @@ class Storage:
         ...
 ```
 
-`api_key` and `environment_id` can be fetched from your dashboard on `Incountry` site.
+`api_key`, `client_id`, `client_secret`,  and `environment_id` can be fetched from your dashboard on `Incountry` site.
+
 
 `endpoint` defines API URL and is used to override default one.
 
 You can turn off encryption (not recommended). Set `encrypt` property to `false` if you want to do this.
 
-`options` allows you to configure http requests timeout by passing the following dict
+`options` allows you to tweak some SDK configurations
 ```python
 {
     "http_options": {
         "timeout": int # In seconds. Should be greater than 0
-    }
+    },
+    "auth_endpoint": str # custom endpoint to use for fetching oAuth tokens
 }
 ```
 
@@ -62,6 +66,26 @@ storage = Storage(
 )
 ```
 
+
+#### oAuth Authentication
+
+SDK also supports oAuth authentication credentials instead of plain API key authorization. oAuth authentication flow is mutually exclusive with API key authentication - you will need to provide either API key or oAuth credentials.
+
+Below is the example how to create storage instance with oAuth credentials (and also provide custom oAuth endpoint):
+```python
+from incountry import Storage, SecretKeyAccessor
+
+storage = Storage(
+    client_id="<client_id>",
+    client_secret="<client_secret>",
+    environment_id="<env_id>",
+    debug=True,
+    secret_key_accessor=SecretKeyAccessor(lambda: "password"),
+    options={
+        "auth_endpoint": "<oAuth endpoint url>"
+    }
+)
+```
 
 
 #### Encryption key/secret
