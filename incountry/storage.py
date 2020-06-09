@@ -68,8 +68,10 @@ class Storage:
         self.http_client = HttpClient(
             env_id=self.env_id,
             token_client=token_client,
-            host=endpoint,
+            endpoint=endpoint,
             debug=self.debug,
+            endpoint_mask=options.get("endpoint_mask", None),
+            countries_endpoint=options.get("countries_endpoint", None),
             options=options.get("http_options", {}),
         )
 

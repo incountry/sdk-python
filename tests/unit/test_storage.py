@@ -49,7 +49,7 @@ def omit(d, keys):
 def mock_backend():
     httpretty.register_uri(
         httpretty.GET,
-        HttpClient.PORTALBACKEND_URI + "/countries",
+        HttpClient.DEFAULT_COUNTRIES_ENDPOINT,
         body=json.dumps({"countries": [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}]}),
     )
 
@@ -74,7 +74,7 @@ def client():
         secret_accessor=SecretKeyAccessor(lambda: SECRET_KEY),
         custom_encryption=None,
         environment_id="test",
-        normalize_keys=False,
+        **kwargs,
     ):
         return Storage(
             encrypt=encrypt,
@@ -84,7 +84,7 @@ def client():
             endpoint=endpoint,
             secret_key_accessor=secret_accessor,
             custom_encryption_configs=custom_encryption,
-            options={"normalize_keys": normalize_keys},
+            **kwargs,
         )
 
     return cli
@@ -196,7 +196,7 @@ def test_write_normalize_keys_option(client, record, encrypt, normalize):
     mock_backend()
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
-    client(encrypt, normalize_keys=normalize).write(country=COUNTRY, **record)
+    client(encrypt, options={"normalize_keys": normalize}).write(country=COUNTRY, **record)
     received_record = json.loads(httpretty.last_request().body)
 
     if record.get("range_key", None):
@@ -317,7 +317,7 @@ def test_batch_write_normalize_keys_option(client, records, encrypt, normalize):
     mock_backend()
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
 
-    client(encrypt, normalize_keys=normalize).batch_write(country=COUNTRY, records=records)
+    client(encrypt, options={"normalize_keys": normalize}).batch_write(country=COUNTRY, records=records)
 
     received_records = json.loads(httpretty.last_request().body)
     received_records.should.have.key("records")
@@ -441,7 +441,7 @@ def test_read_multiple_keys(client, record_1, record_2, encrypt, keys_data_old, 
 @pytest.mark.happy_path
 def test_read_normalize_keys_option(client, record, encrypt, normalize):
     mock_backend()
-    stored_record = client(encrypt, normalize_keys=False).encrypt_record(dict(record))
+    stored_record = client(encrypt, options={"normalize_keys": normalize}).encrypt_record(dict(record))
     key_hash = get_key_hash(record["key"])
     if normalize:
         key_hash = get_key_hash(record["key"].lower())
@@ -450,7 +450,7 @@ def test_read_normalize_keys_option(client, record, encrypt, normalize):
         httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(stored_record),
     )
 
-    read_response = client(encrypt, normalize_keys=normalize).read(country=COUNTRY, key=record["key"])
+    read_response = client(encrypt, options={"normalize_keys": normalize}).read(country=COUNTRY, key=record["key"])
     read_response.should.have.key("record")
     for k in ["key", "key2", "key3", "profile_key"]:
         assert record[k] == read_response["record"][k]
@@ -492,7 +492,7 @@ def test_delete_normalize_keys_option(client, key, encrypt, normalize):
         httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
     )
 
-    delete_res = client(encrypt, normalize_keys=normalize).delete(country=COUNTRY, key=key)
+    delete_res = client(encrypt, options={"normalize_keys": normalize}).delete(country=COUNTRY, key=key)
     delete_res.should.be.equal({"success": True})
 
 
@@ -645,7 +645,7 @@ def test_find_incorrect_records(client, query, records, encrypt):
 @pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.happy_path
 def test_find_normalize_keys_option(client, query, records, encrypt, normalize):
-    enc_data = [client(encrypt, normalize_keys=normalize).encrypt_record(dict(x)) for x in records]
+    enc_data = [client(encrypt, options={"normalize_keys": normalize}).encrypt_record(dict(x)) for x in records]
 
     httpretty.register_uri(
         httpretty.POST,
@@ -653,7 +653,7 @@ def test_find_normalize_keys_option(client, query, records, encrypt, normalize):
         body=json.dumps(get_default_find_response(len(enc_data), enc_data)),
     )
 
-    client(encrypt, normalize_keys=normalize).find(country=COUNTRY, **query)
+    client(encrypt, options={"normalize_keys": normalize}).find(country=COUNTRY, **query)
 
     received_record = json.loads(httpretty.last_request().body)
     received_record.should.be.a(dict)
@@ -851,15 +851,50 @@ def test_default_endpoint(client, record, country, countries):
 
     midpop_ids = [c["id"].lower() for c in countries if c["direct"]]
     is_midpop = country in midpop_ids
-    endpoint = HttpClient.get_midpop_url(country) if is_midpop else HttpClient.DEFAULT_HOST
+    endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_default_pop()
 
-    countries_url = HttpClient.PORTALBACKEND_URI + "/countries"
+    countries_url = HttpClient.DEFAULT_COUNTRIES_ENDPOINT
     httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))
 
     read_url = endpoint + "/v2/storage/records/" + country + "/" + stored_record["key"]
     httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(record))
 
-    client(endpoint=None).read(country=country, key=record["key"])
+    client(endpoint=None, options={"countries_endpoint": countries_url}).read(country=country, key=record["key"])
+
+    latest_request = httpretty.HTTPretty.latest_requests[-1]
+    prev_request = httpretty.HTTPretty.latest_requests[-2]
+
+    latest_request_url = "https://" + latest_request.headers.get("Host", "") + latest_request.path
+    prev_request_url = "https://" + prev_request.headers.get("Host", "") + prev_request.path
+
+    assert latest_request_url == read_url
+    assert prev_request_url == countries_url
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "record,country,countries",
+    [
+        ({"key": "key1", "version": 0}, "ru", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}]),
+        ({"key": "key1", "version": 0}, "ag", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}]),
+    ],
+)
+@pytest.mark.happy_path
+def test_custom_countries_endpoint(client, record, country, countries):
+    stored_record = client().encrypt_record(dict(record))
+
+    midpop_ids = [c["id"].lower() for c in countries if c["direct"]]
+    is_midpop = country in midpop_ids
+    endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_default_pop()
+
+    countries_url = "https://countries.com/"
+    httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))
+
+    read_url = endpoint + "/v2/storage/records/" + country + "/" + stored_record["key"]
+
+    httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(record))
+
+    client(endpoint=None, options={"countries_endpoint": countries_url}).read(country=country, key=record["key"])
 
     latest_request = httpretty.HTTPretty.latest_requests[-1]
     prev_request = httpretty.HTTPretty.latest_requests[-2]

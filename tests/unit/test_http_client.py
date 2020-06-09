@@ -28,8 +28,10 @@ def get_key_hash(key):
 
 @pytest.fixture()
 def client():
-    def cli(env_id="test", endpoint=POPAPI_URL, options={}, token_client=ApiKeyTokenClient("test")):
-        return HttpClient(env_id=env_id, token_client=token_client, host=endpoint, debug=True, options=options)
+    def cli(env_id="test", endpoint=POPAPI_URL, options={}, token_client=ApiKeyTokenClient("test"), **kwargs):
+        return HttpClient(
+            env_id=env_id, token_client=token_client, endpoint=endpoint, debug=True, options=options, **kwargs
+        )
 
     return cli
 
@@ -47,7 +49,16 @@ def get_oauth_token_client(
 
 @pytest.mark.parametrize(
     "kwargs",
-    [{"env_id": "env_id", "token_client": ApiKeyTokenClient("api_key"), "host": "http://popapi.com", "debug": True}],
+    [
+        {
+            "env_id": "env_id",
+            "token_client": ApiKeyTokenClient("api_key"),
+            "endpoint": "http://popapi.com",
+            "endpoint_mask": "private.incountry.io",
+            "countries_endpoint": "https://countries.com",
+            "debug": True,
+        }
+    ],
 )
 @pytest.mark.happy_path
 def test_http_client_constructor(kwargs):
@@ -59,7 +70,14 @@ def test_http_client_constructor(kwargs):
 
 @pytest.mark.parametrize(
     "kwargs",
-    [{"env_id": "env_id", "token_client": ApiKeyTokenClient("api_key"), "host": "http://popapi.com", "debug": True}],
+    [
+        {
+            "env_id": "env_id",
+            "token_client": ApiKeyTokenClient("api_key"),
+            "endpoint": "http://popapi.com",
+            "debug": True,
+        }
+    ],
 )
 @pytest.mark.happy_path
 def test_http_client_headers(kwargs):
@@ -294,8 +312,8 @@ def test_default_oauth_token_client(client):
     token_request = httpretty.HTTPretty.latest_requests[-2]
     token_request_body = parse_qs(token_request.body.decode("utf-8"))
 
-    assert token_request_body["audience"] == [POPAPI_URL]
-    assert token_request_body["scope"] == [env_id]
+    assert token_request_body["audience"][0] == POPAPI_URL
+    assert token_request_body["scope"][0] == env_id
 
 
 @httpretty.activate
@@ -450,10 +468,10 @@ def test_oauth_work_with_same_token_during_expiration_period(monkeypatch):
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_id", scope="scope")
 
-    token_1 = token_client.get_token(host=POPAPI_URL)
+    token_1 = token_client.get_token(audience=POPAPI_URL)
     old_time = time.time
     monkeypatch.setattr(time, "time", lambda: old_time() + 10)
-    token_2 = token_client.get_token(host=POPAPI_URL)
+    token_2 = token_client.get_token(audience=POPAPI_URL)
 
     assert token_1 == token_2
 
@@ -472,7 +490,7 @@ def test_oauth_fetch_new_token_when_expires(monkeypatch):
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": token_ttl}),
         )
 
-        return token_client.get_token(host=POPAPI_URL)
+        return token_client.get_token(audience=POPAPI_URL)
 
     token_1 = get_token()
     old_time = time.time
@@ -484,22 +502,22 @@ def test_oauth_fetch_new_token_when_expires(monkeypatch):
 
 @httpretty.activate
 @pytest.mark.happy_path
-def test_oauth_fetch_new_token_for_different_hosts(monkeypatch):
+def test_oauth_fetch_new_token_for_different_audiences(monkeypatch):
     token_ttl = 300
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_id", scope="scope")
 
-    def get_token(host):
+    def get_token(audience):
         httpretty.register_uri(
             httpretty.POST,
             OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": token_ttl}),
         )
 
-        return token_client.get_token(host=host)
+        return token_client.get_token(audience=audience)
 
-    token_1 = get_token(host="https://us.api.incountry.io")
-    token_2 = get_token(host="https://ca.api.incountry.io")
+    token_1 = get_token(audience="https://us.api.incountry.io")
+    token_2 = get_token(audience="https://ca.api.incountry.io")
 
     assert token_1 != token_2
 
@@ -509,17 +527,17 @@ def test_oauth_fetch_new_token_for_different_hosts(monkeypatch):
 def test_oauth_refetch_token(monkeypatch):
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_id", scope="scope")
 
-    def get_token(host):
+    def get_token(audience):
         httpretty.register_uri(
             httpretty.POST,
             OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
         )
 
-        return token_client.get_token(host=host, refetch=True)
+        return token_client.get_token(audience=audience, refetch=True)
 
-    token_1 = get_token(host=POPAPI_URL)
-    token_2 = get_token(host=POPAPI_URL)
+    token_1 = get_token(audience=POPAPI_URL)
+    token_2 = get_token(audience=POPAPI_URL)
 
     assert token_1 != token_2
 
@@ -536,7 +554,7 @@ def test_oauth_throw_error():
         status=400,
     )
 
-    token_client.get_token.when.called_with(host=POPAPI_URL).should.throw(StorageServerException)
+    token_client.get_token.when.called_with(audience=POPAPI_URL).should.throw(StorageServerException)
 
 
 @httpretty.activate
@@ -552,3 +570,124 @@ def test_httpclient_oauth_throw_error(client):
     )
 
     http_client.read.when.called_with(country="us", key="test").should.throw(StorageServerException)
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "endpoint_mask, country, expected_endpoint, expected_audience, countries",
+    [
+        (
+            "private.incountry.io",
+            "ru",
+            "https://ru.private.incountry.io",
+            "https://ru.private.incountry.io",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "private.incountry.io",
+            "ag",
+            "https://us.private.incountry.io",
+            "https://us.private.incountry.io https://ag.private.incountry.io",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
+        ),
+    ],
+)
+@pytest.mark.happy_path
+def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, expected_audience, countries):
+    record = {"key": "key1", "version": 0}
+    client = HttpClient(
+        env_id="test",
+        endpoint_mask=endpoint_mask,
+        token_client=get_oauth_token_client(scope="test", endpoint=OAuthTokenClient.DEFAULT_AUTH_ENDPOINT),
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, HttpClient.DEFAULT_COUNTRIES_ENDPOINT, body=json.dumps({"countries": countries})
+    )
+
+    httpretty.register_uri(
+        httpretty.GET,
+        expected_endpoint + "/v2/storage/records/" + country + "/" + record.get("key"),
+        body=json.dumps(record),
+    )
+
+    httpretty.register_uri(
+        httpretty.POST,
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
+        responses=[
+            httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
+        ],
+    )
+
+    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+
+    token_request = httpretty.HTTPretty.latest_requests[-2]
+    token_request_body = parse_qs(token_request.body.decode("utf-8"))
+
+    read_request = httpretty.HTTPretty.latest_requests[-1]
+    read_request_endpoint = "https://" + read_request.headers.get("Host", "")
+
+    assert token_request_body["audience"][0] == expected_audience
+    assert read_request_endpoint == expected_endpoint
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "endpoint_mask, endpoint, country, expected_endpoint, expected_audience, countries",
+    [
+        (
+            "private.incountry.io",
+            "https://super-private.incountry.io",
+            "ru",
+            "https://super-private.incountry.io",
+            "https://super-private.incountry.io https://ru.private.incountry.io",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "private.incountry.io",
+            "https://super-private.incountry.io",
+            "ag",
+            "https://super-private.incountry.io",
+            "https://super-private.incountry.io https://ag.private.incountry.io",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
+        ),
+    ],
+)
+@pytest.mark.happy_path
+def test_http_client_endpoint_mask_with_endpoint(
+    endpoint_mask, endpoint, country, expected_endpoint, expected_audience, countries
+):
+    record = {"key": "key1", "version": 0}
+    client = HttpClient(
+        env_id="test",
+        endpoint_mask=endpoint_mask,
+        endpoint=endpoint,
+        token_client=get_oauth_token_client(scope="test", endpoint=OAuthTokenClient.DEFAULT_AUTH_ENDPOINT),
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, HttpClient.DEFAULT_COUNTRIES_ENDPOINT, body=json.dumps({"countries": countries})
+    )
+
+    httpretty.register_uri(
+        httpretty.GET, endpoint + "/v2/storage/records/" + country + "/" + record.get("key"), body=json.dumps(record),
+    )
+
+    httpretty.register_uri(
+        httpretty.POST,
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINT,
+        responses=[
+            httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
+        ],
+    )
+
+    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+
+    token_request = httpretty.HTTPretty.latest_requests[-2]
+    token_request_body = parse_qs(token_request.body.decode("utf-8"))
+
+    read_request = httpretty.HTTPretty.latest_requests[-1]
+    read_request_endpoint = "https://" + read_request.headers.get("Host", "")
+
+    assert token_request_body["audience"][0] == expected_audience
+    assert read_request_endpoint == expected_endpoint

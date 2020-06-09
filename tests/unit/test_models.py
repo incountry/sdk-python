@@ -813,6 +813,8 @@ def test_valid_storage(storage_params):
         {"http_options": {"timeout": 1}},
         {"normalize_keys": True},
         {"http_options": {"timeout": 1}, "normalize_keys": True},
+        {"countries_endpoint": "https://countries.com"},
+        {"endpoint_mask": "private.incountry.io"},
     ],
 )
 @pytest.mark.happy_path
@@ -866,6 +868,23 @@ def test_valid_options_storage(options):
         {"normalize_keys": 0},
         {"normalize_keys": 1},
         {"normalize_keys": None},
+        {"countries_endpoint": []},
+        {"countries_endpoint": {}},
+        {"countries_endpoint": ()},
+        {"countries_endpoint": ""},
+        {"countries_endpoint": -1},
+        {"countries_endpoint": 0},
+        {"countries_endpoint": 1},
+        {"countries_endpoint": True},
+        {"countries_endpoint": False},
+        {"endpoint_mask": []},
+        {"endpoint_mask": {}},
+        {"endpoint_mask": ()},
+        {"endpoint_mask": -1},
+        {"endpoint_mask": 0},
+        {"endpoint_mask": 1},
+        {"endpoint_mask": True},
+        {"endpoint_mask": False},
     ],
 )
 @pytest.mark.happy_path

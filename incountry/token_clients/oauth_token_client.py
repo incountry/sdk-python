@@ -25,23 +25,24 @@ class OAuthTokenClient(TokenClient):
 
         self.tokens = {}
 
-    def get_token(self, host, refetch=False):
-        token = self.tokens.get(host, None)
+    def get_token(self, audience, refetch=False):
+        token = self.tokens.get(audience, None)
         if refetch or not isinstance(token, Token) or token.expires_at <= time.time():
-            self.refresh_access_token(host)
-            token = self.tokens.get(host, None)
+            self.refresh_access_token(audience)
+            token = self.tokens.get(audience, None)
 
         if isinstance(token, Token):
             return token.access_token
 
-        raise StorageServerException(f"Unable to find token for host {host}")
+        raise StorageServerException(f"Unable to find token for audience: {audience}")
 
-    def fetch_token(self, host):
+    def fetch_token(self, audience):
         try:
             session = requests.Session()
             session.auth = (self.client_id, self.client_secret)
 
-            request_data = {"grant_type": "client_credentials", "scope": self.scope, "audience": str(host)}
+            request_data = {"grant_type": "client_credentials", "scope": self.scope, "audience": audience}
+
             res = session.post(url=self.endpoint, data=request_data)
 
             if res.status_code != 200:
@@ -53,9 +54,9 @@ class OAuthTokenClient(TokenClient):
         except Exception as e:
             raise StorageServerException("Error fetching oAuth token") from e
 
-    def refresh_access_token(self, host):
-        token_data = self.fetch_token(host=host)
-        self.tokens[host] = Token(
+    def refresh_access_token(self, audience):
+        token_data = self.fetch_token(audience=audience)
+        self.tokens[audience] = Token(
             access_token=token_data["access_token"], expires_at=time.time() + token_data["expires_in"],
         )
 
