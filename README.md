@@ -45,7 +45,6 @@ You can turn off encryption (not recommended). Set `encrypt` property to `false`
     "http_options": {
         "timeout": int,         # In seconds. Should be greater than 0
     },
-
     "auth_endpoint": str,       # custom endpoint to use for fetching oAuth tokens
 
     "countries_endpoint": str,  # If your PoPAPI configuration relies on a custom PoPAPI server
@@ -79,7 +78,6 @@ storage = Storage(
 
 
 #### oAuth Authentication
-
 SDK also supports oAuth authentication credentials instead of plain API key authorization. oAuth authentication flow is mutually exclusive with API key authentication - you will need to provide either API key or oAuth credentials.
 
 Below is the example how to create storage instance with oAuth credentials (and also provide custom oAuth endpoint):
