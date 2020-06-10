@@ -8,6 +8,11 @@ python:
 node_js:
   - 11
 
+before_install:
+  #  for sonar test coverage metric
+  - git fetch --no-tags https://github.com/incountry/sdk-python.git +refs/heads/develop:refs/remotes/origin/develop
+  - git fetch --no-tags https://github.com/incountry/sdk-python.git +refs/heads/master:refs/remotes/origin/master
+
 install:
   - pip3 install bandit
   - if [[ ($TRAVIS_BRANCH == "master") && ($TRAVIS_EVENT_TYPE == "cron") ]]; then npm install -g snyk; fi

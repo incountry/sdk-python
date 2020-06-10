@@ -116,7 +116,7 @@ class HttpClient:
         if self.endpoint:
             endpoint = self.endpoint
             mini_endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
-            audience = f"{endpoint} {mini_endpoint}"
+            audience = endpoint if endpoint == mini_endpoint else f"{endpoint} {mini_endpoint}"
         elif is_midpop:
             endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
             audience = endpoint

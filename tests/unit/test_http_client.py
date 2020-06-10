@@ -651,6 +651,14 @@ def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, ex
             "https://super-private.incountry.io https://ag.private.incountry.io",
             [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
+        (
+            "private.incountry.io",
+            "https://ru.private.incountry.io",
+            "ru",
+            "https://ru.private.incountry.io",
+            "https://ru.private.incountry.io",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
+        ),
     ],
 )
 @pytest.mark.happy_path
