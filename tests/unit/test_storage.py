@@ -851,7 +851,7 @@ def test_default_endpoint(client, record, country, countries):
 
     midpop_ids = [c["id"].lower() for c in countries if c["direct"]]
     is_midpop = country in midpop_ids
-    endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_default_pop()
+    endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY)
 
     countries_url = HttpClient.DEFAULT_COUNTRIES_ENDPOINT
     httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))
@@ -885,7 +885,7 @@ def test_custom_countries_endpoint(client, record, country, countries):
 
     midpop_ids = [c["id"].lower() for c in countries if c["direct"]]
     is_midpop = country in midpop_ids
-    endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_default_pop()
+    endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY)
 
     countries_url = "https://countries.com/"
     httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))

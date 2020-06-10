@@ -148,7 +148,3 @@ class HttpClient:
     @staticmethod
     def get_pop_url(country, endpoint_mask=DEFAULT_ENDPOINT_MASK):
         return f"https://{country}.{endpoint_mask}"
-
-    @staticmethod
-    def get_default_pop(country=DEFAULT_COUNTRY, endpoint_mask=DEFAULT_ENDPOINT_MASK):
-        return f"https://{country}.{endpoint_mask}"
