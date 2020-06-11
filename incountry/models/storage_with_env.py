@@ -1,7 +1,7 @@
 import os
 from typing import Any, Optional
 
-from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, validator, root_validator
+from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, StrictStr, validator, root_validator
 
 from .http_options import HttpOptions
 
@@ -10,6 +10,8 @@ class Options(BaseModel):
     http_options: Optional[HttpOptions] = {}
     auth_endpoint: AnyHttpUrl = None
     normalize_keys: StrictBool = False
+    endpoint_mask: StrictStr = None
+    countries_endpoint: AnyHttpUrl = None
 
     @root_validator(pre=True)
     def check_empty_options(cls, values):

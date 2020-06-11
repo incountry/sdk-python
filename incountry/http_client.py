@@ -10,24 +10,37 @@ from .__version__ import __version__
 
 
 class HttpClient:
-    PORTALBACKEND_URI = "https://portal-backend.incountry.com"
-    DEFAULT_HOST = "https://us.api.incountry.io"
+    DEFAULT_COUNTRIES_ENDPOINT = "https://portal-backend.incountry.com/countries"
+    DEFAULT_COUNTRY = "us"
+    DEFAULT_ENDPOINT_MASK = "api.incountry.io"
     AUTH_TOTAL_RETRIES = 1
 
-    def __init__(self, env_id, token_client, host=None, debug=False, options={}):
+    def __init__(
+        self,
+        env_id,
+        token_client,
+        endpoint=None,
+        debug=False,
+        endpoint_mask=None,
+        countries_endpoint=DEFAULT_COUNTRIES_ENDPOINT,
+        options={},
+    ):
         self.token_client = token_client
-        self.host = host
+        self.endpoint = endpoint
         self.env_id = env_id
         self.debug = debug
+        self.endpoint_mask = endpoint_mask
         self.options = HttpOptions(**options)
+        self.countries_endpoint = countries_endpoint
 
-        if self.host is None:
+        if self.endpoint is None:
             self.log(
-                f"Connecting to default host: https://<country>.api.incountry.io. "
+                f"Connecting to default endpoint: "
+                f"https://<country>.{self.endpoint_mask or HttpClient.DEFAULT_ENDPOINT_MASK}. "
                 f"Connection timeout {self.options.timeout}s"
             )
         else:
-            self.log(f"Connecting to custom host: {self.host}. Connection timeout {self.options.timeout}s")
+            self.log(f"Connecting to custom endpoint: {self.endpoint}. Connection timeout {self.options.timeout}s")
 
     def write(self, country, data):
         response = self.request(country, method="POST", data=json.dumps(data))
@@ -52,9 +65,9 @@ class HttpClient:
 
     def request(self, country, path="", method="GET", data=None, retries=AUTH_TOTAL_RETRIES):
         try:
-            host = self.get_pop_host(country)
-            url = self.get_request_url(host, "/v2/storage/records/", country, path)
-            auth_token = self.token_client.get_token(host=host, refetch=retries < HttpClient.AUTH_TOTAL_RETRIES)
+            (endpoint, audience) = self.get_request_pop_details(country)
+            url = self.get_request_url(endpoint, "/v2/storage/records/", country, path)
+            auth_token = self.token_client.get_token(audience=audience, refetch=retries < HttpClient.AUTH_TOTAL_RETRIES)
 
             res = requests.request(
                 method=method,
@@ -80,21 +93,39 @@ class HttpClient:
             raise StorageServerException(e)
 
     def get_midpop_country_codes(self):
-        r = requests.get(self.PORTALBACKEND_URI + "/countries", timeout=self.options.timeout)
+        r = requests.get(self.countries_endpoint, timeout=self.options.timeout)
         if r.status_code >= 400:
             raise StorageServerException("Unable to retrieve countries list")
         data = r.json()
 
         return [country["id"].lower() for country in data["countries"] if country["direct"]]
 
-    def get_pop_host(self, country):
-        if self.host:
-            return self.host
+    def get_request_pop_details(self, country):
+        if self.endpoint and self.endpoint_mask is None:
+            return (self.endpoint, self.endpoint)
 
         midpops = self.get_midpop_country_codes()
+
         is_midpop = country in midpops
 
-        return HttpClient.get_midpop_url(country) if is_midpop else self.DEFAULT_HOST
+        endpoint = HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY, HttpClient.DEFAULT_ENDPOINT_MASK)
+        audience = endpoint
+
+        endpoint_mask_to_use = self.endpoint_mask or HttpClient.DEFAULT_ENDPOINT_MASK
+
+        if self.endpoint:
+            endpoint = self.endpoint
+            mini_endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
+            audience = endpoint if endpoint == mini_endpoint else f"{endpoint} {mini_endpoint}"
+        elif is_midpop:
+            endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
+            audience = endpoint
+        else:
+            endpoint = HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY, endpoint_mask_to_use)
+            mini_endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
+            audience = f"{endpoint} {mini_endpoint}"
+
+        return (endpoint, audience)
 
     def get_request_url(self, host, *parts):
         res_url = host.rstrip("/")
@@ -115,5 +146,5 @@ class HttpClient:
             print("[incountry] ", args)
 
     @staticmethod
-    def get_midpop_url(country):
-        return "https://{}.api.incountry.io".format(country)
+    def get_pop_url(country, endpoint_mask=DEFAULT_ENDPOINT_MASK):
+        return f"https://{country}.{endpoint_mask}"

@@ -43,9 +43,17 @@ You can turn off encryption (not recommended). Set `encrypt` property to `false`
 ```python
 {
     "http_options": {
-        "timeout": int # In seconds. Should be greater than 0
+        "timeout": int,         # In seconds. Should be greater than 0
     },
-    "auth_endpoint": str # custom endpoint to use for fetching oAuth tokens
+    "auth_endpoint": str,       # custom endpoint to use for fetching oAuth tokens
+
+    "countries_endpoint": str,  # If your PoPAPI configuration relies on a custom PoPAPI server
+                                # (rather than the default one) use `countriesEndpoint` option
+                                # to specify the endpoint responsible for fetching supported countries list
+
+    "endpoint_mask": str,       # Defines API base hostname part to use.
+                                # If set, all requests will be sent to https://${country}.${endpointMask} host
+                                # instead of the default one (https://${country}.api.incountry.io)
 }
 ```
 
@@ -61,14 +69,15 @@ storage = Storage(
     options={
         "http_options": {
             "timeout": 5
-        }
+        },
+        "countries_endpoint": "https://private-pop.incountry.io/countries",
+        "endpoint_mask" "private-pop.incountry.io",
     }
 )
 ```
 
 
 #### oAuth Authentication
-
 SDK also supports oAuth authentication credentials instead of plain API key authorization. oAuth authentication flow is mutually exclusive with API key authentication - you will need to provide either API key or oAuth credentials.
 
 Below is the example how to create storage instance with oAuth credentials (and also provide custom oAuth endpoint):
