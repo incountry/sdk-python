@@ -15,6 +15,8 @@ class HttpClient:
     DEFAULT_ENDPOINT_MASK = "api.incountry.io"
     AUTH_TOTAL_RETRIES = 1
 
+    DEFAULT_AUTH_REGION = "emea"
+
     def __init__(
         self,
         env_id,
@@ -65,9 +67,11 @@ class HttpClient:
 
     def request(self, country, path="", method="GET", data=None, retries=AUTH_TOTAL_RETRIES):
         try:
-            (endpoint, audience) = self.get_request_pop_details(country)
+            (endpoint, audience, region) = self.get_request_pop_details(country)
             url = self.get_request_url(endpoint, "/v2/storage/records/", country, path)
-            auth_token = self.token_client.get_token(audience=audience, refetch=retries < HttpClient.AUTH_TOTAL_RETRIES)
+            auth_token = self.token_client.get_token(
+                audience=audience, region=region, refetch=retries < HttpClient.AUTH_TOTAL_RETRIES
+            )
 
             res = requests.request(
                 method=method,
@@ -92,21 +96,24 @@ class HttpClient:
         except Exception as e:
             raise StorageServerException(e)
 
-    def get_midpop_country_codes(self):
+    def get_country_details(self, country):
         r = requests.get(self.countries_endpoint, timeout=self.options.timeout)
         if r.status_code >= 400:
             raise StorageServerException("Unable to retrieve countries list")
-        data = r.json()
+        countries_data = r.json()["countries"]
 
-        return [country["id"].lower() for country in data["countries"] if country["direct"]]
+        country_data = next((data for data in countries_data if data["id"].lower() == country), None,)
+
+        if country_data is None:
+            return (False, HttpClient.DEFAULT_AUTH_REGION)
+
+        return (country_data.get("direct", False) is True, country_data.get("region", "").lower())
 
     def get_request_pop_details(self, country):
         if self.endpoint and self.endpoint_mask is None:
-            return (self.endpoint, self.endpoint)
+            return (self.endpoint, self.endpoint, HttpClient.DEFAULT_AUTH_REGION)
 
-        midpops = self.get_midpop_country_codes()
-
-        is_midpop = country in midpops
+        (is_midpop, region) = self.get_country_details(country)
 
         endpoint = HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY, HttpClient.DEFAULT_ENDPOINT_MASK)
         audience = endpoint
@@ -117,6 +124,7 @@ class HttpClient:
             endpoint = self.endpoint
             mini_endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
             audience = endpoint if endpoint == mini_endpoint else f"{endpoint} {mini_endpoint}"
+            region = HttpClient.DEFAULT_AUTH_REGION
         elif is_midpop:
             endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
             audience = endpoint
@@ -124,8 +132,9 @@ class HttpClient:
             endpoint = HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY, endpoint_mask_to_use)
             mini_endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
             audience = f"{endpoint} {mini_endpoint}"
+            region = HttpClient.DEFAULT_AUTH_REGION
 
-        return (endpoint, audience)
+        return (endpoint, audience, region)
 
     def get_request_url(self, host, *parts):
         res_url = host.rstrip("/")

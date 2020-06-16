@@ -13,7 +13,13 @@ class Token:
 
 
 class OAuthTokenClient(TokenClient):
-    DEFAULT_AUTH_ENDPOINT = "https://auth.incountry.com/oauth2/token"
+    REGIONAL_AUTH_ENDPOINTS = {
+        "apac": "https://auth-apac.incountry.com/oauth2/token",
+        "emea": "https://auth-emea.incountry.com/oauth2/token",
+        "amer": "https://auth-emea.incountry.com/oauth2/token",
+    }
+
+    DEFAULT_REGION = "emea"
 
     def __init__(
         self, client_id: str, client_secret: str, scope: str, endpoint: str = None, options: dict = {},
@@ -21,14 +27,14 @@ class OAuthTokenClient(TokenClient):
         self.client_id = client_id
         self.client_secret = client_secret
         self.scope = scope
-        self.endpoint = endpoint or OAuthTokenClient.DEFAULT_AUTH_ENDPOINT
+        self.endpoint = endpoint
 
         self.tokens = {}
 
-    def get_token(self, audience, refetch=False):
+    def get_token(self, audience, region=None, refetch=False):
         token = self.tokens.get(audience, None)
         if refetch or not isinstance(token, Token) or token.expires_at <= time.time():
-            self.refresh_access_token(audience)
+            self.refresh_access_token(audience=audience, region=region)
             token = self.tokens.get(audience, None)
 
         if isinstance(token, Token):
@@ -36,14 +42,14 @@ class OAuthTokenClient(TokenClient):
 
         raise StorageServerException(f"Unable to find token for audience: {audience}")
 
-    def fetch_token(self, audience):
+    def fetch_token(self, audience, region):
         try:
             session = requests.Session()
             session.auth = (self.client_id, self.client_secret)
 
             request_data = {"grant_type": "client_credentials", "scope": self.scope, "audience": audience}
 
-            res = session.post(url=self.endpoint, data=request_data)
+            res = session.post(url=self.get_endpoint(region=region), data=request_data)
 
             if res.status_code != 200:
                 raise StorageServerException(
@@ -54,11 +60,20 @@ class OAuthTokenClient(TokenClient):
         except Exception as e:
             raise StorageServerException("Error fetching oAuth token") from e
 
-    def refresh_access_token(self, audience):
-        token_data = self.fetch_token(audience=audience)
+    def refresh_access_token(self, audience, region):
+        token_data = self.fetch_token(audience=audience, region=region)
         self.tokens[audience] = Token(
             access_token=token_data["access_token"], expires_at=time.time() + token_data["expires_in"],
         )
+
+    def get_endpoint(self, region=DEFAULT_REGION):
+        if self.endpoint is not None:
+            return self.endpoint
+
+        if region not in OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS:
+            return OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION]
+
+        return OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[region]
 
     def can_refetch(self):
         return True
