@@ -19,15 +19,25 @@ class OAuthTokenClient(TokenClient):
         "amer": "https://auth-emea.incountry.com/oauth2/token",
     }
 
+    REGIONAL_MAPPING = {"apac": "apac", "emea": "emea", "amer": "emea"}
+
+    AUTH_PREFIX = "auth"
     DEFAULT_REGION = "emea"
 
     def __init__(
-        self, client_id: str, client_secret: str, scope: str, endpoint: str = None, options: dict = {},
+        self,
+        client_id: str,
+        client_secret: str,
+        scope: str,
+        endpoint: str = None,
+        endpoint_mask: str = None,
+        options: dict = {},
     ):
         self.client_id = client_id
         self.client_secret = client_secret
         self.scope = scope
         self.endpoint = endpoint
+        self.endpoint_mask = endpoint_mask
 
         self.tokens = {}
 
@@ -48,7 +58,6 @@ class OAuthTokenClient(TokenClient):
             session.auth = (self.client_id, self.client_secret)
 
             request_data = {"grant_type": "client_credentials", "scope": self.scope, "audience": audience}
-
             res = session.post(url=self.get_endpoint(region=region), data=request_data)
 
             if res.status_code != 200:
@@ -70,6 +79,9 @@ class OAuthTokenClient(TokenClient):
         if self.endpoint is not None:
             return self.endpoint
 
+        if self.endpoint_mask:
+            return OAuthTokenClient.get_auth_url(region, self.endpoint_mask)
+
         if region not in OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS:
             return OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION]
 
@@ -77,3 +89,11 @@ class OAuthTokenClient(TokenClient):
 
     def can_refetch(self):
         return True
+
+    @staticmethod
+    def get_auth_url(region, endpoint_mask):
+        region = region.lower()
+        result_region = OAuthTokenClient.REGIONAL_MAPPING[OAuthTokenClient.DEFAULT_REGION]
+        if region in OAuthTokenClient.REGIONAL_MAPPING:
+            result_region = OAuthTokenClient.REGIONAL_MAPPING[region]
+        return f"https://{OAuthTokenClient.AUTH_PREFIX}-{result_region}.{endpoint_mask}"

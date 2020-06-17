@@ -68,6 +68,7 @@ class HttpClient:
     def request(self, country, path="", method="GET", data=None, retries=AUTH_TOTAL_RETRIES):
         try:
             (endpoint, audience, region) = self.get_request_pop_details(country)
+
             url = self.get_request_url(endpoint, "/v2/storage/records/", country, path)
             auth_token = self.token_client.get_token(
                 audience=audience, region=region, refetch=retries < HttpClient.AUTH_TOTAL_RETRIES
