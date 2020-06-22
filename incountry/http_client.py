@@ -12,7 +12,7 @@ from .__version__ import __version__
 class HttpClient:
     DEFAULT_COUNTRIES_ENDPOINT = "https://portal-backend.incountry.com/countries"
     DEFAULT_COUNTRY = "us"
-    DEFAULT_ENDPOINT_MASK = "api.incountry.io"
+    DEFAULT_ENDPOINT_MASK = "-mt-01.api.incountry.io"
     AUTH_TOTAL_RETRIES = 1
 
     DEFAULT_AUTH_REGION = "emea"
@@ -150,4 +150,4 @@ class HttpClient:
 
     @staticmethod
     def get_pop_url(country, endpoint_mask=DEFAULT_ENDPOINT_MASK):
-        return f"https://{country}.{endpoint_mask}"
+        return f"https://{country}{endpoint_mask}"

@@ -814,7 +814,7 @@ def test_valid_storage(storage_params):
         {"normalize_keys": True},
         {"http_options": {"timeout": 1}, "normalize_keys": True},
         {"countries_endpoint": "https://countries.com"},
-        {"endpoint_mask": "private.incountry.io"},
+        {"endpoint_mask": ".private.incountry.io"},
     ],
 )
 @pytest.mark.happy_path

@@ -54,7 +54,7 @@ def get_oauth_token_client(
             "env_id": "env_id",
             "token_client": ApiKeyTokenClient("api_key"),
             "endpoint": "http://popapi.com",
-            "endpoint_mask": "private.incountry.io",
+            "endpoint_mask": ".private.incountry.io",
             "countries_endpoint": "https://countries.com",
             "debug": True,
         }
@@ -577,14 +577,14 @@ def test_httpclient_oauth_throw_error(client):
     "endpoint_mask, country, expected_endpoint, expected_audience, countries",
     [
         (
-            "private.incountry.io",
+            ".private.incountry.io",
             "ru",
             "https://ru.private.incountry.io",
             "https://ru.private.incountry.io",
             [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
         (
-            "private.incountry.io",
+            ".private.incountry.io",
             "ag",
             "https://us.private.incountry.io",
             "https://us.private.incountry.io https://ag.private.incountry.io",
@@ -638,7 +638,7 @@ def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, ex
     "endpoint_mask, endpoint, country, expected_endpoint, expected_audience, countries",
     [
         (
-            "private.incountry.io",
+            ".private.incountry.io",
             "https://super-private.incountry.io",
             "ru",
             "https://super-private.incountry.io",
@@ -646,7 +646,7 @@ def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, ex
             [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
         (
-            "private.incountry.io",
+            ".private.incountry.io",
             "https://super-private.incountry.io",
             "ag",
             "https://super-private.incountry.io",
@@ -654,7 +654,7 @@ def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, ex
             [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
         (
-            "private.incountry.io",
+            ".private.incountry.io",
             "https://ru.private.incountry.io",
             "ru",
             "https://ru.private.incountry.io",
@@ -811,7 +811,7 @@ def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, coun
 def test_http_client_using_proper_regional_auth_endpoint_with_mask(
     client, country, is_midpop, expected_region, countries
 ):
-    endpoint_mask = "qa.incountry.com"
+    endpoint_mask = ".qa.incountry.com"
     record = {"key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(
@@ -856,7 +856,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
 def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_endpoint(
     client, country, is_midpop, expected_region, countries
 ):
-    endpoint_mask = "qa.incountry.com"
+    endpoint_mask = ".qa.incountry.com"
     record = {"key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(
