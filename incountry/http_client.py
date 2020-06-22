@@ -18,14 +18,7 @@ class HttpClient:
     DEFAULT_AUTH_REGION = "emea"
 
     def __init__(
-        self,
-        env_id,
-        token_client,
-        endpoint=None,
-        debug=False,
-        endpoint_mask=None,
-        countries_endpoint=DEFAULT_COUNTRIES_ENDPOINT,
-        options={},
+        self, env_id, token_client, endpoint=None, debug=False, endpoint_mask=None, countries_endpoint=None, options={},
     ):
         self.token_client = token_client
         self.endpoint = endpoint
@@ -33,7 +26,7 @@ class HttpClient:
         self.debug = debug
         self.endpoint_mask = endpoint_mask
         self.options = HttpOptions(**options)
-        self.countries_endpoint = countries_endpoint
+        self.countries_endpoint = countries_endpoint or HttpClient.DEFAULT_COUNTRIES_ENDPOINT
 
         if self.endpoint is None:
             self.log(
