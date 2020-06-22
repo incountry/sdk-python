@@ -107,26 +107,26 @@ class HttpClient:
         if self.endpoint and self.endpoint_mask is None:
             return (self.endpoint, self.endpoint, HttpClient.DEFAULT_AUTH_REGION)
 
-        (is_midpop, region) = self.get_country_details(country)
-
-        endpoint = HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY, HttpClient.DEFAULT_ENDPOINT_MASK)
-        audience = endpoint
-
         endpoint_mask_to_use = self.endpoint_mask or HttpClient.DEFAULT_ENDPOINT_MASK
+
+        region = HttpClient.DEFAULT_AUTH_REGION
+        endpoint = HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY, HttpClient.DEFAULT_ENDPOINT_MASK)
+        country_endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
+        audience = endpoint
 
         if self.endpoint:
             endpoint = self.endpoint
-            mini_endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
-            audience = endpoint if endpoint == mini_endpoint else f"{endpoint} {mini_endpoint}"
-            region = HttpClient.DEFAULT_AUTH_REGION
-        elif is_midpop:
-            endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
-            audience = endpoint
+            audience = endpoint if endpoint == country_endpoint else f"{endpoint} {country_endpoint}"
         else:
-            endpoint = HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY, endpoint_mask_to_use)
-            mini_endpoint = HttpClient.get_pop_url(country, endpoint_mask_to_use)
-            audience = f"{endpoint} {mini_endpoint}"
-            region = HttpClient.DEFAULT_AUTH_REGION
+            (is_midpop, pop_region) = self.get_country_details(country)
+
+            if is_midpop:
+                endpoint = country_endpoint
+                audience = endpoint
+                region = pop_region
+            else:
+                endpoint = HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY, endpoint_mask_to_use)
+                audience = f"{endpoint} {country_endpoint}"
 
         return (endpoint, audience, region)
 
