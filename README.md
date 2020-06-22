@@ -52,8 +52,8 @@ You can turn off encryption (not recommended). Set `encrypt` property to `false`
                                 # to specify the endpoint responsible for fetching supported countries list
 
     "endpoint_mask": str,       # Defines API base hostname part to use.
-                                # If set, all requests will be sent to https://${country}.${endpointMask} host
-                                # instead of the default one (https://${country}.api.incountry.io)
+                                # If set, all requests will be sent to https://${country}${endpointMask} host
+                                # instead of the default one (https://${country}-mt-01.api.incountry.io)
 }
 ```
 
@@ -71,7 +71,7 @@ storage = Storage(
             "timeout": 5
         },
         "countries_endpoint": "https://private-pop.incountry.io/countries",
-        "endpoint_mask" "private-pop.incountry.io",
+        "endpoint_mask" ".private-pop.incountry.io",
     }
 )
 ```
