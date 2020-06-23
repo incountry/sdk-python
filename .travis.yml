@@ -19,5 +19,6 @@ script:
   - pipenv run check-format
   - pipenv run check-flake8
   - pipenv run tests
+  - pipenv run integrations
   - bandit --ini bandit.ini -r -o bandit.json -f json
   - sonar-scanner

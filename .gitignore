@@ -7,4 +7,5 @@ incountry.egg-info
 bandit.json
 .coverage
 coverage.xml
+it_coverage.xml
 ut_coverage.xml

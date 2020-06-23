@@ -1,25 +1,26 @@
 from __future__ import absolute_import
-import os
-
-import requests
-import json
+from typing import List, Dict, Union, Any
 
 from .incountry_crypto import InCrypto
-from .secret_key_accessor import SecretKeyAccessor
-from .exceptions import InCryptoException, StorageClientError, StorageServerError
+from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash
+from .exceptions import StorageCryptoException
+from .validation import validate_model, validate_encryption_enabled
+from .http_client import HttpClient
+from .models import Country, FindFilter, Record, RecordListForBatch, StorageWithEnv
 
 
-class Storage(object):
-    FIND_LIMIT = 100
-    PORTALBACKEND_URI = "https://portal-backend.incountry.com"
-    DEFAULT_ENDPOINT = "https://us.api.incountry.io"
-
-    @staticmethod
-    def get_midpop_url(country):
-        return "https://{}.api.incountry.io".format(country)
-
+class Storage:
+    @validate_model(StorageWithEnv)
     def __init__(
-        self, environment_id=None, api_key=None, endpoint=None, encrypt=True, secret_key_accessor=None, debug=False,
+        self,
+        environment_id: str = None,
+        api_key: str = None,
+        endpoint: str = None,
+        encrypt: bool = True,
+        secret_key_accessor=None,
+        custom_encryption_configs=None,
+        debug: bool = False,
+        options: Dict[str, Any] = {},
     ):
         """
         Returns a client to talk to the InCountry storage network.
@@ -43,133 +44,141 @@ class Storage(object):
         INC_API_KEY
         INC_ENDPOINT
         """
+
         self.debug = debug
-
-        self.env_id = environment_id or os.environ.get("INC_ENVIRONMENT_ID")
-        if not self.env_id:
-            raise ValueError("Please pass environment_id param or set INC_ENVIRONMENT_ID env var")
-
-        self.api_key = api_key or os.environ.get("INC_API_KEY")
-        if not self.api_key:
-            raise ValueError("Please pass api_key param or set INC_API_KEY env var")
-
-        self.endpoint = endpoint or os.environ.get("INC_ENDPOINT")
-
-        if self.endpoint:
-            self.log("Connecting to storage endpoint: ", self.endpoint)
-        self.log("Using API key: ", self.api_key)
-
+        self.env_id = environment_id
         self.encrypt = encrypt
-        if encrypt:
-            if not isinstance(secret_key_accessor, SecretKeyAccessor):
-                raise ValueError("Encryption is on. Provide secret_key_accessor parameter of class SecretKeyAccessor")
-            self.crypto = InCrypto(secret_key_accessor)
-        else:
-            self.crypto = InCrypto()
+        self.crypto = InCrypto(secret_key_accessor, custom_encryption_configs) if self.encrypt else InCrypto()
 
-    def write(self, country: str, key: str, **record_kwargs):
-        country = country.lower()
-        data = {"country": country, "key": key}
-
-        for k in ["body", "key2", "key3", "profile_key", "range_key"]:
-            if record_kwargs.get(k):
-                data[k] = record_kwargs.get(k)
-
-        data_to_send = self.encrypt_record(data)
-
-        r = requests.post(
-            self.getendpoint(country, "/v2/storage/records/" + country),
-            headers=self.headers(),
-            data=json.dumps(data_to_send),
+        self.http_client = HttpClient(
+            env_id=self.env_id,
+            api_key=api_key,
+            endpoint=endpoint,
+            debug=self.debug,
+            options=options.get("http_options", {}),
         )
 
-        self.raise_if_server_error(r)
+        self.log("Using API key: ", api_key)
 
-        return data
+    @validate_model(Country)
+    @validate_model(Record)
+    def write(
+        self,
+        country: str,
+        key: str,
+        body: str = None,
+        key2: str = None,
+        key3: str = None,
+        profile_key: str = None,
+        range_key: int = None,
+    ) -> Dict[str, Dict]:
+        record = {}
+        for k in ["key", "body", "key2", "key3", "profile_key", "range_key"]:
+            if locals().get(k, None):
+                record[k] = locals().get(k, None)
 
-    def update_one(self, country: str, filters: dict, **record_kwargs):
-        country = country.lower()
-        existing_records_response = self.find(country=country, limit=1, offset=0, **filters)
+        data_to_send = self.encrypt_record(record)
+        self.http_client.write(country=country, data=data_to_send)
+        return {"record": record}
 
-        if existing_records_response["meta"]["total"] >= 2:
-            raise StorageServerError("Multiple records found. Can not update")
+    @validate_model(Country)
+    @validate_model(RecordListForBatch)
+    def batch_write(self, country: str, records: list) -> Dict[str, List]:
+        encrypted_records = [self.encrypt_record(record) for record in records]
+        data_to_send = {"records": encrypted_records}
+        self.http_client.batch_write(country=country, data=data_to_send)
+        return {"records": records}
 
-        if existing_records_response["meta"]["total"] == 0:
-            raise StorageServerError("Record not found")
+    @validate_model(Country)
+    @validate_model(Record)
+    def read(self, country: str, key: str) -> Dict[str, Dict]:
+        key = get_salted_hash(key, self.env_id)
+        response = self.http_client.read(country=country, key=key)
+        return {"record": self.decrypt_record(response)}
 
-        updated_record = {**existing_records_response["data"][0], **record_kwargs}
-
-        self.write(country=country, **updated_record)
-
-        return updated_record
-
-    def read(self, country: str, key: str):
-        country = country.lower()
-
-        key = self.hash_custom_key(key)
-
-        r = requests.get(
-            self.getendpoint(country, "/v2/storage/records/" + country + "/" + key), headers=self.headers(),
+    @validate_model(Country)
+    @validate_model(FindFilter)
+    def find(
+        self,
+        country: str,
+        limit: int = None,
+        offset: int = None,
+        key: Union[str, List[str], Dict] = None,
+        key2: Union[str, List[str], Dict] = None,
+        key3: Union[str, List[str], Dict] = None,
+        profile_key: Union[str, List[str], Dict] = None,
+        range_key: Union[int, List[int], Dict] = None,
+        version: Union[int, List[int], Dict] = None,
+    ) -> Dict[str, Any]:
+        filter_params = self.prepare_filter_params(
+            key=key, key2=key2, key3=key3, profile_key=profile_key, range_key=range_key, version=version,
         )
-        if r.status_code == 404:
-            # Not found is ok
-            return None
-
-        self.raise_if_server_error(r)
-        data = r.json()
-
-        return self.decrypt_record(data)
-
-    def find(self, country: str, limit: int = FIND_LIMIT, offset: int = 0, **filter_kwargs):
-        if not isinstance(limit, int) or limit <= 0 or limit > self.FIND_LIMIT:
-            raise StorageClientError("limit should be an integer > 0 and <= %s" % self.FIND_LIMIT)
-
-        if not isinstance(offset, int) or offset < 0:
-            raise StorageClientError("limit should be an integer >= 0")
-
-        filter_params = self.prepare_filter_params(**filter_kwargs)
         options = {"limit": limit, "offset": offset}
 
-        r = requests.post(
-            self.getendpoint(country, "/v2/storage/records/" + country + "/find"),
-            headers=self.headers(),
-            data=json.dumps({"filter": filter_params, "options": options}),
-        )
-
-        self.raise_if_server_error(r)
-        response = r.json()
+        response = self.http_client.find(country=country, data={"filter": filter_params, "options": options})
 
         decoded_records = []
         undecoded_records = []
         for record in response["data"]:
             try:
                 decoded_records.append(self.decrypt_record(record))
-            except InCryptoException as error:
+            except StorageCryptoException as error:
                 undecoded_records.append({"rawData": record, "error": error})
 
         result = {
             "meta": response["meta"],
-            "data": decoded_records,
+            "records": decoded_records,
         }
         if len(undecoded_records) > 0:
             result["errors"] = undecoded_records
 
         return result
 
-    def find_one(self, offset=0, **kwargs):
-        result = self.find(offset=offset, limit=1, **kwargs)
-        return result["data"][0] if len(result["data"]) else None
-
-    def delete(self, country: str, key: str):
-        country = country.lower()
-
-        key = self.hash_custom_key(key)
-
-        r = requests.delete(
-            self.getendpoint(country, "/v2/storage/records/" + country + "/" + key), headers=self.headers(),
+    @validate_model(Country)
+    @validate_model(FindFilter)
+    def find_one(
+        self,
+        country: str,
+        offset: int = None,
+        key: Union[str, List[str], Dict] = None,
+        key2: Union[str, List[str], Dict] = None,
+        key3: Union[str, List[str], Dict] = None,
+        profile_key: Union[str, List[str], Dict] = None,
+        range_key: Union[int, List[int], Dict] = None,
+        version: Union[int, List[int], Dict] = None,
+    ) -> Union[None, Dict[str, Dict]]:
+        result = self.find(
+            country=country,
+            limit=1,
+            offset=offset,
+            key=key,
+            key2=key2,
+            key3=key3,
+            profile_key=profile_key,
+            range_key=range_key,
+            version=version,
         )
-        self.raise_if_server_error(r)
-        return r.json()
+        return {"record": result["records"][0]} if len(result["records"]) else None
+
+    @validate_model(Country)
+    @validate_model(Record)
+    def delete(self, country: str, key: str) -> Dict[str, bool]:
+        key = get_salted_hash(key, self.env_id)
+        self.http_client.delete(country=country, key=key)
+        return {"success": True}
+
+    @validate_encryption_enabled
+    @validate_model(Country)
+    @validate_model(FindFilter)
+    def migrate(self, country: str, limit: int = None) -> Dict[str, int]:
+        current_secret_version = self.crypto.get_current_secret_version()
+        find_res = self.find(country=country, limit=limit, version={"$not": current_secret_version})
+        self.batch_write(country=country, records=find_res["records"])
+
+        return {
+            "migrated": find_res["meta"]["count"],
+            "total_left": find_res["meta"]["total"] - find_res["meta"]["count"],
+        }
 
     ###########################################
     # Common functions
@@ -178,89 +187,20 @@ class Storage(object):
         if self.debug:
             print("[incountry] ", args)
 
-    def is_json(self, data):
-        try:
-            json.loads(data)
-        except ValueError:
-            return False
-        return True
-
-    def hash_custom_key(self, value):
-        return self.crypto.hash(value + ":" + self.env_id)
-
     def prepare_filter_params(self, **filter_kwargs):
         filter_params = {}
         for k in ["key", "key2", "key3", "profile_key"]:
             if filter_kwargs.get(k):
                 if filter_kwargs.get(k, None) and isinstance(filter_kwargs[k], list):
-                    filter_params[k] = [self.hash_custom_key(x) for x in filter_kwargs[k]]
+                    filter_params[k] = [get_salted_hash(x, self.env_id) for x in filter_kwargs[k]]
                 elif filter_kwargs.get(k, None):
-                    filter_params[k] = self.hash_custom_key(filter_kwargs[k])
+                    filter_params[k] = get_salted_hash(filter_kwargs[k], self.env_id)
         if filter_kwargs.get("range_key", None):
             filter_params["range_key"] = filter_kwargs["range_key"]
         return filter_params
 
     def encrypt_record(self, record):
-        res = dict(record)
-        body = {"meta": {}, "payload": None}
-        for k in ["key", "key2", "key3", "profile_key"]:
-            if res.get(k):
-                body["meta"][k] = res.get(k)
-                res[k] = self.hash_custom_key(res[k])
-        if res.get("body"):
-            body["payload"] = res.get("body")
-
-        res["body"] = self.crypto.encrypt(json.dumps(body))
-        return res
+        return encrypt_record(self.crypto, record, self.env_id)
 
     def decrypt_record(self, record):
-        res = dict(record)
-        if res.get("body"):
-            res["body"] = self.crypto.decrypt(res["body"])
-            if self.is_json(res["body"]):
-                body = json.loads(res["body"])
-                if body.get("payload"):
-                    res["body"] = body.get("payload")
-                else:
-                    del res["body"]
-                for k in ["key", "key2", "key3", "profile_key"]:
-                    if record.get(k) and body["meta"].get(k):
-                        res[k] = body["meta"][k]
-        return res
-
-    def get_midpop_country_codes(self):
-        r = requests.get(self.PORTALBACKEND_URI + "/countries")
-
-        self.raise_if_server_error(r)
-        data = r.json()
-
-        return [country["id"].lower() for country in data["countries"] if country["direct"]]
-
-    def getendpoint(self, country, path):
-        if not path.startswith("/"):
-            path = "/" + path
-
-        if self.endpoint:
-            res = "{}{}".format(self.endpoint, path)
-            self.log("Endpoint: ", res)
-            return res
-
-        midpops = self.get_midpop_country_codes()
-
-        is_midpop = country in midpops
-
-        res = Storage.get_midpop_url(country) + path if is_midpop else "{}{}".format(self.DEFAULT_ENDPOINT, path)
-
-        self.log("Endpoint: ", res)
-        return res
-
-    def headers(self):
-        return {
-            "Authorization": "Bearer " + self.api_key,
-            "x-env-id": self.env_id,
-            "Content-Type": "application/json",
-        }
-
-    def raise_if_server_error(self, response):
-        if response.status_code >= 400:
-            raise StorageServerError("{} {} - {}".format(response.status_code, response.url, response.text))
+        return decrypt_record(self.crypto, record)

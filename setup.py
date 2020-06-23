@@ -3,9 +3,6 @@
 
 # Note: this is a setup file for pip/pypi. It's not a part of the SDK package.
 
-# Note: To use the 'upload' functionality of this file, you must:
-#   $ pipenv install twine --dev
-
 import io
 import os
 import sys
@@ -18,13 +15,12 @@ from setuptools import find_packages, setup, Command
 NAME = "incountry"
 DESCRIPTION = "InCountry Storage SDK"
 URL = "https://github.com/incountry/sdk-python"
-EMAIL = "developers@incountry.com"
+EMAIL = "sdks@incountry.com"
 AUTHOR = "InCountry"
 REQUIRES_PYTHON = ">=3.6.0"
-VERSION = "1.1.2"
 
 # What packages are required for this module to be executed?
-REQUIRED = ["requests", "cryptography"]
+REQUIRED = ["requests", "cryptography", "pydantic", "wrapt"]
 
 # What packages are optional?
 EXTRAS = {
@@ -48,12 +44,10 @@ except FileNotFoundError:
 
 # Load the package's __version__.py module as a dictionary.
 about = {}
-if not VERSION:
-    project_slug = NAME.lower().replace("-", "_").replace(" ", "_")
-    with open(os.path.join(here, project_slug, "__version__.py")) as f:
-        exec(f.read(), about)
-else:
-    about["__version__"] = VERSION
+
+project_slug = NAME.lower().replace("-", "_").replace(" ", "_")
+with open(os.path.join(here, project_slug, "__version__.py")) as f:
+    exec(f.read(), about)
 
 
 class UploadCommand(Command):

@@ -1,18 +1,17 @@
-class SecretKeyAccessorException(Exception):
+class StorageException(Exception):
     pass
 
 
-class InCryptoException(Exception):
+class StorageClientException(StorageException):
+    def __init__(self, message, original_exception=None):
+        super(StorageException, self).__init__(message)
+
+        self.original_exception = original_exception
+
+
+class StorageServerException(StorageException):
     pass
 
 
-class StorageError(Exception):
-    pass
-
-
-class StorageClientError(StorageError):
-    pass
-
-
-class StorageServerError(StorageError):
+class StorageCryptoException(StorageException):
     pass

@@ -1,9 +1,11 @@
 import os
 import pytest
-import sure
+import sure  # noqa: F401
 import base64
 
-from incountry import InCrypto, InCryptoException, SecretKeyAccessor
+from cryptography.fernet import Fernet
+
+from incountry import InCrypto, StorageCryptoException, SecretKeyAccessor, StorageClientException
 
 PLAINTEXTS = [
     "",
@@ -18,7 +20,6 @@ PLAINTEXTS = [
 
 PREPARED_DATA_BY_VERSION = {
     "pt": [(("pt:SW5Db3VudHJ5"), "InCountry", "")],
-    "0": [(("7765618db31daf5366a6fc3520010327"), "InCountry", "password")],
     "1": [
         (
             (
@@ -42,9 +43,11 @@ PREPARED_DATA_BY_VERSION = {
     ],
 }
 
-PREPARED_HASH = {
-    "hash": "e3937cd968975a95dfd22424ac9370c1e1239d97cc23a2310b807bdd8b1c7a9f",
-    "plaintext": "InCountry",
+VALID_CUSTOM_ENCRYPTION_CONFIG = {
+    "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
+    "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+    "version": "test",
+    "isCurrent": True,
 }
 
 
@@ -65,7 +68,7 @@ def test_pack_unpack():
 
 @pytest.mark.happy_path
 def test_unpack_error():
-    InCrypto.unpack_base64.when.called_with("").should.have.raised(InCryptoException)
+    InCrypto.unpack_base64.when.called_with("").should.have.raised(StorageCryptoException)
 
 
 @pytest.mark.parametrize("plaintext", PLAINTEXTS)
@@ -74,7 +77,32 @@ def test_unpack_error():
 def test_enc_dec(plaintext, secret_key_accessor):
     cipher = InCrypto(secret_key_accessor)
 
-    enc = cipher.encrypt(plaintext)
+    [enc, *rest] = cipher.encrypt(plaintext)
+    dec = cipher.decrypt(enc)
+
+    assert plaintext == dec
+
+
+@pytest.mark.parametrize("plaintext", PLAINTEXTS)
+@pytest.mark.parametrize(
+    "secret_key_accessor",
+    [
+        SecretKeyAccessor(
+            lambda: {
+                "currentVersion": 2,
+                "secrets": [
+                    {"secret": "password1", "version": 1},
+                    {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
+                ],
+            }
+        )
+    ],
+)
+@pytest.mark.happy_path
+def test_enc_dec_with_key(plaintext, secret_key_accessor):
+    cipher = InCrypto(secret_key_accessor)
+
+    [enc, *rest] = cipher.encrypt(plaintext)
     dec = cipher.decrypt(enc)
 
     assert plaintext == dec
@@ -85,8 +113,9 @@ def test_enc_dec(plaintext, secret_key_accessor):
 def test_enc_without_secret_key_accessor(plaintext):
     cipher = InCrypto()
 
-    enc = cipher.encrypt(plaintext)
+    [enc, version] = cipher.encrypt(plaintext)
     base64.b64decode.when.called_with(enc[len(InCrypto.PT_ENC_VERSION) + 1 :]).should_not.throw(Exception)
+    assert version == SecretKeyAccessor.DEFAULT_VERSION
 
 
 @pytest.mark.parametrize(
@@ -104,10 +133,17 @@ def test_dec(ciphertext, plaintext, password):
 
 
 @pytest.mark.happy_path
-def test_hash():
-    cipher = InCrypto("password")
+@pytest.mark.parametrize(
+    "secret_key_accessor, expected_version",
+    [
+        (SecretKeyAccessor(lambda: "password"), SecretKeyAccessor.DEFAULT_VERSION),
+        (SecretKeyAccessor(lambda: {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}), 1,),
+    ],
+)
+def test_get_current_version(secret_key_accessor, expected_version):
+    cipher = InCrypto(secret_key_accessor=secret_key_accessor)
 
-    assert PREPARED_HASH["hash"] == cipher.hash(PREPARED_HASH["plaintext"])
+    assert cipher.get_current_secret_version() == expected_version
 
 
 @pytest.mark.parametrize(
@@ -123,8 +159,28 @@ def test_hash():
 def test_dec_non_pt_without_secret_key_accessor(ciphertext, plaintext, password):
     cipher = InCrypto()
     cipher.decrypt.when.called_with(ciphertext).should.have.raised(
-        InCryptoException, "No secret_key_accessor provided. Cannot decrypt encrypted data"
+        StorageCryptoException, "No secret_key_accessor provided. Cannot decrypt encrypted data"
     )
+
+
+@pytest.mark.parametrize("plaintext", PLAINTEXTS)
+@pytest.mark.parametrize(
+    "custom_encryption", [[VALID_CUSTOM_ENCRYPTION_CONFIG]],
+)
+@pytest.mark.happy_path
+def test_custom_enc_dec(plaintext, custom_encryption):
+    key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))
+
+    secret_key_accessor = SecretKeyAccessor(
+        lambda: {"currentVersion": 1, "secrets": [{"secret": key, "version": 1, "isForCustomEncryption": True}]}
+    )
+
+    cipher = InCrypto(secret_key_accessor, custom_encryption)
+
+    [enc, *rest] = cipher.encrypt(plaintext)
+    dec = cipher.decrypt(enc)
+
+    assert plaintext == dec
 
 
 @pytest.mark.parametrize("plaintext", PLAINTEXTS)
@@ -136,9 +192,9 @@ def test_enc_dec_v1_wrong_password(plaintext, password):
     cipher = InCrypto(secret_accessor)
     cipher2 = InCrypto(secret_accessor2)
 
-    enc = cipher.encrypt(plaintext)
+    [enc, *rest] = cipher.encrypt(plaintext)
 
-    cipher2.decrypt.when.called_with(enc).should.have.raised(InCryptoException)
+    cipher2.decrypt.when.called_with(enc).should.have.raised(StorageCryptoException)
 
 
 @pytest.mark.parametrize("ciphertext, plaintext, password", PREPARED_DATA_BY_VERSION["pt"])
@@ -146,16 +202,7 @@ def test_enc_dec_v1_wrong_password(plaintext, password):
 def test_dec_vPT_no_b64(ciphertext, plaintext, password):
     cipher = InCrypto()
 
-    cipher.decrypt.when.called_with(ciphertext + ":").should.have.raised(InCryptoException)
-
-
-@pytest.mark.parametrize("ciphertext, plaintext, password", PREPARED_DATA_BY_VERSION["0"])
-@pytest.mark.error_path
-def test_dec_v0_wrong_padding(ciphertext, plaintext, password):
-    secret_accessor = SecretKeyAccessor(lambda: password)
-    cipher = InCrypto(secret_accessor)
-
-    cipher.decrypt.when.called_with(ciphertext[:-2]).should.have.raised(InCryptoException)
+    cipher.decrypt.when.called_with(ciphertext + ":").should.have.raised(StorageCryptoException)
 
 
 @pytest.mark.parametrize("ciphertext, plaintext, password", PREPARED_DATA_BY_VERSION["1"])
@@ -164,7 +211,7 @@ def test_dec_v1_wrong_auth_tag(ciphertext, plaintext, password):
     secret_accessor = SecretKeyAccessor(lambda: password)
     cipher = InCrypto(secret_accessor)
 
-    cipher.decrypt.when.called_with(ciphertext[:-2]).should.have.raised(InCryptoException)
+    cipher.decrypt.when.called_with(ciphertext[:-2]).should.have.raised(StorageCryptoException)
 
 
 @pytest.mark.parametrize("ciphertext, plaintext, password", PREPARED_DATA_BY_VERSION["2"])
@@ -173,13 +220,192 @@ def test_dec_v2_wrong_auth_tag(ciphertext, plaintext, password):
     secret_accessor = SecretKeyAccessor(lambda: password)
     cipher = InCrypto(secret_accessor)
 
-    cipher.decrypt.when.called_with(ciphertext[:-2]).should.have.raised(InCryptoException)
+    cipher.decrypt.when.called_with(ciphertext[:-2]).should.have.raised(StorageCryptoException)
 
 
-@pytest.mark.parametrize("ciphertext", ["unsupported_version:abc", "some:unsupported:data"])
+@pytest.mark.parametrize(
+    "ciphertext", ["unsupported_version:abc", "some:unsupported:data", "7765618db31daf5366a6fc3520010327"]
+)
 @pytest.mark.error_path
 def test_wrong_ciphertext(ciphertext):
     secret_accessor = SecretKeyAccessor(lambda: "password")
     cipher = InCrypto(secret_accessor)
 
-    cipher.decrypt.when.called_with(ciphertext).should.have.raised(InCryptoException)
+    cipher.decrypt.when.called_with(ciphertext).should.have.raised(StorageCryptoException)
+
+
+@pytest.mark.error_path
+def test_custom_enc_without_secret_key_accessor():
+    InCrypto.when.called_with(None, []).should.have.raised(
+        StorageClientException,
+        f"provide a valid secret_key_accessor param of class {SecretKeyAccessor.__name__} to use custom encryption",
+    )
+
+
+@pytest.mark.parametrize(
+    "custom_encryption",
+    [
+        [{**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": lambda input, key, key_version: True}],
+        [{**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": lambda input, key, key_version: True}],
+    ],
+)
+@pytest.mark.error_path
+def test_custom_enc_with_methods_not_returning_str(custom_encryption):
+    secret_key_accessor = SecretKeyAccessor(
+        lambda: {
+            "currentVersion": 1,
+            "secrets": [
+                {
+                    "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
+                    "version": 1,
+                    "isForCustomEncryption": True,
+                }
+            ],
+        }
+    )
+
+    InCrypto.when.called_with(secret_key_accessor, custom_encryption).should.have.raised(
+        StorageClientException, "should return str. Got bool"
+    )
+
+
+@pytest.mark.parametrize(
+    "custom_encryption", [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
+)
+@pytest.mark.error_path
+def test_custom_enc_returning_nonstr_on_enc_after_successful_validation(custom_encryption):
+    secret_key_accessor = SecretKeyAccessor(
+        lambda: {
+            "currentVersion": 1,
+            "secrets": [
+                {
+                    "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
+                    "version": 1,
+                    "isForCustomEncryption": True,
+                }
+            ],
+        }
+    )
+
+    global i
+    i = 0
+
+    def enc(input, key, key_version):
+        global i
+        if i > 1:
+            return True
+        i += 1
+        return Fernet(key).encrypt(input.encode("utf8")).decode("utf8")
+
+    custom_encryption[0]["encrypt"] = enc
+    cipher = InCrypto(secret_key_accessor, custom_encryption)
+    cipher.encrypt.when.called_with("plaintext").should.have.raised(
+        StorageCryptoException, "Unexpected error during encryption"
+    )
+
+
+@pytest.mark.parametrize(
+    "custom_encryption", [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
+)
+@pytest.mark.error_path
+def test_custom_enc_returning_nonstr_on_dec_after_successful_validation(custom_encryption):
+    secret_key_accessor = SecretKeyAccessor(
+        lambda: {
+            "currentVersion": 1,
+            "secrets": [
+                {
+                    "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
+                    "version": 1,
+                    "isForCustomEncryption": True,
+                }
+            ],
+        }
+    )
+
+    global i
+    i = 0
+
+    def dec(input, key, key_version):
+        global i
+        if i > 0:
+            return True
+        i += 1
+        return Fernet(key).decrypt(input.encode("utf8")).decode("utf8")
+
+    custom_encryption[0]["decrypt"] = dec
+    cipher = InCrypto(secret_key_accessor, custom_encryption)
+    [enc, *rest] = cipher.encrypt("plaintext")
+    cipher.decrypt.when.called_with(enc).should.have.raised(
+        StorageCryptoException, "Unexpected error during decryption"
+    )
+
+
+@pytest.mark.parametrize(
+    "custom_encryption", [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
+)
+@pytest.mark.error_path
+def test_custom_enc_throwing_on_enc_after_successful_validation(custom_encryption):
+    secret_key_accessor = SecretKeyAccessor(
+        lambda: {
+            "currentVersion": 1,
+            "secrets": [
+                {
+                    "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
+                    "version": 1,
+                    "isForCustomEncryption": True,
+                }
+            ],
+        }
+    )
+
+    global i
+    i = 0
+
+    def enc(input, key, key_version):
+        global i
+        if i > 1:
+            raise Exception("error")
+        i += 1
+        return Fernet(key).encrypt(input.encode("utf8")).decode("utf8")
+
+    custom_encryption[0]["encrypt"] = enc
+    cipher = InCrypto(secret_key_accessor, custom_encryption)
+    cipher.encrypt.when.called_with("plaintext").should.have.raised(
+        StorageCryptoException, "Unexpected error during encryption"
+    )
+
+
+@pytest.mark.parametrize(
+    "custom_encryption", [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
+)
+@pytest.mark.error_path
+def test_custom_enc_throwing_on_dec_after_successful_validation(custom_encryption):
+    secret_key_accessor = SecretKeyAccessor(
+        lambda: {
+            "currentVersion": 1,
+            "secrets": [
+                {
+                    "secret": InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH)),
+                    "version": 1,
+                    "isForCustomEncryption": True,
+                }
+            ],
+        }
+    )
+
+    global i
+    i = 0
+
+    def dec(input, key, key_version):
+        global i
+        if i > 0:
+            raise Exception("error")
+        i += 1
+        return Fernet(key).decrypt(input.encode("utf8")).decode("utf8")
+
+    custom_encryption[0]["decrypt"] = dec
+    cipher = InCrypto(secret_key_accessor, custom_encryption)
+    [enc, *rest] = cipher.encrypt("plaintext")
+    cipher.decrypt.when.called_with(enc).should.have.raised(
+        StorageCryptoException, "Unexpected error during decryption"
+    )

@@ -11,21 +11,19 @@ sure = "*"
 pytest-cov = "*"
 pytest-tldr = "*"
 flake8 = "*"
-pytest-testrail = "*"
 
 [packages]
 requests = "*"
-setuptools = "*"
-wheel = "*"
-twine = "*"
 cryptography = "*"
+pydantic = "*"
+wrapt = "*"
 
 [requires]
 python_version = "3.7"
 
 [scripts]
-tests = "pytest -s -vv --ignore=tests/integration --rootdir=tests/unit --cov=incountry --cov-report xml:ut_coverage.xml --cov-report term-missing"
 integrations = "pytest -s -vv --ignore=tests/unit --rootdir=tests/integration --cov=incountry --cov-report xml:it_coverage.xml --cov-report term-missing"
+tests = "pytest -s -vv --ignore=tests/integration --rootdir=tests/unit --cov=incountry --cov-report xml:ut_coverage.xml --cov-report term-missing"
 check-format = "black --check ."
 check-flake8 = "flake8 ."
 
