@@ -45,7 +45,7 @@ You can turn off encryption (not recommended). Set `encrypt` property to `false`
     "http_options": {
         "timeout": int,         # In seconds. Should be greater than 0
     },
-    "auth_endpoint": str,       # custom endpoint to use for fetching oAuth tokens
+    "auth_endpoints": dict,     # custom endpoints regional map to use for fetching oAuth tokens
 
     "countries_endpoint": str,  # If your PoPAPI configuration relies on a custom PoPAPI server
                                 # (rather than the default one) use `countriesEndpoint` option
@@ -91,7 +91,12 @@ storage = Storage(
     debug=True,
     secret_key_accessor=SecretKeyAccessor(lambda: "password"),
     options={
-        "auth_endpoint": "<oAuth endpoint url>"
+        "auth_endpoints": {
+            "default": "https://auth-server-1.com",
+            "emea": "https://auth-server-emea.com",
+            "apac": "https://auth-server-apac.com",
+            "amer": "https://auth-server-amer.com",
+        }
     }
 )
 ```

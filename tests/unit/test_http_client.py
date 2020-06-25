@@ -37,14 +37,19 @@ def client():
 
 
 def get_oauth_token_client(
-    client_id="client_id", client_secret="client_secret", scope="scope", endpoint=None, token=None, expires_in=300
+    client_id="client_id", client_secret="client_secret", scope="scope", auth_endpoints=None, token=None, expires_in=300
 ):
-    httpretty.register_uri(
-        httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION] if endpoint is None else endpoint,
-        body=json.dumps({"access_token": str(uuid.uuid1()) if token is None else token, "expires_in": expires_in}),
+    auth_endpoints = auth_endpoints or OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS
+
+    for key in auth_endpoints.keys():
+        httpretty.register_uri(
+            httpretty.POST,
+            auth_endpoints[key],
+            body=json.dumps({"access_token": str(uuid.uuid1()) if token is None else token, "expires_in": expires_in}),
+        )
+    return OAuthTokenClient(
+        client_id=client_id, client_secret=client_secret, scope=scope, auth_endpoints=auth_endpoints
     )
-    return OAuthTokenClient(client_id=client_id, client_secret=client_secret, scope=scope, endpoint=endpoint)
 
 
 @pytest.mark.parametrize(
@@ -326,7 +331,7 @@ def test_oauth_token_client_custom_endpoint(client):
         httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps({"key": key}),
     )
 
-    client(token_client=get_oauth_token_client(endpoint="https://oauth.com")).read.when.called_with(
+    client(token_client=get_oauth_token_client(auth_endpoints={"default": "https://oauth.com"})).read.when.called_with(
         country=COUNTRY, key=key_hash
     ).should_not.throw(Exception)
 
@@ -410,7 +415,7 @@ def test_oauth_token_successful_retry_on_401(client):
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS["default"],
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
@@ -441,7 +446,7 @@ def test_oauth_token_unsuccessful_retry_on_401(client):
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS["default"],
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
@@ -462,7 +467,7 @@ def test_oauth_token_unsuccessful_retry_on_401(client):
 def test_oauth_work_with_same_token_during_expiration_period(monkeypatch):
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS["default"],
         body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
     )
 
@@ -486,7 +491,7 @@ def test_oauth_fetch_new_token_when_expires(monkeypatch):
     def get_token():
         httpretty.register_uri(
             httpretty.POST,
-            OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
+            OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS["default"],
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": token_ttl}),
         )
 
@@ -510,7 +515,7 @@ def test_oauth_fetch_new_token_for_different_audiences(monkeypatch):
     def get_token(audience):
         httpretty.register_uri(
             httpretty.POST,
-            OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
+            OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS["default"],
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": token_ttl}),
         )
 
@@ -530,7 +535,7 @@ def test_oauth_refetch_token(monkeypatch):
     def get_token(audience):
         httpretty.register_uri(
             httpretty.POST,
-            OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
+            OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS["default"],
             body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
         )
 
@@ -549,7 +554,7 @@ def test_oauth_throw_error():
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS["default"],
         body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
         status=400,
     )
@@ -564,7 +569,7 @@ def test_httpclient_oauth_throw_error(client):
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS["default"],
         body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}),
         status=400,
     )
@@ -595,13 +600,7 @@ def test_httpclient_oauth_throw_error(client):
 @pytest.mark.happy_path
 def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, expected_audience, countries):
     record = {"key": "key1", "version": 0}
-    client = HttpClient(
-        env_id="test",
-        endpoint_mask=endpoint_mask,
-        token_client=get_oauth_token_client(
-            scope="test", endpoint=OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION]
-        ),
-    )
+    client = HttpClient(env_id="test", endpoint_mask=endpoint_mask, token_client=get_oauth_token_client(scope="test"),)
 
     httpretty.register_uri(
         httpretty.GET, HttpClient.DEFAULT_COUNTRIES_ENDPOINT, body=json.dumps({"countries": countries})
@@ -611,14 +610,6 @@ def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, ex
         httpretty.GET,
         expected_endpoint + "/v2/storage/records/" + country + "/" + record.get("key"),
         body=json.dumps(record),
-    )
-
-    httpretty.register_uri(
-        httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION],
-        responses=[
-            httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
-        ],
     )
 
     client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
@@ -672,9 +663,7 @@ def test_http_client_endpoint_mask_with_endpoint(
         env_id="test",
         endpoint_mask=endpoint_mask,
         endpoint=endpoint,
-        token_client=get_oauth_token_client(
-            scope="test", endpoint=OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION]
-        ),
+        token_client=get_oauth_token_client(scope="test"),
     )
 
     httpretty.register_uri(
@@ -732,7 +721,7 @@ def test_http_client_using_proper_regional_auth_endpoint(client, country, is_mid
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[expected_region],
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS[expected_region],
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
         ],
@@ -758,7 +747,7 @@ def test_http_client_using_default_regional_auth_for_custom_endpoint(client, cou
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[expected_region],
+        OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS[expected_region],
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
         ],
@@ -769,14 +758,14 @@ def test_http_client_using_default_regional_auth_for_custom_endpoint(client, cou
 
 @httpretty.activate
 @pytest.mark.parametrize("country", ["ca", "ru", "ag", "au"])
-@pytest.mark.parametrize("auth_endpoint", ["https://auth.io"])
+@pytest.mark.parametrize("auth_endpoints", [{"default": "https://auth.io"}])
 @pytest.mark.parametrize("endpoint", [POPAPI_URL])
 @pytest.mark.happy_path
-def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, country, auth_endpoint, endpoint):
+def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, country, auth_endpoints, endpoint):
     record = {"key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(
-        client_id="client_id", client_secret="client_secret", scope="test", endpoint=auth_endpoint
+        client_id="client_id", client_secret="client_secret", scope="test", auth_endpoints=auth_endpoints
     )
     client = HttpClient(env_id="test", token_client=token_client, endpoint=endpoint)
 
@@ -786,7 +775,7 @@ def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, coun
 
     httpretty.register_uri(
         httpretty.POST,
-        auth_endpoint,
+        auth_endpoints["default"],
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
         ],
@@ -801,8 +790,8 @@ def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, coun
     [
         ("ca", False, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
         ("ru", True, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ag", False, "emea", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
-        ("ag", True, "emea", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
+        ("ag", False, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
+        ("ag", True, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
         ("au", False, "emea", [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],),
         ("au", True, "apac", [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],),
     ],
@@ -814,9 +803,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
     endpoint_mask = ".qa.incountry.com"
     record = {"key": "key1", "version": 0}
 
-    token_client = OAuthTokenClient(
-        client_id="client_id", client_secret="client_secret", scope="test", endpoint_mask=endpoint_mask,
-    )
+    token_client = OAuthTokenClient(client_id="client_id", client_secret="client_secret", scope="test",)
     client = HttpClient(env_id="test", token_client=token_client, endpoint_mask=endpoint_mask,)
 
     httpretty.register_uri(
@@ -831,7 +818,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.get_auth_url(expected_region, endpoint_mask),
+        OAuthTokenClient.get_endpoint(expected_region),
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
         ],
@@ -844,12 +831,12 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
 @pytest.mark.parametrize(
     "country, is_midpop,  expected_region, countries",
     [
-        ("ca", False, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ru", True, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ag", False, "emea", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
-        ("ag", True, "emea", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
-        ("au", False, "emea", [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],),
-        ("au", True, "emea", [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],),
+        ("ca", False, "default", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
+        ("ru", True, "default", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
+        ("ag", False, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
+        ("ag", True, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
+        ("au", False, "default", [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],),
+        ("au", True, "default", [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],),
     ],
 )
 @pytest.mark.happy_path
@@ -859,9 +846,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_en
     endpoint_mask = ".qa.incountry.com"
     record = {"key": "key1", "version": 0}
 
-    token_client = OAuthTokenClient(
-        client_id="client_id", client_secret="client_secret", scope="test", endpoint_mask=endpoint_mask,
-    )
+    token_client = OAuthTokenClient(client_id="client_id", client_secret="client_secret", scope="test",)
     client = HttpClient(env_id="test", token_client=token_client, endpoint=POPAPI_URL, endpoint_mask=endpoint_mask,)
 
     httpretty.register_uri(
@@ -874,7 +859,67 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_en
 
     httpretty.register_uri(
         httpretty.POST,
-        OAuthTokenClient.get_auth_url(expected_region, endpoint_mask),
+        OAuthTokenClient.get_endpoint(expected_region),
+        responses=[
+            httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
+        ],
+    )
+
+    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+
+
+@httpretty.activate
+@pytest.mark.parametrize("endpoint_mask", [None, ".private.incountry.com"])
+@pytest.mark.parametrize(
+    "auth_endpoints",
+    [
+        {
+            "default": "https://auth1.com",
+            "emea": "https://auth2.com",
+            "amer": "https://auth3.com",
+            "apac": "https://auth4.com",
+        }
+    ],
+)
+@pytest.mark.parametrize(
+    "country, is_midpop, expected_region, countries",
+    [
+        ("ca", False, "default", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
+        ("ru", True, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
+        ("ag", False, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
+        ("ag", True, "amer", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
+        ("au", False, "default", [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],),
+        ("au", True, "apac", [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],),
+    ],
+)
+@pytest.mark.happy_path
+def test_http_client_using_custom_auth_endpoints(
+    client, endpoint_mask, auth_endpoints, country, is_midpop, expected_region, countries
+):
+    record = {"key": "key1", "version": 0}
+
+    token_client = OAuthTokenClient(
+        client_id="client_id", client_secret="client_secret", scope="test", auth_endpoints=auth_endpoints
+    )
+    client = HttpClient(env_id="test", token_client=token_client, endpoint_mask=endpoint_mask)
+
+    httpretty.register_uri(
+        httpretty.GET, HttpClient.DEFAULT_COUNTRIES_ENDPOINT, body=json.dumps({"countries": countries})
+    )
+
+    httpretty.register_uri(
+        httpretty.GET,
+        HttpClient.get_pop_url(country if is_midpop else HttpClient.DEFAULT_COUNTRY, endpoint_mask=endpoint_mask)
+        + "/v2/storage/records/"
+        + country
+        + "/"
+        + record.get("key"),
+        body=json.dumps(record),
+    )
+
+    httpretty.register_uri(
+        httpretty.POST,
+        auth_endpoints[expected_region],
         responses=[
             httpretty.Response(body=json.dumps({"access_token": str(uuid.uuid1()), "expires_in": 300}), status=200),
         ],

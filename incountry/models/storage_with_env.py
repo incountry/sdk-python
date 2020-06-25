@@ -1,5 +1,5 @@
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, StrictStr, validator, root_validator
 
@@ -8,7 +8,7 @@ from .http_options import HttpOptions
 
 class Options(BaseModel):
     http_options: Optional[HttpOptions] = {}
-    auth_endpoint: AnyHttpUrl = None
+    auth_endpoints: Dict[constr(min_length=1), AnyHttpUrl] = None
     normalize_keys: StrictBool = False
     endpoint_mask: StrictStr = None
     countries_endpoint: AnyHttpUrl = None
@@ -25,6 +25,17 @@ class Options(BaseModel):
         if not isinstance(value, dict) or len(value) == 0:
             raise ValueError("value is not a valid dict")
         return value
+
+    @validator("auth_endpoints")
+    def lowercase_auth_endpoint_keys(cls, value):
+        lowercased = {}
+        for key in value.keys():
+            lowercased[key.lower()] = str(value[key])
+
+        if "default" not in lowercased:
+            raise ValueError("Missing default auth enpoint")
+
+        return lowercased
 
 
 class StorageWithEnv(BaseModel):
