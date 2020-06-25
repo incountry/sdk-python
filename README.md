@@ -92,7 +92,7 @@ storage = Storage(
     secret_key_accessor=SecretKeyAccessor(lambda: "password"),
     options={
         "auth_endpoints": {
-            "default": "https://auth-server-1.com",
+            "default": "https://auth-server-default.com",
             "emea": "https://auth-server-emea.com",
             "apac": "https://auth-server-apac.com",
             "amer": "https://auth-server-amer.com",
