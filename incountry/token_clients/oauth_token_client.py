@@ -13,31 +13,19 @@ class Token:
 
 
 class OAuthTokenClient(TokenClient):
-    REGIONAL_AUTH_ENDPOINTS = {
+    DEFAULT_AUTH_ENDPOINTS = {
         "apac": "https://auth-apac.incountry.com/oauth2/token",
         "emea": "https://auth-emea.incountry.com/oauth2/token",
-        "amer": "https://auth-emea.incountry.com/oauth2/token",
+        "default": "https://auth-emea.incountry.com/oauth2/token",
     }
 
-    REGIONAL_MAPPING = {"apac": "apac", "emea": "emea", "amer": "emea"}
-
-    AUTH_PREFIX = "auth"
-    DEFAULT_REGION = "emea"
-
     def __init__(
-        self,
-        client_id: str,
-        client_secret: str,
-        scope: str,
-        endpoint: str = None,
-        endpoint_mask: str = None,
-        options: dict = {},
+        self, client_id: str, client_secret: str, scope: str, auth_endpoints: dict = None, options: dict = {},
     ):
         self.client_id = client_id
         self.client_secret = client_secret
         self.scope = scope
-        self.endpoint = endpoint
-        self.endpoint_mask = endpoint_mask
+        self.auth_endpoints = auth_endpoints or OAuthTokenClient.DEFAULT_AUTH_ENDPOINTS
 
         self.tokens = {}
 
@@ -58,7 +46,9 @@ class OAuthTokenClient(TokenClient):
             session.auth = (self.client_id, self.client_secret)
 
             request_data = {"grant_type": "client_credentials", "scope": self.scope, "audience": audience}
-            res = session.post(url=self.get_endpoint(region=region), data=request_data)
+            res = session.post(
+                url=OAuthTokenClient.get_endpoint(region=region, auth_endpoints=self.auth_endpoints), data=request_data
+            )
 
             if res.status_code != 200:
                 raise StorageServerException(
@@ -75,25 +65,12 @@ class OAuthTokenClient(TokenClient):
             access_token=token_data["access_token"], expires_at=time.time() + token_data["expires_in"],
         )
 
-    def get_endpoint(self, region=DEFAULT_REGION):
-        if self.endpoint is not None:
-            return self.endpoint
-
-        if self.endpoint_mask:
-            return OAuthTokenClient.get_auth_url(region, self.endpoint_mask)
-
-        if region not in OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS:
-            return OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[OAuthTokenClient.DEFAULT_REGION]
-
-        return OAuthTokenClient.REGIONAL_AUTH_ENDPOINTS[region]
-
     def can_refetch(self):
         return True
 
     @staticmethod
-    def get_auth_url(region, endpoint_mask):
-        region = region.lower()
-        result_region = OAuthTokenClient.REGIONAL_MAPPING[OAuthTokenClient.DEFAULT_REGION]
-        if region in OAuthTokenClient.REGIONAL_MAPPING:
-            result_region = OAuthTokenClient.REGIONAL_MAPPING[region]
-        return f"https://{OAuthTokenClient.AUTH_PREFIX}-{result_region}.{endpoint_mask}"
+    def get_endpoint(region, auth_endpoints=DEFAULT_AUTH_ENDPOINTS):
+        if region not in auth_endpoints:
+            return auth_endpoints["default"]
+
+        return auth_endpoints[region]

@@ -815,6 +815,8 @@ def test_valid_storage(storage_params):
         {"http_options": {"timeout": 1}, "normalize_keys": True},
         {"countries_endpoint": "https://countries.com"},
         {"endpoint_mask": ".private.incountry.io"},
+        {"auth_endpoints": {"default": "https://auth.com"}},
+        {"auth_endpoints": {"default": "https://auth.com", "emea": "https://auth-emea.com"}},
     ],
 )
 @pytest.mark.happy_path
@@ -885,6 +887,17 @@ def test_valid_options_storage(options):
         {"endpoint_mask": 1},
         {"endpoint_mask": True},
         {"endpoint_mask": False},
+        {"auth_endpoints": []},
+        {"auth_endpoints": {}},
+        {"auth_endpoints": ()},
+        {"auth_endpoints": -1},
+        {"auth_endpoints": 0},
+        {"auth_endpoints": 1},
+        {"auth_endpoints": True},
+        {"auth_endpoints": False},
+        {"auth_endpoints": {"default": "test"}},
+        {"auth_endpoints": {"default": "https://auth.com", "emea": "test"}},
+        {"auth_endpoints": {"emea": "https://auth.com"}},
     ],
 )
 @pytest.mark.happy_path
@@ -897,6 +910,32 @@ def test_invalid_options_storage(options):
             "options": options,
         }
     ).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "auth_endpoints",
+    [
+        {
+            "DEFAULT": "https://auth-1.com",
+            "AUTH": "https://auth-2.com",
+            "EMEA": "https://auth-3.com",
+            "AMER": "https://auth-4.com",
+        },
+    ],
+)
+@pytest.mark.happy_path
+def test_auth_endpoints_lowercase(auth_endpoints):
+    storage = StorageWithEnv(
+        **{
+            "environment_id": "environment_id",
+            "api_key": "api_key",
+            "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
+            "options": {"auth_endpoints": auth_endpoints},
+        }
+    )
+
+    for key in auth_endpoints.keys():
+        assert auth_endpoints[key] == storage.options.auth_endpoints[key.lower()]
 
 
 @pytest.mark.parametrize(

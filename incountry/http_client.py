@@ -15,7 +15,7 @@ class HttpClient:
     DEFAULT_ENDPOINT_MASK = "-mt-01.api.incountry.io"
     AUTH_TOTAL_RETRIES = 1
 
-    DEFAULT_AUTH_REGION = "emea"
+    DEFAULT_AUTH_REGION = "default"
 
     def __init__(
         self, env_id, token_client, endpoint=None, debug=False, endpoint_mask=None, countries_endpoint=None, options={},
@@ -150,4 +150,5 @@ class HttpClient:
 
     @staticmethod
     def get_pop_url(country, endpoint_mask=DEFAULT_ENDPOINT_MASK):
+        endpoint_mask = endpoint_mask or HttpClient.DEFAULT_ENDPOINT_MASK
         return f"https://{country}{endpoint_mask}"

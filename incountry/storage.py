@@ -61,8 +61,7 @@ class Storage:
                 client_id=client_id,
                 client_secret=client_secret,
                 scope=self.env_id,
-                endpoint=options.get("auth_endpoint"),
-                endpoint_mask=options.get("endpoint_mask", None),
+                auth_endpoints=options.get("auth_endpoints"),
                 options=options.get("http_options", {}),
             )
         )
