@@ -46,14 +46,6 @@ def omit(d, keys):
     return {x: d[x] for x in d if x not in keys}
 
 
-def mock_backend():
-    httpretty.register_uri(
-        httpretty.GET,
-        HttpClient.PORTALBACKEND_URI + "/countries",
-        body=json.dumps({"countries": [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}]}),
-    )
-
-
 def get_default_find_response(count, data, total=None):
     total = count if total is None else total
     return {
@@ -69,16 +61,22 @@ def get_key_hash(key):
 @pytest.fixture()
 def client():
     def cli(
-        encrypt=True, endpoint=POPAPI_URL, secret_accessor=SecretKeyAccessor(lambda: SECRET_KEY), custom_encryption=None
+        encrypt=True,
+        endpoint=POPAPI_URL,
+        secret_accessor=SecretKeyAccessor(lambda: SECRET_KEY),
+        custom_encryption=None,
+        environment_id="test",
+        **kwargs,
     ):
         return Storage(
             encrypt=encrypt,
             debug=True,
-            environment_id="test",
+            environment_id=environment_id,
             api_key="test",
             endpoint=endpoint,
             secret_key_accessor=secret_accessor,
             custom_encryption_configs=custom_encryption,
+            **kwargs,
         )
 
     return cli
@@ -89,7 +87,6 @@ def client():
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
 def test_write(client, record, encrypt):
-    mock_backend()
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
     write_res = client(encrypt).write(country=COUNTRY, **record)
@@ -127,7 +124,6 @@ def test_write(client, record, encrypt):
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
 def test_write_with_none_fields(client, record, encrypt):
-    mock_backend()
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
     write_res = client(encrypt).write(country=COUNTRY, **record)
@@ -154,7 +150,6 @@ def test_write_with_none_fields(client, record, encrypt):
 @pytest.mark.parametrize("keys_data", [{"currentVersion": 1, "secrets": [{"secret": SECRET_KEY, "version": 1}]}])
 @pytest.mark.happy_path
 def test_write_with_keys_data(client, record, encrypt, keys_data):
-    mock_backend()
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
     secret_accessor = SecretKeyAccessor(lambda: keys_data)
@@ -179,11 +174,35 @@ def test_write_with_keys_data(client, record, encrypt, keys_data):
 
 
 @httpretty.activate
+@pytest.mark.parametrize(
+    "record",
+    [{"key": "aAbB", "body": "test", "key2": "Key2", "key3": "Key3", "profile_key": "PrOfIlE_kEy", "range_key": 42}],
+)
+@pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.happy_path
+def test_write_normalize_keys_option(client, record, encrypt, normalize):
+    httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
+
+    client(encrypt, options={"normalize_keys": normalize}).write(country=COUNTRY, **record)
+    received_record = json.loads(httpretty.last_request().body)
+
+    if record.get("range_key", None):
+        assert received_record["range_key"] == record["range_key"]
+
+    for k in ["key", "key2", "key3", "profile_key"]:
+        if normalize:
+            assert received_record[k] != get_key_hash(record[k])
+            assert received_record[k] == get_key_hash(record[k].lower())
+        else:
+            assert received_record[k] == get_key_hash(record[k])
+
+
+@httpretty.activate
 @pytest.mark.parametrize("records", [TEST_RECORDS])
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
 def test_batch_write(client, records, encrypt):
-    mock_backend()
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
 
     batch_res = client(encrypt).batch_write(country=COUNTRY, records=records)
@@ -228,7 +247,6 @@ def test_batch_write(client, records, encrypt):
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
 def test_batch_write_with_nones(client, records, encrypt):
-    mock_backend()
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
 
     batch_res = client(encrypt).batch_write(country=COUNTRY, records=records)
@@ -252,6 +270,55 @@ def test_batch_write_with_nones(client, records, encrypt):
         for k in ["key", "key2", "key3", "profile_key", "range_key"]:
             if original_record.get(k, None) is None:
                 assert k not in received_record
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "records",
+    [
+        [
+            {
+                "key": "aAbB1",
+                "body": "test1",
+                "key2": "Key21",
+                "key3": "Key31",
+                "profile_key": "PrOfIlE_kEy1",
+                "range_key": 42,
+            },
+            {
+                "key": "aAbB2",
+                "body": "test2",
+                "key2": "Key22",
+                "key3": "Key32",
+                "profile_key": "PrOfIlE_kEy2",
+                "range_key": 43,
+            },
+        ]
+    ],
+)
+@pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.happy_path
+def test_batch_write_normalize_keys_option(client, records, encrypt, normalize):
+    httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
+
+    client(encrypt, options={"normalize_keys": normalize}).batch_write(country=COUNTRY, records=records)
+
+    received_records = json.loads(httpretty.last_request().body)
+    received_records.should.have.key("records")
+
+    for received_record in received_records["records"]:
+        original_record = next(
+            (item for item in records if item.get("range_key") == received_record.get("range_key")), None,
+        )
+        assert received_record["range_key"] == original_record["range_key"]
+
+        for k in ["key", "key2", "key3", "profile_key"]:
+            if normalize:
+                assert received_record[k] != get_key_hash(original_record[k])
+                assert received_record[k] == get_key_hash(original_record[k].lower())
+            else:
+                assert received_record[k] == get_key_hash(original_record[k])
 
 
 @httpretty.activate
@@ -350,6 +417,30 @@ def test_read_multiple_keys(client, record_1, record_2, encrypt, keys_data_old, 
 
 
 @httpretty.activate
+@pytest.mark.parametrize(
+    "record",
+    [{"key": "aAbB", "body": "test", "key2": "Key2", "key3": "Key3", "profile_key": "PrOfIlE_kEy", "range_key": 42}],
+)
+@pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.happy_path
+def test_read_normalize_keys_option(client, record, encrypt, normalize):
+    stored_record = client(encrypt, options={"normalize_keys": normalize}).encrypt_record(dict(record))
+    key_hash = get_key_hash(record["key"])
+    if normalize:
+        key_hash = get_key_hash(record["key"].lower())
+
+    httpretty.register_uri(
+        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(stored_record),
+    )
+
+    read_response = client(encrypt, options={"normalize_keys": normalize}).read(country=COUNTRY, key=record["key"])
+    read_response.should.have.key("record")
+    for k in ["key", "key2", "key3", "profile_key"]:
+        assert record[k] == read_response["record"][k]
+
+
+@httpretty.activate
 @pytest.mark.parametrize("record", TEST_RECORDS)
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -366,6 +457,26 @@ def test_delete(client, record, encrypt):
     )
 
     delete_res = client(encrypt).delete(country=COUNTRY, key=record["key"])
+    delete_res.should.be.equal({"success": True})
+
+
+@httpretty.activate
+@pytest.mark.parametrize("key", "aAbB")
+@pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.happy_path
+def test_delete_normalize_keys_option(client, key, encrypt, normalize):
+    response = {}
+
+    key_hash = get_key_hash(key)
+    if normalize:
+        key_hash = get_key_hash(key.lower())
+
+    httpretty.register_uri(
+        httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
+    )
+
+    delete_res = client(encrypt, options={"normalize_keys": normalize}).delete(country=COUNTRY, key=key)
     delete_res.should.be.equal({"success": True})
 
 
@@ -496,6 +607,54 @@ def test_find_incorrect_records(client, query, records, encrypt):
     for rec in find_response["errors"]:
         rec.should.have.key("rawData")
         rec.should.have.key("error")
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "query,records",
+    [
+        ({"key": "KeY1", "key2": "kEy2", "key3": "KEY3", "profile_key": "PrOfIlE_kEy"}, TEST_RECORDS),
+        (
+            {
+                "key": ["KeY1-1", "kEy1-2"],
+                "key2": ["kEY2-1", "KeY2-2"],
+                "key3": ["KEY3-1", "kEY3-2"],
+                "profile_key": ["PrOfIlE_kEy1", "PrOfIlE_kEy2"],
+            },
+            TEST_RECORDS,
+        ),
+    ],
+)
+@pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.happy_path
+def test_find_normalize_keys_option(client, query, records, encrypt, normalize):
+    enc_data = [client(encrypt, options={"normalize_keys": normalize}).encrypt_record(dict(x)) for x in records]
+
+    httpretty.register_uri(
+        httpretty.POST,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
+        body=json.dumps(get_default_find_response(len(enc_data), enc_data)),
+    )
+
+    client(encrypt, options={"normalize_keys": normalize}).find(country=COUNTRY, **query)
+
+    received_record = json.loads(httpretty.last_request().body)
+    received_record.should.be.a(dict)
+    received_record.should.have.key("filter")
+
+    for k in ["key", "key2", "key3", "profile_key"]:
+        if isinstance(received_record["filter"][k], list):
+            for i, val in enumerate(received_record["filter"][k]):
+                if normalize:
+                    assert val == get_key_hash(query[k][i].lower())
+                else:
+                    assert val == get_key_hash(query[k][i])
+        else:
+            if normalize:
+                assert received_record["filter"][k] == get_key_hash(query[k].lower())
+            else:
+                assert received_record["filter"][k] == get_key_hash(query[k])
 
 
 @httpretty.activate
@@ -671,20 +830,55 @@ def test_migrate_with_nones(client, records, keys_data_old, keys_data_new):
     ],
 )
 @pytest.mark.happy_path
-def test_default_endpoint(client, record, country, countries):
+def test_default_endpoints(client, record, country, countries):
     stored_record = client().encrypt_record(dict(record))
 
     midpop_ids = [c["id"].lower() for c in countries if c["direct"]]
     is_midpop = country in midpop_ids
-    endpoint = HttpClient.get_midpop_url(country) if is_midpop else HttpClient.DEFAULT_ENDPOINT
+    endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY)
 
-    countries_url = HttpClient.PORTALBACKEND_URI + "/countries"
+    countries_url = HttpClient.DEFAULT_COUNTRIES_ENDPOINT
     httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))
 
     read_url = endpoint + "/v2/storage/records/" + country + "/" + stored_record["key"]
     httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(record))
 
     client(endpoint=None).read(country=country, key=record["key"])
+
+    latest_request = httpretty.HTTPretty.latest_requests[-1]
+    prev_request = httpretty.HTTPretty.latest_requests[-2]
+
+    latest_request_url = "https://" + latest_request.headers.get("Host", "") + latest_request.path
+    prev_request_url = "https://" + prev_request.headers.get("Host", "") + prev_request.path
+
+    assert latest_request_url == read_url
+    assert prev_request_url == countries_url
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "record,country,countries",
+    [
+        ({"key": "key1", "version": 0}, "ru", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}]),
+        ({"key": "key1", "version": 0}, "ag", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}]),
+    ],
+)
+@pytest.mark.happy_path
+def test_custom_countries_endpoint(client, record, country, countries):
+    stored_record = client().encrypt_record(dict(record))
+
+    midpop_ids = [c["id"].lower() for c in countries if c["direct"]]
+    is_midpop = country in midpop_ids
+    endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY)
+
+    countries_url = "https://countries.com/"
+    httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))
+
+    read_url = endpoint + "/v2/storage/records/" + country + "/" + stored_record["key"]
+
+    httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(record))
+
+    client(endpoint=None, options={"countries_endpoint": countries_url}).read(country=country, key=record["key"])
 
     latest_request = httpretty.HTTPretty.latest_requests[-1]
     prev_request = httpretty.HTTPretty.latest_requests[-2]
@@ -889,6 +1083,20 @@ def test_custom_encryption_with_primary_default_encryption(client, custom_encryp
     assert rec2_res["record"]["key"] == record2["key"]
 
 
+@pytest.mark.parametrize("record", TEST_RECORDS)
+@pytest.mark.happy_path
+def test_enc_payload_for_different_envs(client, record):
+    client_1 = client(environment_id="test1")
+    client_2 = client(environment_id="test2")
+
+    record_via_client_1 = client_1.encrypt_record(record)
+    record_via_client_2 = client_2.encrypt_record(record)
+
+    for k in ["key", "key2", "key3", "profile_key"]:
+        if record.get(k, None):
+            assert record_via_client_1[k] != record_via_client_2[k]
+
+
 @httpretty.activate
 @pytest.mark.parametrize("record", TEST_RECORDS)
 @pytest.mark.parametrize(
@@ -972,7 +1180,6 @@ def test_init_error_on_insufficient_args(client, kwargs):
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.error_path
 def test_error_on_popapi_error(client, record, encrypt):
-    mock_backend()
     stored_record = client(encrypt).encrypt_record(dict(record))
 
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find", status=400)

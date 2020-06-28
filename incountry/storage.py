@@ -2,11 +2,12 @@ from __future__ import absolute_import
 from typing import List, Dict, Union, Any
 
 from .incountry_crypto import InCrypto
-from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash
+from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash, HASHABLE_KEYS, normalize_key
 from .exceptions import StorageCryptoException
 from .validation import validate_model, validate_encryption_enabled
 from .http_client import HttpClient
-from .models import Country, FindFilter, Record, RecordListForBatch, StorageWithEnv
+from .models import Country, FindFilter, FindFilterOperators, Record, RecordListForBatch, StorageWithEnv
+from .token_clients import ApiKeyTokenClient, OAuthTokenClient
 
 
 class Storage:
@@ -15,6 +16,8 @@ class Storage:
         self,
         environment_id: str = None,
         api_key: str = None,
+        client_id: str = None,
+        client_secret: str = None,
         endpoint: str = None,
         encrypt: bool = True,
         secret_key_accessor=None,
@@ -48,13 +51,27 @@ class Storage:
         self.debug = debug
         self.env_id = environment_id
         self.encrypt = encrypt
+        self.normalize_keys = options.get("normalize_keys", False)
         self.crypto = InCrypto(secret_key_accessor, custom_encryption_configs) if self.encrypt else InCrypto()
 
+        token_client = (
+            ApiKeyTokenClient(api_key=api_key)
+            if api_key is not None
+            else OAuthTokenClient(
+                client_id=client_id,
+                client_secret=client_secret,
+                scope=self.env_id,
+                auth_endpoints=options.get("auth_endpoints"),
+                options=options.get("http_options", {}),
+            )
+        )
         self.http_client = HttpClient(
             env_id=self.env_id,
-            api_key=api_key,
+            token_client=token_client,
             endpoint=endpoint,
             debug=self.debug,
+            endpoint_mask=options.get("endpoint_mask", None),
+            countries_endpoint=options.get("countries_endpoint", None),
             options=options.get("http_options", {}),
         )
 
@@ -92,7 +109,7 @@ class Storage:
     @validate_model(Country)
     @validate_model(Record)
     def read(self, country: str, key: str) -> Dict[str, Dict]:
-        key = get_salted_hash(key, self.env_id)
+        key = get_salted_hash(self.normalize_key(key), self.env_id)
         response = self.http_client.read(country=country, key=key)
         return {"record": self.decrypt_record(response)}
 
@@ -163,7 +180,7 @@ class Storage:
     @validate_model(Country)
     @validate_model(Record)
     def delete(self, country: str, key: str) -> Dict[str, bool]:
-        key = get_salted_hash(key, self.env_id)
+        key = get_salted_hash(self.normalize_key(key), self.env_id)
         self.http_client.delete(country=country, key=key)
         return {"success": True}
 
@@ -187,20 +204,33 @@ class Storage:
         if self.debug:
             print("[incountry] ", args)
 
+    def prepare_filter_string_param(self, value):
+        if isinstance(value, list):
+            return [get_salted_hash(self.normalize_key(x), self.env_id) for x in value]
+        return get_salted_hash(self.normalize_key(value), self.env_id)
+
     def prepare_filter_params(self, **filter_kwargs):
         filter_params = {}
-        for k in ["key", "key2", "key3", "profile_key"]:
-            if filter_kwargs.get(k):
-                if filter_kwargs.get(k, None) and isinstance(filter_kwargs[k], list):
-                    filter_params[k] = [get_salted_hash(x, self.env_id) for x in filter_kwargs[k]]
-                elif filter_kwargs.get(k, None):
-                    filter_params[k] = get_salted_hash(filter_kwargs[k], self.env_id)
+        for k in HASHABLE_KEYS:
+            filter_value = filter_kwargs.get(k, None)
+            if filter_value is None:
+                continue
+            if FindFilterOperators.NOT in filter_value:
+                filter_params[k] = {}
+                filter_params[k][FindFilterOperators.NOT] = self.prepare_filter_string_param(
+                    filter_value[FindFilterOperators.NOT]
+                )
+            else:
+                filter_params[k] = self.prepare_filter_string_param(filter_value)
         if filter_kwargs.get("range_key", None):
             filter_params["range_key"] = filter_kwargs["range_key"]
         return filter_params
 
     def encrypt_record(self, record):
-        return encrypt_record(self.crypto, record, self.env_id)
+        return encrypt_record(self.crypto, record, self.env_id, self.normalize_keys)
 
     def decrypt_record(self, record):
         return decrypt_record(self.crypto, record)
+
+    def normalize_key(self, key):
+        return normalize_key(key, self.normalize_keys)
