@@ -1,9 +1,9 @@
-[![Build Status](https://travis-ci.com/incountry/sdk-python.svg?branch=master)](https://travis-ci.com/incountry/sdk-python)
-[![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=incountry_sdk-python&metric=alert_status)](https://sonarcloud.io/dashboard?id=incountry_sdk-python)
-[![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=incountry_sdk-python&metric=coverage)](https://sonarcloud.io/dashboard?id=incountry_sdk-puthon)
-
 InCountry Storage SDK
 ============
+[![Build Status](https://travis-ci.com/incountry/sdk-python.svg?branch=master)](https://travis-ci.com/incountry/sdk-python)
+[![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=incountry_sdk-python&metric=alert_status)](https://sonarcloud.io/dashboard?id=incountry_sdk-python)
+[![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=incountry_sdk-python&metric=coverage)](https://sonarcloud.io/dashboard?id=incountry_sdk-python)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=incountry_sdk-python&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=incountry_sdk-python)
 
 Installation
 -----
