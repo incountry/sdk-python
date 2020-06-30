@@ -211,17 +211,17 @@ class Storage:
 
     def prepare_filter_params(self, **filter_kwargs):
         filter_params = {}
-        for k in HASHABLE_KEYS:
-            filter_value = filter_kwargs.get(k, None)
+        for key in HASHABLE_KEYS:
+            filter_value = filter_kwargs.get(key, None)
             if filter_value is None:
                 continue
             if FindFilterOperators.NOT in filter_value:
-                filter_params[k] = {}
-                filter_params[k][FindFilterOperators.NOT] = self.prepare_filter_string_param(
+                filter_params[key] = {}
+                filter_params[key][FindFilterOperators.NOT] = self.prepare_filter_string_param(
                     filter_value[FindFilterOperators.NOT]
                 )
             else:
-                filter_params[k] = self.prepare_filter_string_param(filter_value)
+                filter_params[key] = self.prepare_filter_string_param(filter_value)
         if filter_kwargs.get("range_key", None):
             filter_params["range_key"] = filter_kwargs["range_key"]
         return filter_params
