@@ -12,7 +12,8 @@ CLIENT_ID = os.environ.get("INT_INC_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("INT_INC_CLIENT_SECRET")
 ENVIRONMENT_ID_OAUTH = os.environ.get("INT_INC_ENVIRONMENT_ID_OAUTH")
 OAUTH_ENDPOINT = os.environ.get("INT_INC_DEFAULT_AUTH_ENDPOINT")
-СOUNTRIES_LIST_ENDPOINT = os.environ.get("INT_COUNTRIES_LIST_ENDPOINT")
+COUNTRIES_LIST_ENDPOINT = os.environ.get("INT_COUNTRIES_LIST_ENDPOINT")
+
 
 ENDPOINT = os.environ.get("INT_INC_ENDPOINT")
 COUNTRY = os.environ.get("INT_INC_COUNTRY")
@@ -32,7 +33,7 @@ def storage(encrypt: bool, normalize_keys: bool, use_oauth: bool = False) -> Sto
         "api_key": API_KEY,
         "environment_id": ENVIRONMENT_ID,
         "endpoint": ENDPOINT,
-        "options": {"normalize_keys": normalize_keys, "countries_endpoint": СOUNTRIES_LIST_ENDPOINT},
+        "options": {"normalize_keys": normalize_keys, "countries_endpoint": COUNTRIES_LIST_ENDPOINT},
     }
 
     if use_oauth:
