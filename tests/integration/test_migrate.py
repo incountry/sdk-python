@@ -17,7 +17,8 @@ COUNTRY = os.environ.get("INT_INC_COUNTRY")
 
 
 @pytest.mark.parametrize("encrypt", [False], ids=["not encrypted"])
-def test_migrate_should_raise_error_without_encryption(storage: Storage, encrypt: bool) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_migrate_should_raise_error_without_encryption(storage: Storage, encrypt: bool, use_oauth: bool) -> None:
 
     storage.migrate.when.called_with(country=COUNTRY).should.have.raised(
         StorageClientException, re.compile(r"This method is only allowed with encryption enabled"),
@@ -26,7 +27,10 @@ def test_migrate_should_raise_error_without_encryption(storage: Storage, encrypt
 
 @pytest.mark.xfail(Reason="Works only for storage with encrypted records")
 @pytest.mark.parametrize("encrypt", [True], ids=["encrypted"])
-def test_migrate_works_with_encryption(storage: Storage, encrypt: bool, expected_records: List[Dict]) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_migrate_works_with_encryption(
+    storage: Storage, encrypt: bool, use_oauth: bool, expected_records: List[Dict]
+) -> None:
     keys = {record["key"] for record in expected_records}
     find_all = storage.find(country=COUNTRY)
     all_records = find_all["meta"]["total"]
