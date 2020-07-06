@@ -7,6 +7,12 @@ import uuid
 
 API_KEY = os.environ.get("INT_INC_API_KEY")
 ENVIRONMENT_ID = os.environ.get("INT_INC_ENVIRONMENT_ID")
+
+CLIENT_ID = os.environ.get("INT_INC_CLIENT_ID")
+CLIENT_SECRET = os.environ.get("INT_INC_CLIENT_SECRET")
+ENVIRONMENT_ID_OAUTH = os.environ.get("INT_INC_ENVIRONMENT_ID_OAUTH")
+OAUTH_ENDPOINT = os.environ.get("INT_OAUTH_ENDPOINT")
+
 ENDPOINT = os.environ.get("INT_INC_ENDPOINT")
 COUNTRY = os.environ.get("INT_INC_COUNTRY")
 SECRETS_DATA = {
@@ -16,29 +22,29 @@ SECRETS_DATA = {
 
 
 @pytest.fixture
-def storage(encrypt: bool, normalize_keys: bool) -> Storage:
+def storage(encrypt: bool, normalize_keys: bool, use_oauth: bool = False) -> Storage:
     """Creating storage"""
-    secret_key_accessor = SecretKeyAccessor(lambda: SECRETS_DATA)
+
+    args = {
+        "encrypt": encrypt,
+        "debug": True,
+        "api_key": API_KEY,
+        "environment_id": ENVIRONMENT_ID,
+        "endpoint": ENDPOINT,
+        "options": {"normalize_keys": normalize_keys},
+    }
+
+    if use_oauth:
+        args["client_id"] = CLIENT_ID
+        args["client_secret"] = CLIENT_SECRET
+        args["environment_id"] = ENVIRONMENT_ID_OAUTH
+        args["options"]["auth_endpoints"] = {"default": OAUTH_ENDPOINT}
+        del args["api_key"]
 
     if encrypt:
-        storage = Storage(
-            encrypt=True,
-            debug=True,
-            api_key=API_KEY,
-            environment_id=ENVIRONMENT_ID,
-            endpoint=ENDPOINT,
-            secret_key_accessor=secret_key_accessor,
-            options={"normalize_keys": normalize_keys},
-        )
-    else:
-        storage = Storage(
-            encrypt=False,
-            debug=True,
-            api_key=API_KEY,
-            environment_id=ENVIRONMENT_ID,
-            endpoint=ENDPOINT,
-            options={"normalize_keys": normalize_keys},
-        )
+        args["secret_key_accessor"] = SecretKeyAccessor(lambda: SECRETS_DATA)
+
+    storage = Storage(**args)
 
     yield storage
 

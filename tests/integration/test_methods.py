@@ -27,7 +27,10 @@ COUNTRY = os.environ.get("INT_INC_COUNTRY")
     ids=["all the fields in record", "key, body, profile_key in record", "only key in record"],
 )
 @pytest.mark.parametrize("key", [uuid.uuid4().hex])
-def test_write_record(storage: Storage, encrypt: bool, data: Dict[str, Any], key: str, clean_up_records: None,) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_write_record(
+    storage: Storage, encrypt: bool, use_oauth: bool, data: Dict[str, Any], key: str, clean_up_records: None,
+) -> None:
     data["key"] = key
     write_response = storage.write(country=COUNTRY, **data)
     write_response.should_not.be.none
@@ -37,8 +40,9 @@ def test_write_record(storage: Storage, encrypt: bool, data: Dict[str, Any], key
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
 @pytest.mark.parametrize("key", [uuid.uuid4().hex])
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 def test_write_with_the_same_key_updates_record(
-    storage: Storage, encrypt: bool, key: str, clean_up_records: None
+    storage: Storage, encrypt: bool, use_oauth: bool, key: str, clean_up_records: None
 ) -> None:
     record = {
         "key": key,
@@ -67,7 +71,8 @@ def test_write_with_the_same_key_updates_record(
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
 @pytest.mark.parametrize("key", [uuid.uuid4().hex])
-def test_read_record(storage: Storage, encrypt: bool, key: str, clean_up_records: None) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_read_record(storage: Storage, encrypt: bool, use_oauth: bool, key: str, clean_up_records: None) -> None:
     record = {
         "key": key,
         "key2": "some key2",
@@ -86,13 +91,15 @@ def test_read_record(storage: Storage, encrypt: bool, key: str, clean_up_records
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
-def test_read_not_existing_record(storage: Storage, encrypt: bool) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_read_not_existing_record(storage: Storage, encrypt: bool, use_oauth: bool) -> None:
     record_key = uuid.uuid4().hex
     storage.read.when.called_with(country=COUNTRY, key=record_key).should.have.raised(StorageServerException)
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
-def test_delete_record(storage: Storage, encrypt: bool) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_delete_record(storage: Storage, encrypt: bool, use_oauth: bool) -> None:
     key1 = uuid.uuid4().hex
 
     storage.write(country=COUNTRY, key=key1, body="some body")
@@ -109,14 +116,18 @@ def test_delete_record(storage: Storage, encrypt: bool) -> None:
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
-def test_delete_not_existing_record(storage: Storage, encrypt: bool) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_delete_not_existing_record(storage: Storage, encrypt: bool, use_oauth: bool) -> None:
     record_key = uuid.uuid4().hex
     storage.delete.when.called_with(country=COUNTRY, key=record_key).should.have.raised(StorageServerException)
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
 @pytest.mark.parametrize("key", [[uuid.uuid4().hex for _ in range(3)]])
-def test_batch_write_records(storage: Storage, encrypt: bool, key: List[str], clean_up_records: None) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_batch_write_records(
+    storage: Storage, encrypt: bool, use_oauth: bool, key: List[str], clean_up_records: None
+) -> None:
     records = [
         {
             "key": key[i],
@@ -138,7 +149,10 @@ def test_batch_write_records(storage: Storage, encrypt: bool, key: List[str], cl
 
 @pytest.mark.parametrize("key", ["key", "key2", "key3", "profile_key", "range_key"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
-def test_find_by_one_key(storage: Storage, encrypt: bool, expected_records: List[Dict[str, Any]], key: str,) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_find_by_one_key(
+    storage: Storage, encrypt: bool, use_oauth: bool, expected_records: List[Dict[str, Any]], key: str,
+) -> None:
     key_value = expected_records[0][key]
     search = {key: key_value}
     find_result = storage.find(country=COUNTRY, **search)
@@ -152,8 +166,9 @@ def test_find_by_one_key(storage: Storage, encrypt: bool, expected_records: List
 
 @pytest.mark.parametrize("key", ["key2", "key3", "profile_key"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 def test_find_by_one_key_with_not(
-    storage: Storage, encrypt: bool, expected_records: List[Dict[str, Any]], key: str,
+    storage: Storage, encrypt: bool, use_oauth: bool, expected_records: List[Dict[str, Any]], key: str,
 ) -> None:
     key_value = expected_records[0][key]
     search = {key: {"$not": key_value}, "key": [record["key"] for record in expected_records]}
@@ -168,8 +183,9 @@ def test_find_by_one_key_with_not(
 
 @pytest.mark.parametrize("key", ["key2", "key3", "profile_key"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 def test_find_by_one_key_with_not_for_key(
-    storage: Storage, encrypt: bool, expected_records: List[Dict[str, Any]], key: str,
+    storage: Storage, encrypt: bool, use_oauth: bool, expected_records: List[Dict[str, Any]], key: str,
 ) -> None:
     key_value = expected_records[0]["key"]
     search = {"key": {"$not": key_value}, key: [record[key] for record in expected_records]}
@@ -185,8 +201,14 @@ def test_find_by_one_key_with_not_for_key(
 @pytest.mark.parametrize("normalize_keys", [True, False], ids=["with normalized keys", "with non-normalized keys"])
 @pytest.mark.parametrize("key", ["key", "key2", "key3", "profile_key"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 def test_find_by_one_key_normalization(
-    storage: Storage, encrypt: bool, normalize_keys: bool, expected_records: List[Dict[str, Any]], key: str,
+    storage: Storage,
+    encrypt: bool,
+    use_oauth: bool,
+    normalize_keys: bool,
+    expected_records: List[Dict[str, Any]],
+    key: str,
 ) -> None:
     key_value = expected_records[0][key]
     if normalize_keys:
@@ -206,8 +228,9 @@ def test_find_by_one_key_normalization(
 
 @pytest.mark.parametrize("key", ["key", "key2", "key3", "profile_key", "range_key"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 def test_find_by_list_of_keys(
-    storage: Storage, encrypt: bool, expected_records: List[Dict[str, Any]], key: str,
+    storage: Storage, encrypt: bool, use_oauth: bool, expected_records: List[Dict[str, Any]], key: str,
 ) -> None:
     key_values = [record[key] for record in expected_records]
     search = {key: key_values}
@@ -222,7 +245,8 @@ def test_find_by_list_of_keys(
 
 @pytest.mark.parametrize("range_operator", ["$gt", "$lt", "$gte", "$lte"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
-def test_find_by_range_key_gt_lt(storage: Storage, encrypt: bool, range_operator: str) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_find_by_range_key_gt_lt(storage: Storage, encrypt: bool, use_oauth: bool, range_operator: str) -> None:
     records = [{"key": uuid.uuid4().hex, "range_key": i} for i in [-1000, 0, 1000]]
     for record in records:
         storage.write(country=COUNTRY, **record)
@@ -245,7 +269,8 @@ def test_find_by_range_key_gt_lt(storage: Storage, encrypt: bool, range_operator
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
-def test_find_not_existing_record(storage: Storage, encrypt: bool,) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_find_not_existing_record(storage: Storage, encrypt: bool, use_oauth: bool,) -> None:
     find_nothing = storage.find(country=COUNTRY, key="Not existing key")
     len(find_nothing["records"]).should.be.equal(0)
     find_nothing["meta"]["total"].should.be.equal(0)
@@ -256,8 +281,14 @@ def test_find_not_existing_record(storage: Storage, encrypt: bool,) -> None:
     "limit", [1, 5, 10], ids=["limit_1", "limit_5", "limit_10"],
 )
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 def test_find_limit_works(
-    encrypt: bool, storage: Storage, limit: int, expected_records: List[Dict[str, Any]], number_of_records: int,
+    encrypt: bool,
+    use_oauth: bool,
+    storage: Storage,
+    limit: int,
+    expected_records: List[Dict[str, Any]],
+    number_of_records: int,
 ) -> None:
     record_keys = [record["key"] for record in expected_records]
 
@@ -270,11 +301,17 @@ def test_find_limit_works(
 
 @pytest.mark.parametrize("number_of_records", [10])
 @pytest.mark.parametrize(
-    "offset", [0, 1, 5, 10], ids=["offset_0", "offset_1", "offset_5", "offset_100"],
+    "offset", [0, 1, 10], ids=["offset_0", "offset_1", "offset_10"],
 )
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 def test_find_offset_works(
-    encrypt: bool, storage: Storage, offset: int, expected_records: List[Dict[str, Any]], number_of_records: int,
+    encrypt: bool,
+    use_oauth: bool,
+    storage: Storage,
+    offset: int,
+    expected_records: List[Dict[str, Any]],
+    number_of_records: int,
 ) -> None:
     record_keys = [record["key"] for record in expected_records]
     remains_after_offset = max(10 - offset, 0)
@@ -288,7 +325,10 @@ def test_find_offset_works(
 
 @pytest.mark.parametrize("search_key", ["key", "profile_key", "range_key", "key2", "key3"])
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
-def test_find_one(storage: Storage, encrypt: bool, search_key: str, expected_records: List[Dict[str, Any]],) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_find_one(
+    storage: Storage, encrypt: bool, use_oauth: bool, search_key: str, expected_records: List[Dict[str, Any]],
+) -> None:
     search = {search_key: expected_records[0][search_key]}
     find_one_record = storage.find_one(country=COUNTRY, **search)
     find_one_record.should_not.be.none
@@ -298,6 +338,7 @@ def test_find_one(storage: Storage, encrypt: bool, search_key: str, expected_rec
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
-def test_find_one_empty_response(storage: Storage, encrypt: bool,) -> None:
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_find_one_empty_response(storage: Storage, encrypt: bool, use_oauth: bool,) -> None:
     r = storage.find_one(country=COUNTRY, key=uuid.uuid4().hex)
     r.should.equal(None)
