@@ -15,7 +15,7 @@ from setuptools import find_packages, setup, Command
 NAME = "incountry"
 DESCRIPTION = "InCountry Storage SDK"
 URL = "https://github.com/incountry/sdk-python"
-EMAIL = "developers@incountry.com"
+EMAIL = "sdks@incountry.com"
 AUTHOR = "InCountry"
 REQUIRES_PYTHON = ">=3.6.0"
 
