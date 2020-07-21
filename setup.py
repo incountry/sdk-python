@@ -15,7 +15,7 @@ from setuptools import find_packages, setup, Command
 NAME = "incountry"
 DESCRIPTION = "InCountry Storage SDK"
 URL = "https://github.com/incountry/sdk-python"
-EMAIL = "developers@incountry.com"
+EMAIL = "sdks@incountry.com"
 AUTHOR = "InCountry"
 REQUIRES_PYTHON = ">=3.6.0"
 
@@ -79,10 +79,6 @@ class UploadCommand(Command):
 
         self.status("Uploading the package to PyPI via Twine…")
         os.system("twine upload dist/*")
-
-        self.status("Pushing git tags…")
-        os.system("git tag v{0}".format(quote(about["__version__"])))
-        os.system("git push --tags")
 
         sys.exit()
 
