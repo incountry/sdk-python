@@ -1,13 +1,15 @@
 from __future__ import absolute_import
 from typing import List, Dict, Union, Any
 
-from .incountry_crypto import InCrypto
 from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash, HASHABLE_KEYS, normalize_key
 from .exceptions import StorageCryptoException
-from .validation import validate_model, validate_encryption_enabled
+from .incountry_crypto import InCrypto
 from .http_client import HttpClient
-from .models import Country, FindFilter, FindFilterOperators, Record, RecordListForBatch, StorageWithEnv
+from .models import Country, FindFilter, FindFilterOperators, FIND_LIMIT, Record, RecordListForBatch, StorageWithEnv
+from .secret_key_accessor import SecretKeyAccessor
 from .token_clients import ApiKeyTokenClient, OAuthTokenClient
+from .types import TIntFilter, TStringFilter, TRecord
+from .validation import validate_model, validate_encryption_enabled
 
 
 class Storage:
@@ -20,32 +22,44 @@ class Storage:
         client_secret: str = None,
         endpoint: str = None,
         encrypt: bool = True,
-        secret_key_accessor=None,
-        custom_encryption_configs=None,
+        secret_key_accessor: SecretKeyAccessor = None,
+        custom_encryption_configs: List[dict] = None,
         debug: bool = False,
         options: Dict[str, Any] = {},
     ):
-        """
-        Returns a client to talk to the InCountry storage network.
+        """Returns a client to talk to the InCountry storage network.
 
-        To find the storage endpoint, we use this logic:
+        Args:
+            environment_id (str, optional):
+                The id of the environment you want to store records in. Defaults to None.
+                Can also be set via INC_ENVIRONMENT_ID environment variable.
+            api_key (str, optional):
+                Your API key. Defaults to None.
+                Can also be set via INC_API_KEY environment variable.
+            client_id (str, optional):
+                Client Id used for oAuth authorization. Defaults to None.
+                Can also be set via INC_CLIENT_ID environment variable.
+            client_secret (str, optional):
+                Client Secret used for oAuth authorization. Defaults to None.
+                Can also be set via INC_CLIENT_SECRET environment variable.
+            endpoint (str, optional):
+                Custom storage server endpoint to use. Defaults to None.
+                Can also be set via INC_ENDPOINT environment variable.
+            encrypt (bool, optional):
+                Whether to encrypt data before storing in InCountry. Defaults to True.
+            secret_key_accessor (SecretKeyAccessor, optional):
+                SecretKeyAccessor class instance which provides encryption keys details. Defaults to None.
+            custom_encryption_configs (List[dict], optional):
+                List of custom encryption configurations. Defaults to None.
+            debug (bool, optional):
+                Pass True to enable some debug logging. Defaults to False.
+            options (Dict[str, Any], optional):
+                Options dict to tweak various Storage instance aspects. Defaults to {}.
 
-        - Attempt to connect to <country>.api.incountry.io
-        - If that fails, then fall back to us.api.incountry.io which
-            will forward data to miniPOPs
-
-        @param environment_id: The id of the environment into which you wll store data
-        @param api_key: Your API key
-        @param endpoint: Optional. Will use DNS routing by default.
-        @param encrypt: Pass True (default) to encrypt values before storing
-        @param secret_key_accessor: pass SecretKeyAccessor class instance which provides secret key for encrytion
-        @param debug: pass True to enable some debug logging
-
-        You can set parameters via env vars also:
-
-        INC_ENVIRONMENT_ID
-        INC_API_KEY
-        INC_ENDPOINT
+        Raises:
+            StorageClientException: in case constructor param validation fails,
+            StorageCryptoException: in case any encryption-related error occurs.
+            StorageException: in any other cases
         """
 
         self.debug = debug
@@ -79,20 +93,31 @@ class Storage:
 
     @validate_model(Country)
     @validate_model(Record)
-    def write(
-        self,
-        country: str,
-        key: str,
-        body: str = None,
-        key2: str = None,
-        key3: str = None,
-        profile_key: str = None,
-        range_key: int = None,
-    ) -> Dict[str, Dict]:
-        record = {}
-        for k in ["key", "body", "key2", "key3", "profile_key", "range_key"]:
-            if locals().get(k, None):
-                record[k] = locals().get(k, None)
+    def write(self, country: str, record_key: str, **record_data: Union[str, int]) -> Dict[str, TRecord]:
+        """Writes record to InCountry storage network.
+
+        Args:
+            country (str): Country to write record to
+            record_key (str): Record primary key/identifier
+            **record_data (Union[str, int], optional): Various record attributes.
+                Available String attributes:
+                - body, precommit_body, profile_key, service_key1, service_key2, key1, ..., key10.
+                Available Int attributes:
+                - range_key1, ..., range_key10
+
+        Returns:
+            Dict[str, TRecord]:
+                A dict with record data you just wrote {"record": {"record_key": record_key, **record}}
+
+        Raises:
+            StorageClientException: in case method param validation fails.
+            StorageServerException: in case InCountry server (either storage server or auth server) responds with error.
+            StorageCryptoException: in case any encryption-related error occurs.
+            StorageException: in any other cases.
+        """
+
+        record = {"record_key": record_key}
+        record.update({k: v for k, v in record_data.items() if k in Record.__fields__})
 
         data_to_send = self.encrypt_record(record)
         self.http_client.write(country=country, data=data_to_send)
@@ -100,7 +125,24 @@ class Storage:
 
     @validate_model(Country)
     @validate_model(RecordListForBatch)
-    def batch_write(self, country: str, records: list) -> Dict[str, List]:
+    def batch_write(self, country: str, records: List[TRecord]) -> Dict[str, List[TRecord]]:
+        """Writes multiple records to InCountry storage network.
+
+        Args:
+            country (str): Country to write records to
+            records (List[TRecord]): List of records. See Storage.write() for details on record attributes
+
+        Returns:
+            Dict[str, List[TRecord]]:
+                A dict with record data you just wrote {"record": {"record_key": record_key, **record}}
+
+        Raises:
+            StorageClientException: in case method param validation fails.
+            StorageServerException: in case InCountry server (either storage server or auth server) responds with error.
+            StorageCryptoException: in case any encryption-related error occurs.
+            StorageException: in any other cases.
+        """
+
         encrypted_records = [self.encrypt_record(record) for record in records]
         data_to_send = {"records": encrypted_records}
         self.http_client.batch_write(country=country, data=data_to_send)
@@ -108,28 +150,84 @@ class Storage:
 
     @validate_model(Country)
     @validate_model(Record)
-    def read(self, country: str, key: str) -> Dict[str, Dict]:
-        key = get_salted_hash(self.normalize_key(key), self.env_id)
-        response = self.http_client.read(country=country, key=key)
+    def read(self, country: str, record_key: str) -> Dict[str, TRecord]:
+        """Reads record for the given record_key
+
+        Args:
+            country (str): Country to search record in
+            record_key (str): Record primary key/identifier
+
+        Returns:
+            Dict[str, TRecord]:
+                A dict with record data {"record": TRecord}
+
+        Raises:
+            StorageClientException: in case method param validation fails.
+            StorageServerException: in case InCountry server (either storage server or auth server) responds with error
+                (e.g. if record does not exist for the given record_key).
+            StorageCryptoException: in case any encryption-related error occurs.
+            StorageException: in any other cases.
+        """
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        response = self.http_client.read(country=country, record_key=record_key)
         return {"record": self.decrypt_record(response)}
 
     @validate_model(Country)
     @validate_model(FindFilter)
     def find(
-        self,
-        country: str,
-        limit: int = None,
-        offset: int = None,
-        key: Union[str, List[str], Dict] = None,
-        key2: Union[str, List[str], Dict] = None,
-        key3: Union[str, List[str], Dict] = None,
-        profile_key: Union[str, List[str], Dict] = None,
-        range_key: Union[int, List[int], Dict] = None,
-        version: Union[int, List[int], Dict] = None,
+        self, country: str, limit: int = FIND_LIMIT, offset: int = 0, **filters: Union[TIntFilter, TStringFilter],
     ) -> Dict[str, Any]:
-        filter_params = self.prepare_filter_params(
-            key=key, key2=key2, key3=key3, profile_key=profile_key, range_key=range_key, version=version,
-        )
+        """Finds records that satisfy provided filters
+
+        Args:
+            country (str): Country to search records in
+            limit (int, optional): Maximum amount of records to be returned. Max limit is 100. Defaults to 100.
+            offset (int, optional): Search offset. Should be non-negative int. Defaults to 0.
+            **filters (Union[TIntFilter, TStringFilter], optional): Various filters to tweak the search query.
+                Available String filter keys:
+                - profile_key, service_key1, service_key2, key1, ..., key10.
+                Available String filter types:
+                - single value: Storage.find(..., key1="v1"),
+                - list of values: Storage.find(..., key1=["v1", "v2"]),
+                - with $not operator: Storage.find(..., key1={"$not": "v1"}, key2={"$not":["v1", "v2"]}).
+
+                Available Int filter keys:
+                - version, range_key1, ..., range_key10.
+                Available Int filter types:
+                - single value: Storage.find(..., range_key1=1),
+                - list of values: Storage.find(..., range_key1=[1, 2]),
+                - with $not operator: Storage.find(..., range_key1={"$not": 1}, range_key2={"$not":[1, 2]}),
+                - with $gt operator: Storage.find(..., range_key1={"$gt": 1}),
+                - with $gte operator: Storage.find(..., range_key1={"$gte": 1}),
+                - with $lt operator: Storage.find(..., range_key1={"$lt": 1}),
+                - with $lte operator: Storage.find(..., range_key1={"$lte": 1}),
+                - with comparison operators combination: Storage.find(..., range_key1={"$gt": 1, $lte": 10}),
+
+        Returns:
+            Dict[str, Any]:
+                Found records with some meta information and errors data (if any) as dict:
+                    {
+                        "meta": {
+                            "count": int,
+                            "limit": int,
+                            "offset": int,
+                            "total": int,
+                        },
+                        "records": List[TRecord],
+                        "errors": List,
+                    }
+
+                In case of any error occurs during records decryption, method will not raise StorageCryptoException
+                but rather add raw record and the exception itself to "errors" list in reponse dict
+                ({"errors": [..., {"rawData": TRecord, "error": StorageCryptoException}]})
+
+        Raises:
+            StorageClientException: in case method param validation fails.
+            StorageServerException: in case InCountry server (either storage server or auth server) responds with error.
+            StorageException: in any other cases.
+        """
+
+        filter_params = self.prepare_filter_params(**filters)
         options = {"limit": limit, "offset": offset}
 
         response = self.http_client.find(country=country, data={"filter": filter_params, "options": options})
@@ -154,40 +252,100 @@ class Storage:
     @validate_model(Country)
     @validate_model(FindFilter)
     def find_one(
-        self,
-        country: str,
-        offset: int = None,
-        key: Union[str, List[str], Dict] = None,
-        key2: Union[str, List[str], Dict] = None,
-        key3: Union[str, List[str], Dict] = None,
-        profile_key: Union[str, List[str], Dict] = None,
-        range_key: Union[int, List[int], Dict] = None,
-        version: Union[int, List[int], Dict] = None,
+        self, country: str, offset: int = 0, **filters: Union[TIntFilter, TStringFilter],
     ) -> Union[None, Dict[str, Dict]]:
-        result = self.find(
-            country=country,
-            limit=1,
-            offset=offset,
-            key=key,
-            key2=key2,
-            key3=key3,
-            profile_key=profile_key,
-            range_key=range_key,
-            version=version,
-        )
+        """Finds record that satisfies provided filters
+
+        Args:
+            country (str): Country to search record in
+            offset (int, optional): Search offset. Should be non-negative int. Defaults to 0.
+            **filters (Union[TIntFilter, TStringFilter], optional): Various filters to tweak the search query.
+                Available String filter keys:
+                - profile_key, service_key1, service_key2, key1, ..., key10.
+                Available String filter types:
+                - single value: Storage.find_one(..., key1="v1"),
+                - list of values: Storage.find_one(..., key1=["v1", "v2"]),
+                - with $not operator: Storage.find_one(..., key1={"$not": "v1"}, key2={"$not":["v1", "v2"]}).
+
+                Available Int filter keys:
+                - version, range_key1, ..., range_key10.
+                Available Int filter types:
+                - single value: Storage.find_one(..., range_key1=1),
+                - list of values: Storage.find_one(..., range_key1=[1, 2]),
+                - with $not operator: Storage.find_one(..., range_key1={"$not": 1}, range_key2={"$not":[1, 2]}),
+                - with $gt operator: Storage.find_one(..., range_key1={"$gt": 1}),
+                - with $gte operator: Storage.find_one(..., range_key1={"$gte": 1}),
+                - with $lt operator: Storage.find_one(..., range_key1={"$lt": 1}),
+                - with $lte operator: Storage.find_one(..., range_key1={"$lte": 1}),
+                - with comparison operators combination: Storage.find_one(..., range_key1={"$gt": 1, $lte": 10}).
+
+        Returns:
+            Union[None, Dict[str, Dict]]:
+                Found record (if any) or None:
+                    {
+                        "record": TRecord,
+                    }
+
+        Raises:
+            StorageClientException: in case method param validation fails.
+            StorageServerException: in case InCountry server (either storage server or auth server) responds with error.
+            StorageException: in any other cases.
+        """
+
+        result = self.find(country=country, limit=1, offset=offset, **filters)
         return {"record": result["records"][0]} if len(result["records"]) else None
 
     @validate_model(Country)
     @validate_model(Record)
-    def delete(self, country: str, key: str) -> Dict[str, bool]:
-        key = get_salted_hash(self.normalize_key(key), self.env_id)
+    def delete(self, country: str, record_key: str) -> Dict[str, bool]:
+        """Deletes record for the given record_key
+
+        Args:
+            country (str):  Country to search record in
+            record_key (str): Record primary key/identifier
+
+        Returns:
+            Dict[str, bool]:
+                {"success": True} in case the record is successfully deleted
+
+        Raises:
+            StorageClientException: in case method param validation fails.
+            StorageServerException: in case InCountry server (either storage server or auth server) responds with error
+                (e.g. if record does not exist for the given record_key).
+            StorageException: in any other cases.
+        """
+
+        key = get_salted_hash(self.normalize_key(record_key), self.env_id)
         self.http_client.delete(country=country, key=key)
         return {"success": True}
 
     @validate_encryption_enabled
     @validate_model(Country)
     @validate_model(FindFilter)
-    def migrate(self, country: str, limit: int = None) -> Dict[str, int]:
+    def migrate(self, country: str, limit: int = FIND_LIMIT) -> Dict[str, int]:
+        """Mirgrates records in InCountry storage to the latest encryption key.
+
+        Unavailable when encrypt=False is passed to Storage constructor
+
+        Args:
+            country (str): Country to migrate records in
+            limit (int, optional): Maximum amount of records to be migrated at once. Max limit is 100. Defaults to 100.
+
+        Returns:
+            Dict[str, int]:
+                Migration result - total amount of successfully migrated records and total records left to migrate
+                (total records left with other encryption key versions):
+                {
+                    "migrated": int,
+                    "total_left": int,
+                }
+
+        Raises:
+            StorageClientException: in case method param validation fails (or in case encryption is disabled).
+            StorageServerException: in case InCountry server (either storage server or auth server) responds with error
+                (e.g. if record does not exist for the given record_key).
+            StorageException: in any other cases.
+        """
         current_secret_version = self.crypto.get_current_secret_version()
         find_res = self.find(country=country, limit=limit, version={"$not": current_secret_version})
         self.batch_write(country=country, records=find_res["records"])
@@ -211,19 +369,20 @@ class Storage:
 
     def prepare_filter_params(self, **filter_kwargs):
         filter_params = {}
-        for key in HASHABLE_KEYS:
-            filter_value = filter_kwargs.get(key, None)
-            if filter_value is None:
+        for filter_key, filter_value in filter_kwargs.items():
+            if filter_key not in FindFilter.__fields__ or filter_value is None:
+                continue
+            if filter_key not in HASHABLE_KEYS:
+                filter_params[filter_key] = filter_value
                 continue
             if FindFilterOperators.NOT in filter_value:
-                filter_params[key] = {}
-                filter_params[key][FindFilterOperators.NOT] = self.prepare_filter_string_param(
+                filter_params[filter_key] = {}
+                filter_params[filter_key][FindFilterOperators.NOT] = self.prepare_filter_string_param(
                     filter_value[FindFilterOperators.NOT]
                 )
             else:
-                filter_params[key] = self.prepare_filter_string_param(filter_value)
-        if filter_kwargs.get("range_key", None):
-            filter_params["range_key"] = filter_kwargs["range_key"]
+                filter_params[filter_key] = self.prepare_filter_string_param(filter_value)
+
         return filter_params
 
     def encrypt_record(self, record):

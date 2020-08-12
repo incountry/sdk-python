@@ -124,7 +124,7 @@ def test_write_valid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [{}, [], True, "", {"key": "key"}],
+    "response", [{}, [], True, "", {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 @pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
@@ -154,7 +154,7 @@ def test_batch_write_valid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [{}, [], True, "", {"key": "key"}],
+    "response", [{}, [], True, "", {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 @pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
@@ -172,10 +172,10 @@ def test_batch_write_invalid_response(client, response):
 @pytest.mark.parametrize(
     "response",
     [
-        {"key": "key", "version": 1},
-        {"key": "key", "version": 0},
-        {"key": "key", "version": -1},
-        {"key": "key", "version": None},
+        {"record_key": "record_key", "version": 1},
+        {"record_key": "record_key", "version": 0},
+        {"record_key": "record_key", "version": -1},
+        {"record_key": "record_key", "version": None},
     ],
 )
 @pytest.mark.happy_path
@@ -187,13 +187,13 @@ def test_read_valid_response(client, response):
         httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
     )
 
-    res = client().read(country=COUNTRY, key=key_hash)
+    res = client().read(country=COUNTRY, record_key=key_hash)
     assert res == response
 
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [{}, [], True, "", {"key": "key", "version": "invalid version"}],
+    "response", [{}, [], True, "", {"record_key": "record_key", "version": "invalid version"}],
 )
 @pytest.mark.error_path
 def test_read_invalid_response(client, response):
@@ -204,7 +204,7 @@ def test_read_invalid_response(client, response):
         httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
     )
 
-    client().read.when.called_with(country=COUNTRY, key=key_hash).should.have.raised(
+    client().read.when.called_with(country=COUNTRY, record_key=key_hash).should.have.raised(
         StorageServerException, "HTTP Response validation failed"
     )
 
@@ -213,7 +213,10 @@ def test_read_invalid_response(client, response):
 @pytest.mark.parametrize(
     "response",
     [
-        {"meta": {"count": 1, "limit": 1, "offset": 1, "total": 1}, "data": [{"key": "key", "version": 1}]},
+        {
+            "meta": {"count": 1, "limit": 1, "offset": 1, "total": 1},
+            "data": [{"record_key": "record_key", "version": 1}],
+        },
         {"meta": {"count": 1, "limit": 1, "offset": 1, "total": 1}, "data": []},
     ],
 )
@@ -229,7 +232,7 @@ def test_find_valid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query", [{"key": "key1"}],
+    "query", [{"record_key": "key1"}],
 )
 @httpretty.activate
 @pytest.mark.parametrize(
@@ -246,9 +249,9 @@ def test_find_valid_response(client, response):
         {"meta": {"count": 1, "limit": 1, "offset": 1, "total": 1}, "data": [{"not_a_record_key": 0}]},
         {
             "meta": {"count": 1, "limit": 1, "offset": 1, "total": 1},
-            "data": [{"key": "key_for_record_with_invalid_version", "version": "good version"}],
+            "data": [{"record_key": "key_for_record_with_invalid_version", "version": "good version"}],
         },
-        {"data": [{"key": "key", "version": 1}]},
+        {"data": [{"record_key": "record_key", "version": 1}]},
     ],
 )
 @pytest.mark.error_path
@@ -275,13 +278,13 @@ def test_delete_valid_response(client, response):
         httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
     )
 
-    res = client().delete(country=COUNTRY, key=key_hash)
+    res = client().delete(country=COUNTRY, record_key=key_hash)
     assert res == response
 
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [True, {"key": "key"}],
+    "response", [True, {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 @pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
@@ -293,7 +296,7 @@ def test_delete_invalid_response(client, response):
         httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
     )
 
-    client().delete.when.called_with(country=COUNTRY, key=key_hash).should.have.raised(
+    client().delete.when.called_with(country=COUNTRY, record_key=key_hash).should.have.raised(
         StorageServerException, "HTTP Response validation failed"
     )
 
@@ -307,11 +310,13 @@ def test_default_oauth_token_client(client):
     key_hash = get_key_hash(key)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps({"key": key}),
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
+        body=json.dumps({"record_key": key}),
     )
 
     client(env_id=env_id, token_client=get_oauth_token_client(scope=env_id)).read.when.called_with(
-        country=COUNTRY, key=key_hash
+        country=COUNTRY, record_key=key_hash
     ).should_not.throw(Exception)
 
     token_request = httpretty.HTTPretty.latest_requests[-2]
@@ -328,11 +333,13 @@ def test_oauth_token_client_custom_endpoint(client):
     key_hash = get_key_hash(key)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps({"key": key}),
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
+        body=json.dumps({"record_key": key}),
     )
 
     client(token_client=get_oauth_token_client(auth_endpoints={"default": "https://oauth.com"})).read.when.called_with(
-        country=COUNTRY, key=key_hash
+        country=COUNTRY, record_key=key_hash
     ).should_not.throw(Exception)
 
 
@@ -345,11 +352,13 @@ def test_oauth_token_client_check_token(client):
     key_hash = get_key_hash(key)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps({"key": key}),
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
+        body=json.dumps({"record_key": key}),
     )
 
     client(token_client=get_oauth_token_client(token=token)).read.when.called_with(
-        country=COUNTRY, key=key_hash
+        country=COUNTRY, record_key=key_hash
     ).should_not.throw(Exception)
 
     headers = httpretty.last_request().headers
@@ -366,11 +375,13 @@ def test_api_token_client_check_token(client):
     key_hash = get_key_hash(key)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps({"key": key}),
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
+        body=json.dumps({"record_key": key}),
     )
 
     client(token_client=ApiKeyTokenClient(api_key=token)).read.when.called_with(
-        country=COUNTRY, key=key_hash
+        country=COUNTRY, record_key=key_hash
     ).should_not.throw(Exception)
 
     headers = httpretty.last_request().headers
@@ -389,12 +400,12 @@ def test_api_token_do_not_retry_on_401(client):
     httpretty.register_uri(
         httpretty.GET,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
-        body=json.dumps({"key": key}),
+        body=json.dumps({"record_key": key}),
         status=401,
     )
 
     client(token_client=ApiKeyTokenClient(api_key=token)).read.when.called_with(
-        country=COUNTRY, key=key_hash
+        country=COUNTRY, record_key=key_hash
     ).should.throw(StorageServerException)
 
 
@@ -408,8 +419,8 @@ def test_oauth_token_successful_retry_on_401(client):
         httpretty.GET,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
         responses=[
-            httpretty.Response(body=json.dumps({"key": key}), status=401),
-            httpretty.Response(body=json.dumps({"key": key}), status=200),
+            httpretty.Response(body=json.dumps({"record_key": key}), status=401),
+            httpretty.Response(body=json.dumps({"record_key": key}), status=200),
         ],
     )
 
@@ -424,7 +435,7 @@ def test_oauth_token_successful_retry_on_401(client):
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_id", scope="scope")
 
-    client(token_client=token_client).read.when.called_with(country=COUNTRY, key=key_hash).should_not.throw(
+    client(token_client=token_client).read.when.called_with(country=COUNTRY, record_key=key_hash).should_not.throw(
         StorageServerException
     )
 
@@ -439,8 +450,8 @@ def test_oauth_token_unsuccessful_retry_on_401(client):
         httpretty.GET,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
         responses=[
-            httpretty.Response(body=json.dumps({"key": key}), status=401),
-            httpretty.Response(body=json.dumps({"key": key}), status=401),
+            httpretty.Response(body=json.dumps({"record_key": key}), status=401),
+            httpretty.Response(body=json.dumps({"record_key": key}), status=401),
         ],
     )
 
@@ -455,7 +466,7 @@ def test_oauth_token_unsuccessful_retry_on_401(client):
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_id", scope="scope")
 
-    client(token_client=token_client).read.when.called_with(country=COUNTRY, key=key_hash).should.throw(
+    client(token_client=token_client).read.when.called_with(country=COUNTRY, record_key=key_hash).should.throw(
         StorageServerException
     )
 
@@ -574,7 +585,7 @@ def test_httpclient_oauth_throw_error(client):
         status=400,
     )
 
-    http_client.read.when.called_with(country="us", key="test").should.throw(StorageServerException)
+    http_client.read.when.called_with(country="us", record_key="test").should.throw(StorageServerException)
 
 
 @httpretty.activate
@@ -599,7 +610,7 @@ def test_httpclient_oauth_throw_error(client):
 )
 @pytest.mark.happy_path
 def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, expected_audience, countries):
-    record = {"key": "key1", "version": 0}
+    record = {"record_key": "key1", "version": 0}
     client = HttpClient(env_id="test", endpoint_mask=endpoint_mask, token_client=get_oauth_token_client(scope="test"),)
 
     httpretty.register_uri(
@@ -608,11 +619,11 @@ def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, ex
 
     httpretty.register_uri(
         httpretty.GET,
-        expected_endpoint + "/v2/storage/records/" + country + "/" + record.get("key"),
+        expected_endpoint + "/v2/storage/records/" + country + "/" + record.get("record_key"),
         body=json.dumps(record),
     )
 
-    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+    client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)
 
     token_request = httpretty.HTTPretty.latest_requests[-2]
     token_request_body = parse_qs(token_request.body.decode("utf-8"))
@@ -658,7 +669,7 @@ def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, ex
 def test_http_client_endpoint_mask_with_endpoint(
     endpoint_mask, endpoint, country, expected_endpoint, expected_audience, countries
 ):
-    record = {"key": "key1", "version": 0}
+    record = {"record_key": "key1", "version": 0}
     client = HttpClient(
         env_id="test",
         endpoint_mask=endpoint_mask,
@@ -671,10 +682,12 @@ def test_http_client_endpoint_mask_with_endpoint(
     )
 
     httpretty.register_uri(
-        httpretty.GET, endpoint + "/v2/storage/records/" + country + "/" + record.get("key"), body=json.dumps(record),
+        httpretty.GET,
+        endpoint + "/v2/storage/records/" + country + "/" + record.get("record_key"),
+        body=json.dumps(record),
     )
 
-    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+    client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)
 
     token_request = httpretty.HTTPretty.latest_requests[-2]
     token_request_body = parse_qs(token_request.body.decode("utf-8"))
@@ -700,7 +713,7 @@ def test_http_client_endpoint_mask_with_endpoint(
 )
 @pytest.mark.happy_path
 def test_http_client_using_proper_regional_auth_endpoint(client, country, is_midpop, expected_region, countries):
-    record = {"key": "key1", "version": 0}
+    record = {"record_key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_secret", scope="test")
     client = HttpClient(env_id="test", token_client=token_client)
@@ -715,7 +728,7 @@ def test_http_client_using_proper_regional_auth_endpoint(client, country, is_mid
         + "/v2/storage/records/"
         + country
         + "/"
-        + record.get("key"),
+        + record.get("record_key"),
         body=json.dumps(record),
     )
 
@@ -727,7 +740,7 @@ def test_http_client_using_proper_regional_auth_endpoint(client, country, is_mid
         ],
     )
 
-    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+    client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)
 
 
 @httpretty.activate
@@ -736,13 +749,15 @@ def test_http_client_using_proper_regional_auth_endpoint(client, country, is_mid
 )
 @pytest.mark.happy_path
 def test_http_client_using_default_regional_auth_for_custom_endpoint(client, country, expected_region):
-    record = {"key": "key1", "version": 0}
+    record = {"record_key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_secret", scope="test")
     client = HttpClient(env_id="test", token_client=token_client, endpoint=POPAPI_URL)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + country + "/" + record.get("key"), body=json.dumps(record),
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + country + "/" + record.get("record_key"),
+        body=json.dumps(record),
     )
 
     httpretty.register_uri(
@@ -753,7 +768,7 @@ def test_http_client_using_default_regional_auth_for_custom_endpoint(client, cou
         ],
     )
 
-    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+    client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)
 
 
 @httpretty.activate
@@ -762,7 +777,7 @@ def test_http_client_using_default_regional_auth_for_custom_endpoint(client, cou
 @pytest.mark.parametrize("endpoint", [POPAPI_URL])
 @pytest.mark.happy_path
 def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, country, auth_endpoints, endpoint):
-    record = {"key": "key1", "version": 0}
+    record = {"record_key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(
         client_id="client_id", client_secret="client_secret", scope="test", auth_endpoints=auth_endpoints
@@ -770,7 +785,9 @@ def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, coun
     client = HttpClient(env_id="test", token_client=token_client, endpoint=endpoint)
 
     httpretty.register_uri(
-        httpretty.GET, endpoint + "/v2/storage/records/" + country + "/" + record.get("key"), body=json.dumps(record),
+        httpretty.GET,
+        endpoint + "/v2/storage/records/" + country + "/" + record.get("record_key"),
+        body=json.dumps(record),
     )
 
     httpretty.register_uri(
@@ -781,7 +798,7 @@ def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, coun
         ],
     )
 
-    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+    client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)
 
 
 @httpretty.activate
@@ -801,7 +818,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
     client, country, is_midpop, expected_region, countries
 ):
     endpoint_mask = ".qa.incountry.com"
-    record = {"key": "key1", "version": 0}
+    record = {"record_key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_secret", scope="test",)
     client = HttpClient(env_id="test", token_client=token_client, endpoint_mask=endpoint_mask,)
@@ -813,7 +830,9 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
     pop_url = HttpClient.get_pop_url(country if is_midpop else HttpClient.DEFAULT_COUNTRY, endpoint_mask)
 
     httpretty.register_uri(
-        httpretty.GET, pop_url + "/v2/storage/records/" + country + "/" + record.get("key"), body=json.dumps(record),
+        httpretty.GET,
+        pop_url + "/v2/storage/records/" + country + "/" + record.get("record_key"),
+        body=json.dumps(record),
     )
 
     httpretty.register_uri(
@@ -824,7 +843,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
         ],
     )
 
-    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+    client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)
 
 
 @httpretty.activate
@@ -844,7 +863,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_en
     client, country, is_midpop, expected_region, countries
 ):
     endpoint_mask = ".qa.incountry.com"
-    record = {"key": "key1", "version": 0}
+    record = {"record_key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_secret", scope="test",)
     client = HttpClient(env_id="test", token_client=token_client, endpoint=POPAPI_URL, endpoint_mask=endpoint_mask,)
@@ -854,7 +873,9 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_en
     )
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + country + "/" + record.get("key"), body=json.dumps(record),
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + country + "/" + record.get("record_key"),
+        body=json.dumps(record),
     )
 
     httpretty.register_uri(
@@ -865,7 +886,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_en
         ],
     )
 
-    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+    client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)
 
 
 @httpretty.activate
@@ -896,7 +917,7 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_en
 def test_http_client_using_custom_auth_endpoints(
     client, endpoint_mask, auth_endpoints, country, is_midpop, expected_region, countries
 ):
-    record = {"key": "key1", "version": 0}
+    record = {"record_key": "key1", "version": 0}
 
     token_client = OAuthTokenClient(
         client_id="client_id", client_secret="client_secret", scope="test", auth_endpoints=auth_endpoints
@@ -913,7 +934,7 @@ def test_http_client_using_custom_auth_endpoints(
         + "/v2/storage/records/"
         + country
         + "/"
-        + record.get("key"),
+        + record.get("record_key"),
         body=json.dumps(record),
     )
 
@@ -925,4 +946,4 @@ def test_http_client_using_custom_auth_endpoints(
         ],
     )
 
-    client.read.when.called_with(country=country, key=record.get("key")).should_not.throw(Exception)
+    client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)

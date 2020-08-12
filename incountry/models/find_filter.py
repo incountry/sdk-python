@@ -47,11 +47,28 @@ IntKey = Union[StrictInt, NonEmptyIntList, OperatorsIntDict]
 class FindFilter(BaseModel):
     limit: conint(ge=1, le=FIND_LIMIT, strict=True) = FIND_LIMIT
     offset: conint(ge=0, strict=True) = 0
-    key: StrKey = None
+    record_key: StrKey = None
+    profile_key: StrKey = None
+    key1: StrKey = None
     key2: StrKey = None
     key3: StrKey = None
-    profile_key: StrKey = None
-    range_key: IntKey = None
+    key4: StrKey = None
+    key5: StrKey = None
+    key6: StrKey = None
+    key7: StrKey = None
+    key8: StrKey = None
+    key9: StrKey = None
+    key10: StrKey = None
+    range_key1: IntKey = None
+    range_key2: IntKey = None
+    range_key3: IntKey = None
+    range_key4: IntKey = None
+    range_key5: IntKey = None
+    range_key6: IntKey = None
+    range_key7: IntKey = None
+    range_key8: IntKey = None
+    range_key9: IntKey = None
+    range_key10: IntKey = None
     version: IntKey = None
 
     @validator("*", pre=True)

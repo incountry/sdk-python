@@ -4,7 +4,22 @@ import json
 from .incountry_crypto import InCrypto
 from .exceptions import StorageClientException
 
-HASHABLE_KEYS = ["key", "key2", "key3", "profile_key"]
+HASHABLE_KEYS = [
+    "record_key",
+    "profile_key",
+    "service_key1",
+    "service_key2",
+    "key1",
+    "key2",
+    "key3",
+    "key4",
+    "key5",
+    "key6",
+    "key7",
+    "key8",
+    "key9",
+    "key10",
+]
 
 
 def validate_crypto(crypto):
@@ -53,9 +68,10 @@ def encrypt_record(crypto, record, salt, normalize_keys=False):
     if res.get("body"):
         body["payload"] = res.get("body")
 
-    [enc_data, key_version] = crypto.encrypt(json.dumps(body))
+    (enc_data, key_version, is_encrypted) = crypto.encrypt(json.dumps(body))
     res["body"] = enc_data
     res["version"] = key_version
+    res["is_encrypted"] = is_encrypted
 
     return {key: value for key, value in res.items() if value is not None}
 
@@ -74,5 +90,7 @@ def decrypt_record(crypto, record):
             for k in HASHABLE_KEYS:
                 if record.get(k) and body["meta"].get(k):
                     res[k] = body["meta"][k]
+            if body["meta"].get("key", None):
+                res["record_key"] = body["meta"].get("key")
 
     return {key: value for key, value in res.items() if value is not None}

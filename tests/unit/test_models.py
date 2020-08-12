@@ -25,44 +25,44 @@ from incountry.models import (
 from incountry import SecretKeyAccessor
 
 TEST_RECORDS = [
-    {"key": str(uuid.uuid1())},
-    {"key": str(uuid.uuid1()), "body": "test"},
-    {"key": str(uuid.uuid1()), "body": "test", "key2": "key2"},
-    {"key": str(uuid.uuid1()), "body": "test", "key2": "key2", "key3": "key3"},
-    {"key": str(uuid.uuid1()), "body": "test", "key2": "key2", "key3": "key3", "profile_key": "profile_key"},
+    {"record_key": str(uuid.uuid1())},
+    {"record_key": str(uuid.uuid1()), "body": "test"},
+    {"record_key": str(uuid.uuid1()), "body": "test", "key2": "key2"},
+    {"record_key": str(uuid.uuid1()), "body": "test", "key2": "key2", "key3": "key3"},
+    {"record_key": str(uuid.uuid1()), "body": "test", "key2": "key2", "key3": "key3", "profile_key": "profile_key"},
     {
-        "key": str(uuid.uuid1()),
+        "record_key": str(uuid.uuid1()),
         "body": "test",
         "key2": "key2",
         "key3": "key3",
         "profile_key": "profile_key",
-        "range_key": 1,
+        "range_key1": 1,
     },
 ]
 
 INVALID_RECORDS = [
-    {"key": ""},
-    {"key": 1},
-    {"key": "key", "body": 1},
-    {"key": "key", "version": -1},
-    {"key": "key", "body": "body", "key2": 1},
-    {"key": "key", "body": "test", "key2": "key2", "key3": 1},
-    {"key": "key", "body": "test", "key2": "key2", "key3": "key3", "profile_key": 1},
+    {"record_key": ""},
+    {"record_key": 1},
+    {"record_key": "record_key", "body": 1},
+    {"record_key": "record_key", "version": -1},
+    {"record_key": "record_key", "body": "body", "key2": 1},
+    {"record_key": "record_key", "body": "test", "key2": "key2", "key3": 1},
+    {"record_key": "record_key", "body": "test", "key2": "key2", "key3": "key3", "profile_key": 1},
     {
-        "key": "key",
+        "record_key": "record_key",
         "body": "test",
         "key2": "key2",
         "key3": "key3",
         "profile_key": "profile_key",
-        "range_key": "range_key",
+        "range_key1": "range_key1",
     },
     {
-        "key": "key",
+        "record_key": "record_key",
         "body": "test",
         "key2": "key2",
         "key3": "key3",
         "profile_key": "profile_key",
-        "range_key": 1,
+        "range_key1": 1,
         "version": "version",
     },
 ]
@@ -188,7 +188,7 @@ def test_valid_custom_enc_config_method_validation(config):
     "config, error_text",
     [
         ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": 1, "keyVersion": 1}, "value is not valid bytes"),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": "password", "keyVersion": "1"}, "value is not a valid integer"),
+        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": "password", "keyVersion": "1"}, "value is not a valid integer",),
         (
             {
                 **VALID_CUSTOM_ENCRYPTION_CONFIG,
@@ -260,7 +260,7 @@ def test_valid_limit_offset_find_filter(filter):
     assert item.offset == filter["offset"]
 
 
-@pytest.mark.parametrize("filter_key", ["key", "key2", "key3", "profile_key"])
+@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key"])
 @pytest.mark.parametrize(
     "filter",
     [
@@ -279,7 +279,7 @@ def test_valid_str_filters_find_filter(filter_key, filter):
     assert getattr(item, filter_key) == filter
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key"])
+@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
 @pytest.mark.parametrize(
     "filter",
     [
@@ -306,7 +306,7 @@ def test_valid_int_filters_find_filter(filter_key, filter):
     assert getattr(item, filter_key) == filter
 
 
-@pytest.mark.parametrize("filter_key", ["key", "key2", "key3", "profile_key"])
+@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key"])
 @pytest.mark.parametrize("values", [[0, 1, [], {}, (), False, True]])
 @pytest.mark.error_path
 def test_invalid_str_filters_find_filter(filter_key, values):
@@ -328,7 +328,7 @@ def test_invalid_str_filters_find_filter(filter_key, values):
         FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key"])
+@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
 @pytest.mark.parametrize("values", [["text", "", [], {}, (), False, True]])
 @pytest.mark.parametrize("operator", ["$not", "$gt", "$gte", "$lt", "$lte"])
 @pytest.mark.error_path
@@ -353,7 +353,7 @@ def test_invalid_int_filters_find_filter(filter_key, values, operator):
         FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["key", "key2", "key3", "profile_key", "version", "range_key"])
+@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key", "version", "range_key1"])
 @pytest.mark.parametrize("operator", ["gt", "gte", "lt", "lte", "not", "$no", "$", "", False, True, 0, 1, ()])
 @pytest.mark.error_path
 def test_invalid_operators_find_filter(filter_key, operator):
@@ -363,7 +363,7 @@ def test_invalid_operators_find_filter(filter_key, operator):
     FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key"])
+@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
 @pytest.mark.parametrize("operators", [["$gt", "$gte"], ["$lt", "$lte"]])
 @pytest.mark.error_path
 def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
@@ -562,7 +562,7 @@ def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
 def test_valid_record(record):
     item = Record(**record)
 
-    for key in ["key", "body", "key2", "key3", "profile_key", "range_key", "version"]:
+    for key in ["record_key", "body", "key2", "key3", "profile_key", "range_key1", "version"]:
         if key in record:
             assert getattr(item, key) == record[key]
 
@@ -580,7 +580,7 @@ def test_valid_record_from_server(record, valid_version):
     record = {**record, "version": valid_version}
     item = RecordFromServer(**record)
 
-    for key in ["key", "body", "key2", "key3", "profile_key", "range_key", "version"]:
+    for key in ["record_key", "body", "key2", "key3", "profile_key", "range_key1", "version"]:
         if key in record:
             assert getattr(item, key) == record[key]
 
