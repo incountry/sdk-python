@@ -117,7 +117,7 @@ class Storage:
         """
 
         record = {"record_key": record_key}
-        record.update({k: v for k, v in record_data.items() if k in Record.__fields__})
+        record.update({k: v for k, v in record_data.items() if k in Record.__fields__ and v is not None})
 
         data_to_send = self.encrypt_record(record)
         self.http_client.write(country=country, data=data_to_send)
@@ -315,8 +315,8 @@ class Storage:
             StorageException: in any other cases.
         """
 
-        key = get_salted_hash(self.normalize_key(record_key), self.env_id)
-        self.http_client.delete(country=country, key=key)
+        record_key_hashed = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        self.http_client.delete(country=country, record_key=record_key_hashed)
         return {"success": True}
 
     @validate_encryption_enabled

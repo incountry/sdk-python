@@ -4,6 +4,8 @@ import json
 from .incountry_crypto import InCrypto
 from .exceptions import StorageClientException
 
+from .models import Record
+
 HASHABLE_KEYS = [
     "record_key",
     "profile_key",
@@ -72,6 +74,9 @@ def encrypt_record(crypto, record, salt, normalize_keys=False):
     res["body"] = enc_data
     res["version"] = key_version
     res["is_encrypted"] = is_encrypted
+    if res.get("precommit_body"):
+        (enc_precommit_body, *_) = crypto.encrypt(res["precommit_body"])
+        res["precommit_body"] = enc_precommit_body
 
     return {key: value for key, value in res.items() if value is not None}
 
@@ -79,8 +84,19 @@ def encrypt_record(crypto, record, salt, normalize_keys=False):
 def decrypt_record(crypto, record):
     validate_crypto(crypto)
     res = dict(record)
+
+    if res.get("key", None):
+        res["record_key"] = res["key"]
+        del res["key"]
+
+    if res.get("range_key", None):
+        res["range_key1"] = res["range_key"]
+        del res["range_key"]
+
     if res.get("body"):
         res["body"] = crypto.decrypt(res["body"], res["version"])
+        if res.get("precommit_body"):
+            res["precommit_body"] = crypto.decrypt(res["precommit_body"], res["version"])
         if is_json(res["body"]):
             body = json.loads(res["body"])
             if body.get("payload"):
@@ -93,4 +109,4 @@ def decrypt_record(crypto, record):
             if body["meta"].get("key", None):
                 res["record_key"] = body["meta"].get("key")
 
-    return {key: value for key, value in res.items() if value is not None}
+    return {key: value for key, value in res.items() if value is not None and key in Record.__fields__}

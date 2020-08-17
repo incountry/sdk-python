@@ -49,6 +49,8 @@ class FindFilter(BaseModel):
     offset: conint(ge=0, strict=True) = 0
     record_key: StrKey = None
     profile_key: StrKey = None
+    service_key1: StrKey = None
+    service_key2: StrKey = None
     key1: StrKey = None
     key2: StrKey = None
     key3: StrKey = None

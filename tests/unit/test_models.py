@@ -1,5 +1,4 @@
 import os
-import uuid
 
 import pytest
 import sure  # noqa: F401
@@ -24,48 +23,13 @@ from incountry.models import (
 )
 from incountry import SecretKeyAccessor
 
-TEST_RECORDS = [
-    {"record_key": str(uuid.uuid1())},
-    {"record_key": str(uuid.uuid1()), "body": "test"},
-    {"record_key": str(uuid.uuid1()), "body": "test", "key2": "key2"},
-    {"record_key": str(uuid.uuid1()), "body": "test", "key2": "key2", "key3": "key3"},
-    {"record_key": str(uuid.uuid1()), "body": "test", "key2": "key2", "key3": "key3", "profile_key": "profile_key"},
-    {
-        "record_key": str(uuid.uuid1()),
-        "body": "test",
-        "key2": "key2",
-        "key3": "key3",
-        "profile_key": "profile_key",
-        "range_key1": 1,
-    },
-]
+from .utils import get_test_records, get_invalid_records
 
-INVALID_RECORDS = [
-    {"record_key": ""},
-    {"record_key": 1},
-    {"record_key": "record_key", "body": 1},
-    {"record_key": "record_key", "version": -1},
-    {"record_key": "record_key", "body": "body", "key2": 1},
-    {"record_key": "record_key", "body": "test", "key2": "key2", "key3": 1},
-    {"record_key": "record_key", "body": "test", "key2": "key2", "key3": "key3", "profile_key": 1},
-    {
-        "record_key": "record_key",
-        "body": "test",
-        "key2": "key2",
-        "key3": "key3",
-        "profile_key": "profile_key",
-        "range_key1": "range_key1",
-    },
-    {
-        "record_key": "record_key",
-        "body": "test",
-        "key2": "key2",
-        "key3": "key3",
-        "profile_key": "profile_key",
-        "range_key1": 1,
-        "version": "version",
-    },
-]
+TEST_RECORDS = get_test_records()
+
+INVALID_RECORDS = get_invalid_records()
+
+INVALID_RECORDS = INVALID_RECORDS + [{**INVALID_RECORDS[-1], "version": "version"}]
 
 INVALID_RECORDS_FOR_BATCH = [
     [],
@@ -562,9 +526,8 @@ def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
 def test_valid_record(record):
     item = Record(**record)
 
-    for key in ["record_key", "body", "key2", "key3", "profile_key", "range_key1", "version"]:
-        if key in record:
-            assert getattr(item, key) == record[key]
+    for key, value in record.items():
+        assert getattr(item, key) == record[key]
 
 
 @pytest.mark.parametrize("record", INVALID_RECORDS)
@@ -580,9 +543,8 @@ def test_valid_record_from_server(record, valid_version):
     record = {**record, "version": valid_version}
     item = RecordFromServer(**record)
 
-    for key in ["record_key", "body", "key2", "key3", "profile_key", "range_key1", "version"]:
-        if key in record:
-            assert getattr(item, key) == record[key]
+    for key, value in record.items():
+        assert getattr(item, key) == record[key]
 
 
 @pytest.mark.parametrize("record", TEST_RECORDS)
