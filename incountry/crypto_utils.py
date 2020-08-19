@@ -85,14 +85,6 @@ def decrypt_record(crypto, record):
     validate_crypto(crypto)
     res = dict(record)
 
-    if res.get("key", None):
-        res["record_key"] = res["key"]
-        del res["key"]
-
-    if res.get("range_key", None):
-        res["range_key1"] = res["range_key"]
-        del res["range_key"]
-
     if res.get("body"):
         res["body"] = crypto.decrypt(res["body"], res["version"])
         if res.get("precommit_body"):
