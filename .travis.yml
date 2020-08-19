@@ -2,13 +2,12 @@ addons:
   sonarcloud:
     organization: "incountry"
 
+git:
+  depth: false
+
 language: python
 python:
   - "3.7"
-
-before_install:
-  #  for sonar test coverage metric
-  - if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then git fetch --no-tags https://github.com/incountry/sdk-python.git +refs/heads/$TRAVIS_BRANCH:refs/remotes/origin/$TRAVIS_BRANCH; fi
 
 install:
   - pip3 install bandit
