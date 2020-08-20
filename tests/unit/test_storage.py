@@ -19,7 +19,7 @@ from incountry import (
     get_salted_hash,
 )
 
-from ..utils import omit, get_test_records, get_valid_find_filter_test_options, get_randomcase_record
+from ..utils import omit, get_test_records, get_valid_find_filter_test_options, get_randomcase_record, get_random_str
 
 POPAPI_URL = "https://popapi.com:8082"
 COUNTRY = "us"
@@ -96,9 +96,6 @@ def test_write_with_none_fields(client, record, encrypt):
     assert record.items() > write_res["record"].items()
 
     received_record = json.loads(httpretty.last_request().body)
-
-    if record.get("range_key", None):
-        assert received_record["range_key"] == record["range_key"]
 
     for key, value in record.items():
         if value is None and key != "body":
@@ -425,13 +422,7 @@ def test_find(client, query, records, encrypt):
     received_record["options"].should.equal(
         {"limit": query.get("limit", FindFilter.getFindLimit()), "offset": query.get("offset", 0)}
     )
-
-    if query.get("range_key", None):
-        assert received_record["filter"]["range_key"] == query["range_key"]
-
-    for k in ["key", "key2", "key3", "profile_key"]:
-        if query.get(k, None):
-            assert received_record["filter"][k] != query[k]
+    received_record["filter"].keys().should.equal(query.keys())
 
     find_response.should.be.a(dict)
 
@@ -439,6 +430,44 @@ def test_find(client, query, records, encrypt):
         match = next(r for r in records if data_record["record_key"] == r["record_key"])
         for key, value in match.items():
             assert data_record[key] == match[key]
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "query", [{"key1": "key1"}],
+)
+@pytest.mark.parametrize(
+    "records", [TEST_RECORDS[-2:]],
+)
+@pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.happy_path
+def test_find_filters_improper_or_none_keys(client, query, records, encrypt):
+    enc_data = [client(encrypt).encrypt_record(dict(x)) for x in records]
+    incorrect_random_key = get_random_str()
+    incorrect_key = "key11"
+    none_key = "key2"
+    query[incorrect_random_key] = get_random_str()
+    query[incorrect_key] = get_random_str()
+    query[none_key] = None
+
+    httpretty.register_uri(
+        httpretty.POST,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
+        body=json.dumps(get_default_find_response(len(enc_data), enc_data)),
+    )
+
+    client(encrypt).find(country=COUNTRY, **query)
+
+    received_record = json.loads(httpretty.last_request().body)
+    received_record.should.be.a(dict)
+    received_record.should.have.key("filter")
+    received_record["filter"].should_not.have.key(incorrect_key)
+    received_record["filter"].should_not.have.key(incorrect_random_key)
+    received_record["filter"].should_not.have.key(none_key)
+    received_record.should.have.key("options")
+    received_record["options"].should.equal(
+        {"limit": query.get("limit", FindFilter.getFindLimit()), "offset": query.get("offset", 0)}
+    )
 
 
 @httpretty.activate

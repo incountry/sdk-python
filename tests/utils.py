@@ -80,6 +80,7 @@ def get_valid_find_filter_test_options():
         if field in STRING_FIELDS:
             res.append({field: get_random_str()})
             res.append({field: [get_random_str(), get_random_str()]})
+            res.append({field: {"$not": get_random_str()}})
         if field in INT_FIELDS:
             res.append({field: randrange(sys.maxsize)})
             res.append({field: [randrange(sys.maxsize), randrange(sys.maxsize)]})
