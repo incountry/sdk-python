@@ -1,4 +1,4 @@
-from random import randrange, choice, choices
+from random import randrange, choices
 import string
 import uuid
 import sys

@@ -19,7 +19,7 @@ from incountry import (
     get_salted_hash,
 )
 
-from .utils import omit, get_test_records, get_valid_find_filter_test_options, get_randomcase_record
+from ..utils import omit, get_test_records, get_valid_find_filter_test_options, get_randomcase_record
 
 POPAPI_URL = "https://popapi.com:8082"
 COUNTRY = "us"
@@ -220,7 +220,7 @@ def test_batch_write_with_nones(client, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "records", [[get_randomcase_record(), get_randomcase_record(),]],
+    "records", [[get_randomcase_record(), get_randomcase_record()]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -332,7 +332,7 @@ def test_read_multiple_keys(client, record_1, record_2, encrypt, keys_data_old, 
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "record", [get_randomcase_record(),],
+    "record", [get_randomcase_record()],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])

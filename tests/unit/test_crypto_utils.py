@@ -3,7 +3,7 @@ import sure  # noqa: F401
 
 from incountry import decrypt_record, encrypt_record, get_salted_hash, InCrypto, StorageClientException
 
-from incountry.crypto_utils import hash, is_json, normalize_key
+from incountry.crypto_utils import hash, is_json
 
 
 PREPARED_HASH = {

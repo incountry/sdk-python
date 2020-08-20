@@ -23,7 +23,7 @@ from incountry.models import (
 )
 from incountry import SecretKeyAccessor
 
-from .utils import get_test_records, get_invalid_records
+from ..utils import get_test_records, get_invalid_records
 
 TEST_RECORDS = get_test_records()
 
