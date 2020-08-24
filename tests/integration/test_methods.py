@@ -55,20 +55,20 @@ def test_read_not_existing_record(storage: Storage, encrypt: bool, use_oauth: bo
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
 @pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 def test_delete_record(storage: Storage, encrypt: bool, use_oauth: bool) -> None:
-    key1 = uuid.uuid4().hex
+    record_key = uuid.uuid4().hex
 
-    storage.write(country=COUNTRY, record_key=key1, body="some body")
+    storage.write(country=COUNTRY, record_key=record_key, body="some body")
 
-    r = storage.read(country=COUNTRY, record_key=key1)
+    r = storage.read(country=COUNTRY, record_key=record_key)
     assert r is not None
 
-    delete_response = storage.delete(country=COUNTRY, record_key=key1)
+    delete_response = storage.delete(country=COUNTRY, record_key=record_key)
     delete_response.should.be.a("dict")
     delete_response.should.have.key("success")
     delete_response["success"].should.be(True)
 
-    storage.read.when.called_with(country=COUNTRY, record_key=key1).should.have.raised(StorageServerException)
-    storage.delete.when.called_with(country=COUNTRY, record_key=key1).should.have.raised(StorageServerException)
+    storage.read.when.called_with(country=COUNTRY, record_key=record_key).should.have.raised(StorageServerException)
+    storage.delete.when.called_with(country=COUNTRY, record_key=record_key).should.have.raised(StorageServerException)
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])

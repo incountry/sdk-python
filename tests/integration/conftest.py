@@ -25,8 +25,6 @@ SECRETS_DATA = {
 
 @pytest.fixture
 def storage(encrypt: bool, normalize_keys: bool, use_oauth: bool) -> Storage:
-    """Creating storage"""
-
     args = {
         "encrypt": encrypt,
         "debug": True,

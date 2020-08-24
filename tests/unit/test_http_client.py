@@ -180,14 +180,14 @@ def test_batch_write_invalid_response(client, response):
 )
 @pytest.mark.happy_path
 def test_read_valid_response(client, response):
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
+        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash, body=json.dumps(response),
     )
 
-    res = client().read(country=COUNTRY, record_key=key_hash)
+    res = client().read(country=COUNTRY, record_key=record_key_hash)
     assert res == response
 
 
@@ -197,14 +197,14 @@ def test_read_valid_response(client, response):
 )
 @pytest.mark.error_path
 def test_read_invalid_response(client, response):
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
+        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash, body=json.dumps(response),
     )
 
-    client().read.when.called_with(country=COUNTRY, record_key=key_hash).should.have.raised(
+    client().read.when.called_with(country=COUNTRY, record_key=record_key_hash).should.have.raised(
         StorageServerException, "HTTP Response validation failed"
     )
 
@@ -271,14 +271,16 @@ def test_find_invalid_response(client, query, response):
 )
 @pytest.mark.happy_path
 def test_delete_valid_response(client, response):
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
-        httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
+        httpretty.DELETE,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps(response),
     )
 
-    res = client().delete(country=COUNTRY, record_key=key_hash)
+    res = client().delete(country=COUNTRY, record_key=record_key_hash)
     assert res == response
 
 
@@ -289,14 +291,16 @@ def test_delete_valid_response(client, response):
 @pytest.mark.error_path
 @pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
 def test_delete_invalid_response(client, response):
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
-        httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
+        httpretty.DELETE,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps(response),
     )
 
-    client().delete.when.called_with(country=COUNTRY, record_key=key_hash).should.have.raised(
+    client().delete.when.called_with(country=COUNTRY, record_key=record_key_hash).should.have.raised(
         StorageServerException, "HTTP Response validation failed"
     )
 
@@ -306,17 +310,17 @@ def test_delete_invalid_response(client, response):
 def test_default_oauth_token_client(client):
     env_id = str(uuid.uuid1())
 
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
         httpretty.GET,
-        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
-        body=json.dumps({"record_key": key}),
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps({"record_key": record_key}),
     )
 
     client(env_id=env_id, token_client=get_oauth_token_client(scope=env_id)).read.when.called_with(
-        country=COUNTRY, record_key=key_hash
+        country=COUNTRY, record_key=record_key_hash
     ).should_not.throw(Exception)
 
     token_request = httpretty.HTTPretty.latest_requests[-2]
@@ -329,17 +333,17 @@ def test_default_oauth_token_client(client):
 @httpretty.activate
 @pytest.mark.happy_path
 def test_oauth_token_client_custom_endpoint(client):
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
         httpretty.GET,
-        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
-        body=json.dumps({"record_key": key}),
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps({"record_key": record_key}),
     )
 
     client(token_client=get_oauth_token_client(auth_endpoints={"default": "https://oauth.com"})).read.when.called_with(
-        country=COUNTRY, record_key=key_hash
+        country=COUNTRY, record_key=record_key_hash
     ).should_not.throw(Exception)
 
 
@@ -348,17 +352,17 @@ def test_oauth_token_client_custom_endpoint(client):
 def test_oauth_token_client_check_token(client):
     token = str(uuid.uuid1())
 
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
         httpretty.GET,
-        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
-        body=json.dumps({"record_key": key}),
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps({"record_key": record_key}),
     )
 
     client(token_client=get_oauth_token_client(token=token)).read.when.called_with(
-        country=COUNTRY, record_key=key_hash
+        country=COUNTRY, record_key=record_key_hash
     ).should_not.throw(Exception)
 
     headers = httpretty.last_request().headers
@@ -371,17 +375,17 @@ def test_oauth_token_client_check_token(client):
 def test_api_token_client_check_token(client):
     token = str(uuid.uuid1())
 
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
         httpretty.GET,
-        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
-        body=json.dumps({"record_key": key}),
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps({"record_key": record_key}),
     )
 
     client(token_client=ApiKeyTokenClient(api_key=token)).read.when.called_with(
-        country=COUNTRY, record_key=key_hash
+        country=COUNTRY, record_key=record_key_hash
     ).should_not.throw(Exception)
 
     headers = httpretty.last_request().headers
@@ -394,33 +398,33 @@ def test_api_token_client_check_token(client):
 def test_api_token_do_not_retry_on_401(client):
     token = str(uuid.uuid1())
 
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
         httpretty.GET,
-        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
-        body=json.dumps({"record_key": key}),
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps({"record_key": record_key}),
         status=401,
     )
 
     client(token_client=ApiKeyTokenClient(api_key=token)).read.when.called_with(
-        country=COUNTRY, record_key=key_hash
+        country=COUNTRY, record_key=record_key_hash
     ).should.throw(StorageServerException)
 
 
 @httpretty.activate
 @pytest.mark.happy_path
 def test_oauth_token_successful_retry_on_401(client):
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
         httpretty.GET,
-        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
         responses=[
-            httpretty.Response(body=json.dumps({"record_key": key}), status=401),
-            httpretty.Response(body=json.dumps({"record_key": key}), status=200),
+            httpretty.Response(body=json.dumps({"record_key": record_key}), status=401),
+            httpretty.Response(body=json.dumps({"record_key": record_key}), status=200),
         ],
     )
 
@@ -435,23 +439,23 @@ def test_oauth_token_successful_retry_on_401(client):
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_id", scope="scope")
 
-    client(token_client=token_client).read.when.called_with(country=COUNTRY, record_key=key_hash).should_not.throw(
-        StorageServerException
-    )
+    client(token_client=token_client).read.when.called_with(
+        country=COUNTRY, record_key=record_key_hash
+    ).should_not.throw(StorageServerException)
 
 
 @httpretty.activate
 @pytest.mark.error_path
 def test_oauth_token_unsuccessful_retry_on_401(client):
-    key = str(uuid.uuid1())
-    key_hash = get_key_hash(key)
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
         httpretty.GET,
-        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
         responses=[
-            httpretty.Response(body=json.dumps({"record_key": key}), status=401),
-            httpretty.Response(body=json.dumps({"record_key": key}), status=401),
+            httpretty.Response(body=json.dumps({"record_key": record_key}), status=401),
+            httpretty.Response(body=json.dumps({"record_key": record_key}), status=401),
         ],
     )
 
@@ -466,7 +470,7 @@ def test_oauth_token_unsuccessful_retry_on_401(client):
 
     token_client = OAuthTokenClient(client_id="client_id", client_secret="client_id", scope="scope")
 
-    client(token_client=token_client).read.when.called_with(country=COUNTRY, record_key=key_hash).should.throw(
+    client(token_client=token_client).read.when.called_with(country=COUNTRY, record_key=record_key_hash).should.throw(
         StorageServerException
     )
 

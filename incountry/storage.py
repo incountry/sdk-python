@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Union, Any, Optional
 
 from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash, HASHABLE_KEYS, normalize_key
 from .exceptions import StorageCryptoException
@@ -16,44 +16,44 @@ class Storage:
     @validate_model(StorageWithEnv)
     def __init__(
         self,
-        environment_id: str = None,
-        api_key: str = None,
-        client_id: str = None,
-        client_secret: str = None,
-        endpoint: str = None,
-        encrypt: bool = True,
-        secret_key_accessor: SecretKeyAccessor = None,
-        custom_encryption_configs: List[dict] = None,
-        debug: bool = False,
-        options: Dict[str, Any] = {},
+        environment_id: Optional[str] = None,
+        api_key: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        encrypt: Optional[bool] = True,
+        secret_key_accessor: Optional[SecretKeyAccessor] = None,
+        custom_encryption_configs: Optional[List[dict]] = None,
+        debug: Optional[bool] = False,
+        options: Optional[Dict[str, Any]] = {},
     ):
         """Returns a client to talk to the InCountry storage network.
 
         Args:
-            environment_id (str, optional):
+            environment_id:
                 The id of the environment you want to store records in. Defaults to None.
                 Can also be set via INC_ENVIRONMENT_ID environment variable.
-            api_key (str, optional):
+            api_key:
                 Your API key. Defaults to None.
                 Can also be set via INC_API_KEY environment variable.
-            client_id (str, optional):
+            client_id:
                 Client Id used for oAuth authorization. Defaults to None.
                 Can also be set via INC_CLIENT_ID environment variable.
-            client_secret (str, optional):
+            client_secret:
                 Client Secret used for oAuth authorization. Defaults to None.
                 Can also be set via INC_CLIENT_SECRET environment variable.
-            endpoint (str, optional):
+            endpoint:
                 Custom storage server endpoint to use. Defaults to None.
                 Can also be set via INC_ENDPOINT environment variable.
-            encrypt (bool, optional):
+            encrypt:
                 Whether to encrypt data before storing in InCountry. Defaults to True.
-            secret_key_accessor (SecretKeyAccessor, optional):
+            secret_key_accessor:
                 SecretKeyAccessor class instance which provides encryption keys details. Defaults to None.
-            custom_encryption_configs (List[dict], optional):
+            custom_encryption_configs:
                 List of custom encryption configurations. Defaults to None.
-            debug (bool, optional):
+            debug:
                 Pass True to enable some debug logging. Defaults to False.
-            options (Dict[str, Any], optional):
+            options:
                 Options dict to tweak various Storage instance aspects. Defaults to {}.
 
         Raises:
@@ -97,9 +97,9 @@ class Storage:
         """Writes record to InCountry storage network.
 
         Args:
-            country (str): Country to write record to
-            record_key (str): Record primary key/identifier
-            **record_data (Union[str, int], optional): Various record attributes.
+            country: Country to write record to
+            record_key: Record primary key/identifier
+            **record_data: Various record attributes.
                 Available String attributes:
                 - body, precommit_body, profile_key, service_key1, service_key2, key1, ..., key10.
                 Available Int attributes:
@@ -129,8 +129,8 @@ class Storage:
         """Writes multiple records to InCountry storage network.
 
         Args:
-            country (str): Country to write records to
-            records (List[TRecord]): List of records. See Storage.write() for details on record attributes
+            country: Country to write records to
+            records: List of records. See Storage.write() for details on record attributes
 
         Returns:
             Dict[str, List[TRecord]]:
@@ -154,8 +154,8 @@ class Storage:
         """Reads record for the given record_key
 
         Args:
-            country (str): Country to search record in
-            record_key (str): Record primary key/identifier
+            country: Country to search record in
+            record_key: Record primary key/identifier
 
         Returns:
             Dict[str, TRecord]:
@@ -175,15 +175,19 @@ class Storage:
     @validate_model(Country)
     @validate_model(FindFilter)
     def find(
-        self, country: str, limit: int = FIND_LIMIT, offset: int = 0, **filters: Union[TIntFilter, TStringFilter],
+        self,
+        country: str,
+        limit: Optional[int] = FIND_LIMIT,
+        offset: Optional[int] = 0,
+        **filters: Union[TIntFilter, TStringFilter],
     ) -> Dict[str, Any]:
         """Finds records that satisfy provided filters
 
         Args:
-            country (str): Country to search records in
-            limit (int, optional): Maximum amount of records to be returned. Max limit is 100. Defaults to 100.
-            offset (int, optional): Search offset. Should be non-negative int. Defaults to 0.
-            **filters (Union[TIntFilter, TStringFilter], optional): Various filters to tweak the search query.
+            country: Country to search records in
+            limit: Maximum amount of records to be returned. Max limit is 100. Defaults to 100.
+            offset: Search offset. Should be non-negative int. Defaults to 0.
+            **filters: Various filters to tweak the search query.
                 Available String filter keys:
                 - profile_key, service_key1, service_key2, key1, ..., key10.
                 Available String filter types:
@@ -252,14 +256,14 @@ class Storage:
     @validate_model(Country)
     @validate_model(FindFilter)
     def find_one(
-        self, country: str, offset: int = 0, **filters: Union[TIntFilter, TStringFilter],
+        self, country: str, offset: Optional[int] = 0, **filters: Union[TIntFilter, TStringFilter],
     ) -> Union[None, Dict[str, Dict]]:
         """Finds record that satisfies provided filters
 
         Args:
-            country (str): Country to search record in
-            offset (int, optional): Search offset. Should be non-negative int. Defaults to 0.
-            **filters (Union[TIntFilter, TStringFilter], optional): Various filters to tweak the search query.
+            country: Country to search record in
+            offset: Search offset. Should be non-negative int. Defaults to 0.
+            **filters: Various filters to tweak the search query.
                 Available String filter keys:
                 - profile_key, service_key1, service_key2, key1, ..., key10.
                 Available String filter types:
@@ -301,8 +305,8 @@ class Storage:
         """Deletes record for the given record_key
 
         Args:
-            country (str):  Country to search record in
-            record_key (str): Record primary key/identifier
+            country:  Country to search record in
+            record_key: Record primary key/identifier
 
         Returns:
             Dict[str, bool]:
@@ -322,14 +326,14 @@ class Storage:
     @validate_encryption_enabled
     @validate_model(Country)
     @validate_model(FindFilter)
-    def migrate(self, country: str, limit: int = FIND_LIMIT) -> Dict[str, int]:
-        """Mirgrates records in InCountry storage to the latest encryption key.
+    def migrate(self, country: str, limit: Optional[int] = FIND_LIMIT) -> Dict[str, int]:
+        """Migrates records in InCountry storage to the latest encryption key.
 
         Unavailable when encrypt=False is passed to Storage constructor
 
         Args:
-            country (str): Country to migrate records in
-            limit (int, optional): Maximum amount of records to be migrated at once. Max limit is 100. Defaults to 100.
+            country: Country to migrate records in
+            limit: Maximum amount of records to be migrated at once. Max limit is 100. Defaults to 100.
 
         Returns:
             Dict[str, int]:
