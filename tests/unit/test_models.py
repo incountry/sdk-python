@@ -3,7 +3,6 @@ import os
 import pytest
 import sure  # noqa: F401
 from pydantic import ValidationError
-from datetime import datetime
 
 
 from incountry.models import (
