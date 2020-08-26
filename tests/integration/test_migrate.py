@@ -31,7 +31,7 @@ def test_migrate_should_raise_error_without_encryption(storage: Storage, encrypt
 def test_migrate_works_with_encryption(
     storage: Storage, encrypt: bool, use_oauth: bool, expected_records: List[Dict]
 ) -> None:
-    keys = {record["key"] for record in expected_records}
+    keys = {record["record_key"] for record in expected_records}
     find_all = storage.find(country=COUNTRY)
     all_records = find_all["meta"]["total"]
 
@@ -57,14 +57,14 @@ def test_migrate_works_with_encryption(
     all_records.should.be.greater_than_or_equal_to(migration_result["migrated"])
 
     nothing_lost = new_storage.find(country=COUNTRY)
-    found_keys = {record["key"] for record in nothing_lost["data"]}
+    found_keys = {record["record_key"] for record in nothing_lost["data"]}
     keys.should.be.equal(found_keys)
     nothing_lost["meta"]["total"].should.be.equal(all_records)
 
-    read_record = new_storage.read(country=COUNTRY, key=expected_records[0]["key"])
+    read_record = new_storage.read(country=COUNTRY, record_key=expected_records[0]["record_key"])
     for key in expected_records[0]:
         read_record["record"][key].should.be.equal(expected_records[0][key])
     read_record["record"]["version"].should.be.equal(secrets_data["currentVersion"])
-    storage.read.when.called_with(country=COUNTRY, key=expected_records[0]["key"]).should.have.raised(
+    storage.read.when.called_with(country=COUNTRY, record_key=expected_records[0]["record_key"]).should.have.raised(
         StorageServerException
     )

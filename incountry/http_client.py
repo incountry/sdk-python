@@ -46,8 +46,8 @@ class HttpClient:
         return response
 
     @validate_http_response(HttpRecordRead)
-    def read(self, country, key):
-        response = self.request(country, path="/" + key)
+    def read(self, country, record_key):
+        response = self.request(country, path="/" + record_key)
         return response
 
     @validate_http_response(HttpRecordFind)
@@ -55,8 +55,8 @@ class HttpClient:
         response = self.request(country, path="/find", method="POST", data=json.dumps(data))
         return response
 
-    def delete(self, country, key):
-        return self.request(country, path="/" + key, method="DELETE")
+    def delete(self, country, record_key):
+        return self.request(country, path="/" + record_key, method="DELETE")
 
     def request(self, country, path="", method="GET", data=None, retries=AUTH_TOTAL_RETRIES):
         try:

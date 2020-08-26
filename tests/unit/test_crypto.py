@@ -10,7 +10,7 @@ from incountry import InCrypto, StorageCryptoException, SecretKeyAccessor, Stora
 PLAINTEXTS = [
     "",
     "Howdy",  # <-- English
-    "Привет медвед",  # <-- Russian
+    "Привет",  # <-- Russian
     "مرحبا",  # <-- Arabic
     "हाय",  # <-- Hindi
     "안녕",  # <-- Korean
@@ -77,7 +77,7 @@ def test_unpack_error():
 def test_enc_dec(plaintext, secret_key_accessor):
     cipher = InCrypto(secret_key_accessor)
 
-    [enc, *rest] = cipher.encrypt(plaintext)
+    (enc, *_) = cipher.encrypt(plaintext)
     dec = cipher.decrypt(enc)
 
     assert plaintext == dec
@@ -102,7 +102,7 @@ def test_enc_dec(plaintext, secret_key_accessor):
 def test_enc_dec_with_key(plaintext, secret_key_accessor):
     cipher = InCrypto(secret_key_accessor)
 
-    [enc, *rest] = cipher.encrypt(plaintext)
+    (enc, *_) = cipher.encrypt(plaintext)
     dec = cipher.decrypt(enc)
 
     assert plaintext == dec
@@ -113,7 +113,7 @@ def test_enc_dec_with_key(plaintext, secret_key_accessor):
 def test_enc_without_secret_key_accessor(plaintext):
     cipher = InCrypto()
 
-    [enc, version] = cipher.encrypt(plaintext)
+    (enc, version, _) = cipher.encrypt(plaintext)
     base64.b64decode.when.called_with(enc[len(InCrypto.PT_ENC_VERSION) + 1 :]).should_not.throw(Exception)
     assert version == SecretKeyAccessor.DEFAULT_VERSION
 
@@ -177,7 +177,7 @@ def test_custom_enc_dec(plaintext, custom_encryption):
 
     cipher = InCrypto(secret_key_accessor, custom_encryption)
 
-    [enc, *rest] = cipher.encrypt(plaintext)
+    (enc, *_) = cipher.encrypt(plaintext)
     dec = cipher.decrypt(enc)
 
     assert plaintext == dec
@@ -192,7 +192,7 @@ def test_enc_dec_v1_wrong_password(plaintext, password):
     cipher = InCrypto(secret_accessor)
     cipher2 = InCrypto(secret_accessor2)
 
-    [enc, *rest] = cipher.encrypt(plaintext)
+    (enc, *_) = cipher.encrypt(plaintext)
 
     cipher2.decrypt.when.called_with(enc).should.have.raised(StorageCryptoException)
 
@@ -334,7 +334,7 @@ def test_custom_enc_returning_nonstr_on_dec_after_successful_validation(custom_e
 
     custom_encryption[0]["decrypt"] = dec
     cipher = InCrypto(secret_key_accessor, custom_encryption)
-    [enc, *rest] = cipher.encrypt("plaintext")
+    (enc, *_) = cipher.encrypt("plaintext")
     cipher.decrypt.when.called_with(enc).should.have.raised(
         StorageCryptoException, "Unexpected error during decryption"
     )
@@ -405,7 +405,7 @@ def test_custom_enc_throwing_on_dec_after_successful_validation(custom_encryptio
 
     custom_encryption[0]["decrypt"] = dec
     cipher = InCrypto(secret_key_accessor, custom_encryption)
-    [enc, *rest] = cipher.encrypt("plaintext")
+    (enc, *_) = cipher.encrypt("plaintext")
     cipher.decrypt.when.called_with(enc).should.have.raised(
         StorageCryptoException, "Unexpected error during decryption"
     )
