@@ -23,15 +23,16 @@ To access your data in InCountry using Python SDK, you need to create an instanc
 class Storage:
     def __init__(
         self,
-        api_key: str = None,           # Required when using API key authorization, or as environment variable INC_API_KEY
-        client_id: str = None,         # Required when using oAuth authorization, can be also set via INC_CLIENT_ID
-        client_secret: str = None,     # Required when using oAuth authorization, can be also set via INC_CLIENT_SECRET
-        environment_id: str = None,    # Required to be passed in, or as environment variable INC_API_KEY
-        secret_key_accessor=None,      # Instance of SecretKeyAccessor class. Used to fetch encryption secret
-        endpoint: str = None,          # Optional. Defines API URL. Can also be set up using environment variable INC_ENDPOINT
-        encrypt: bool = True,          # Optional. If False, encryption is not used
-        options: Dict[str, Any] = {},  # Optional. Use it to fine-tune some configurations
-        debug: bool = False,           # Optional. If True enables some debug logging
+        environment_id: Optional[str] = None,   # Required to be passed in, or as environment variable INC_API_KEY
+        api_key: Optional[str] = None,          # Required when using API key authorization, or as environment variable
+        client_id: Optional[str] = None,        # Required when using oAuth authorization, can be also set via INC_CLIENT_ID
+        client_secret: Optional[str] = None,    # Required when using oAuth authorization, can be also set via INC_CLIENT_SECRET
+        endpoint: Optional[str] = None,         # Optional. Defines API URL. Can also be set up using environment variable INC_ENDPOINT
+        encrypt: Optional[bool] = True,         # Optional. If False, encryption is not used
+        debug: Optional[bool] = False,          # Optional. If True enables some debug logging
+        options: Optional[Dict[str, Any]] = {}, # Optional. Use it to fine-tune some configurations
+        custom_encryption_configs: Optional[List[dict]] = None, # Optional. List of custom encryption configurations
+        secret_key_accessor: Optional[SecretKeyAccessor] = None, # Instance of SecretKeyAccessor class. Used to fetch encryption secret
     ):
         ...
 ```
@@ -155,18 +156,9 @@ secret_key_accessor = SecretKeyAccessor(get_secrets_data)
 
 ### Writing data to Storage
 
-Use `write` method in order to create/replace (by `key`) a record.
+Use `write` method in order to create/replace (by `record_key`) a record.
 ```python
-def write(
-        self,
-        country: str,
-        key: str,
-        body: str = None,
-        key2: str = None,
-        key3: str = None,
-        profile_key: str = None,
-        range_key: int = None,
-    ) -> Dict:
+def write(self, country: str, record_key: str, **record_data: Union[str, int]) -> Dict[str, TRecord]:
     ...
 
 
@@ -181,47 +173,71 @@ Below is the example of how you may use `write` method
 ```python
 write_result = storage.write(
     country="us",
-    key="user_1",
+    record_key="user_1",
     body="some PII data",
     profile_key="customer",
-    range_key=10000,
-    key2="english",
-    key3="rolls-royce",
+    range_key1=10000,
+    key1="english",
+    key2="rolls-royce",
 )
 
 # write_result would be as follows
 write_result = {
     "record": {
-        "key": "user_1",
+        "record_key": "user_1",
         "body": "some PII data",
         "profile_key": "customer",
-        "range_key": 10000,
-        "key2": "english",
-        "key3": "rolls-royce",
+        "range_key1": 10000,
+        "key1": "english",
+        "key2": "rolls-royce",
     }
 }
 ```
 
+For the list of possible `record_data` kwargs see section below
 
-#### Encryption
-InCountry uses client-side encryption for your data. Note that only body is encrypted. Some of other fields are hashed.
-Here is how data is transformed and stored in InCountry database:
+
+#### List of available record fields
+v3.0.0 release introduced a series of new fields available for storage. Below is an exhaustive list of fields available for storage in InCountry along with their types and  storage methods - each field is either encrypted, hashed or stored as is:
 ```python
-{
-    key,          # hashed
-    body,         # encrypted
-    profile_key,  # hashed
-    range_key,    # plain
-    key2,         # hashed
-    key3,         # hashed
-}
+# String fields, hashed:
+record_key
+key1
+key2
+key3
+key4
+key5
+key6
+key7
+key8
+key9
+key10
+profile_key
+service_key1
+service_key2
+
+# String fields, encrypted
+body
+precommit_body
+
+# Int fields, plain
+range_key1
+range_key2
+range_key3
+range_key4
+range_key5
+range_key6
+range_key7
+range_key8
+range_key9
+range_key10
 ```
 
 #### Batches
 Use `batch_write` method to create/replace multiple records at once.
 
 ```python
-def batch_write(self, country: str, records: list) -> Dict:
+def batch_write(self, country: str, records: List[TRecord]) -> Dict[str, List[TRecord]]:
     ...
 
 
@@ -236,16 +252,16 @@ Below you can see the example of how to use this method
 batch_result = storage.batch_write(
     country="us",
     records=[
-        {"key": "key1", "body": "body1", ...},
-        {"key": "key2", "body": "body2", ...},
+        {"record_key": "key1", "body": "body1", ...},
+        {"record_key": "key2", "body": "body2", ...},
     ],
 )
 
 # batch_result would be as follows
 batch_result = {
     "records": [
-        {"key": "key1", "body": "body1", ...},
-        {"key": "key2", "body": "body2", ...},
+        {"record_key": "key1", "body": "body1", ...},
+        {"record_key": "key2", "body": "body2", ...},
     ]
 }
 ```
@@ -253,9 +269,9 @@ batch_result = {
 
 ### Reading stored data
 
-Stored record can be read by `key` using `read` method. It accepts an object with two fields: `country` and `key`
+Stored record can be read by `record_key` using `read` method. It accepts an object with two fields: `country` and `record_key`
 ```python
-def read(self, country: str, key: str) -> Dict:
+def read(self, country: str, record_key: str) -> Dict[str, TRecord]:
     ...
 
 
@@ -267,17 +283,17 @@ def read(self, country: str, key: str) -> Dict:
 
 You can use `read` method as follows:
 ```python
-read_result = storage.read(country="us", key="user1")
+read_result = storage.read(country="us", record_key="user1")
 
 # read_result would be as follows
 read_result = {
     "record": {
-        "key": "user_1",
+        "record_key": "user_1",
         "body": "some PII data",
         "profile_key": "customer",
-        "range_key": 10000,
-        "key2": "english",
-        "key3": "rolls-royce",
+        "range_key1": 10000,
+        "key1": "english",
+        "key2": "rolls-royce",
     }
 }
 ```
@@ -288,16 +304,11 @@ It is possible to search records by keys or version using `find` method.
 ```python
 def find(
         self,
-        country: str, # country code
-        limit: int = None, # maximum amount of records to retrieve. Defaults to 100
-        offset: int = None, # specifies the number of records to skip
-        key: Union[str, List[str], Dict] = None,
-        key2: Union[str, List[str], Dict] = None,
-        key3: Union[str, List[str], Dict] = None,
-        profile_key: Union[str, List[str], Dict] = None,
-        range_key: Union[int, List[int], Dict] = None,
-        version: Union[int, List[int], Dict] = None,
-    ) -> Dict:
+        country: str,
+        limit: Optional[int] = FIND_LIMIT,
+        offset: Optional[int] = 0,
+        **filters: Union[TIntFilter, TStringFilter],
+    ) -> Dict[str, Any]:
     ...
 ```
 Note: SDK returns 100 records at most.
@@ -314,42 +325,42 @@ The return object looks like the following:
     }
 }
 ```
-You can use the following types for string filter parameters (`key`, `key2`, `key3`, `profile_key`):
+You can use the following options to search by hashed string keys from the [list above](#list-of-available-record-fields):
 ```python
 # single value
-key2="value1" # records with key2 equal to "value1"
+key1="value1" # records with key1 equal to "value1"
 
 # list of values
-key3=["value1", "value2"] # records with key3 equal to "value1" or "value2"
+key2=["value1", "value2"] # records with key2 equal to "value1" or "value2"
 
 # dict with $not operator
-key2={"$not": "value1"} # records with key2 not equal "value1"
-key3={"$not": ["value1", "value2"]} # records with key3 equal to neither "value1" or "value2"
+key3={"$not": "value1"} # records with key3 not equal "value1"
+key4={"$not": ["value1", "value2"]} # records with key4 equal to neither "value1" or "value2"
 ```
 
 
-You can use the following types for `range_key` int filter parameter:
+You can use the following options to search by int keys from the [list above](#list-of-available-record-fields):
 ```python
 # single value
-range_key=1 # records with range_key equal to 1
+range_key1=1 # records with range_key1 equal to 1
 
 # list of values
-range_key=[1, 2] # records with range_key equal to 1 or 2
+range_key2=[1, 2] # records with range_key2 equal to 1 or 2
 
 # dict with comparison operators
-range_key={"$gt": 1} # records with range_key greater than 1
-range_key={"$gte": 1} # records with range_key greater than or equal to 1
-range_key={"$lt": 1} # records with range_key less than 1
-range_key={"$lte": 1} # records with range_key less than or equal to 1
+range_key3={"$gt": 1} # records with range_key3 greater than 1
+range_key4={"$gte": 1} # records with range_key4 greater than or equal to 1
+range_key5={"$lt": 1} # records with range_key5 less than 1
+range_key6={"$lte": 1} # records with range_key6 less than or equal to 1
 
 # you can combine different comparison operators
-range_key={"$gt": 1, "$lte": 10} # records with range_key greater than 1 and less than or equal to 10
+range_key7={"$gt": 1, "$lte": 10} # records with range_key7 greater than 1 and less than or equal to 10
 
 # you can't combine similar comparison operators - e.g. $gt and $gte, $lt and $lte
 ```
 
 
-You can use the following types for `version` int filter parameter:
+You can use the following option to search by `version` (encryption key version):
 ```python
 # single value
 version=1 # records with version equal to 1
@@ -364,16 +375,16 @@ version={"$not": [1, 2]} # records with version equal to neither 1 or 2
 
 Here is the example of how `find` method can be used:
 ```python
-find_result = storage.find(country="us", limit=10, offset=10, key2="value1", key3=["value2", "value3"])
+find_result = storage.find(country="us", limit=10, offset=10, key1="value1", key2=["value2", "value3"])
 
 # find_result would be as follows
 find_result = {
     "data": [
         {
-            "key": "<key>",
+            "record_key": "<record_key>",
             "body": "<body>",
-            "key2": "value1",
-            "key3": "value2",
+            "key1": "value1",
+            "key2": "value2",
             ...
         }
     ],
@@ -407,16 +418,8 @@ In such cases find() method return data will be as follows:
 If you need to find only one of the records matching filter, you can use the `find_one` method.
 ```python
 def find_one(
-        self,
-        country: str,
-        offset: int = None,
-        key: Union[str, List[str], Dict] = None,
-        key2: Union[str, List[str], Dict] = None,
-        key3: Union[str, List[str], Dict] = None,
-        profile_key: Union[str, List[str], Dict] = None,
-        range_key: Union[int, List[int], Dict] = None,
-        version: Union[int, List[int], Dict] = None,
-    ) -> Union[Dict, None]:
+        self, country: str, offset: Optional[int] = 0, **filters: Union[TIntFilter, TStringFilter],
+    ) -> Union[None, Dict[str, Dict]]:
     ...
 
 
@@ -428,26 +431,26 @@ def find_one(
 
 Below is the example of using `find_one` method:
 ```python
-find_one_result = storage.find_one(country="us", key2="english", key3=["rolls-royce", "bmw"])
+find_one_result = storage.find_one(country="us", key1="english", key2=["rolls-royce", "bmw"])
 
 # find_one_result would be as follows
 find_one_result = {
     "record": {
-        "key": "user_1",
+        "record_key": "user_1",
         "body": "some PII data",
         "profile_key": "customer",
-        "range_key": 10000,
-        "key2": "english",
-        "key3": "rolls-royce",
+        "range_key1": 10000,
+        "key1": "english",
+        "key2": "rolls-royce",
     }
 }
 ```
 
 
 ### Delete records
-Use `delete` method in order to delete a record from InCountry storage. It is only possible using `key` field.
+Use `delete` method in order to delete a record from InCountry storage. It is only possible using `record_key` field.
 ```python
-def delete(self, country: str, key: str) -> Dict:
+def delete(self, country: str, record_key: str) -> Dict[str, bool]:
     ...
 
 
@@ -459,7 +462,7 @@ def delete(self, country: str, key: str) -> Dict:
 
 Below is the example of using delete method:
 ```python
-delete_result = storage.delete(country="us", key="<key>")
+delete_result = storage.delete(country="us", record_key="<record_key>")
 
 # delete_result would be as follows
 delete_result = {
@@ -472,7 +475,7 @@ Using `secret_key_accessor` that provides `secrets_data` object enables key rota
 
 SDK introduces `migrate` method which allows you to re-encrypt data encrypted with old versions of the secret.
 ```python
-def migrate(self, country: str, limit: int = None) -> Dict:
+def migrate(self, country: str, limit: Optional[int] = FIND_LIMIT) -> Dict[str, int]:
     ...
 
 
@@ -615,7 +618,7 @@ storage = Storage(
     custom_encryption_configs=custom_encryption_configs,
 )
 
-storage.write(country="us", key="<key>", body="<body>")
+storage.write(country="us", record_key="<record_key>", body="<body>")
 ```
 
 Testing Locally
