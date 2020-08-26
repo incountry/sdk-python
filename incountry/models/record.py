@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, conint, constr, StrictInt, StrictStr
 
 
@@ -29,3 +30,5 @@ class Record(BaseModel):
     range_key9: StrictInt = None
     range_key10: StrictInt = None
     version: conint(ge=0, strict=True) = None
+    created_at: datetime = None
+    updated_at: datetime = None
