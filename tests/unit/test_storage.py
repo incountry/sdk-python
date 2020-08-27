@@ -1,6 +1,7 @@
 import uuid
 import json
 import os
+from datetime import datetime
 
 import pytest
 import sure  # noqa: F401
@@ -19,13 +20,25 @@ from incountry import (
     get_salted_hash,
 )
 
-from ..utils import omit, get_test_records, get_valid_find_filter_test_options, get_randomcase_record, get_random_str
+from ..utils import (
+    omit,
+    get_test_records,
+    get_valid_find_filter_test_options,
+    get_randomcase_record,
+    get_random_str,
+    get_random_datetime,
+)
 
 POPAPI_URL = "https://popapi.com:8082"
 COUNTRY = "us"
 SECRET_KEY = "password"
 
 TEST_RECORDS = get_test_records()
+
+
+def json_converter(o):
+    if isinstance(o, datetime):
+        return o.__str__()
 
 
 def get_default_find_response(count, data, total=None):
@@ -262,7 +275,7 @@ def test_read(client, record, encrypt):
     httpretty.register_uri(
         httpretty.GET,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
-        body=json.dumps(stored_record),
+        body=json.dumps(stored_record, default=json_converter),
     )
 
     read_response = client(encrypt).read(country=COUNTRY, record_key=record["record_key"])
@@ -270,6 +283,30 @@ def test_read(client, record, encrypt):
 
     for key, value in record.items():
         assert read_response["record"][key] == record[key]
+
+
+@httpretty.activate
+@pytest.mark.parametrize("record", TEST_RECORDS[-1:])
+@pytest.mark.parametrize("created_at, updated_at", [[get_random_datetime(), get_random_datetime()]])
+@pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.happy_path
+def test_read_with_dates(client, record, created_at, updated_at, encrypt):
+    stored_record = client(encrypt).encrypt_record(dict(record))
+
+    httpretty.register_uri(
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
+        body=json.dumps({**stored_record, "created_at": created_at, "updated_at": updated_at}, default=json_converter),
+    )
+
+    read_response = client(encrypt).read(country=COUNTRY, record_key=record["record_key"])
+    read_response.should.have.key("record")
+
+    for key, value in record.items():
+        assert read_response["record"][key] == record[key]
+
+    assert read_response["record"]["created_at"] == created_at
+    assert read_response["record"]["updated_at"] == updated_at
 
 
 @httpretty.activate
@@ -304,13 +341,13 @@ def test_read_multiple_keys(client, record_1, record_2, encrypt, keys_data_old, 
     httpretty.register_uri(
         httpretty.GET,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record_1["record_key"],
-        body=json.dumps(stored_record_1),
+        body=json.dumps(stored_record_1, default=json_converter),
     )
 
     httpretty.register_uri(
         httpretty.GET,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record_2["record_key"],
-        body=json.dumps(stored_record_2),
+        body=json.dumps(stored_record_2, default=json_converter),
     )
 
     record_1_response = client_new.read(country=COUNTRY, record_key=record_1["record_key"])
@@ -343,7 +380,7 @@ def test_read_normalize_keys_option(client, record, encrypt, normalize):
     httpretty.register_uri(
         httpretty.GET,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
-        body=json.dumps(stored_record),
+        body=json.dumps(stored_record, default=json_converter),
     )
 
     read_response = client(encrypt, options={"normalize_keys": normalize}).read(
@@ -368,7 +405,7 @@ def test_delete(client, record, encrypt):
     httpretty.register_uri(
         httpretty.DELETE,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
-        body=json.dumps(response),
+        body=json.dumps(response, default=json_converter),
     )
 
     delete_res = client(encrypt).delete(country=COUNTRY, record_key=record["record_key"])
@@ -388,7 +425,9 @@ def test_delete_normalize_keys_option(client, record_key, encrypt, normalize):
         key_hash = get_key_hash(record_key.lower())
 
     httpretty.register_uri(
-        httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash, body=json.dumps(response),
+        httpretty.DELETE,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + key_hash,
+        body=json.dumps(response, default=json_converter),
     )
 
     delete_res = client(encrypt, options={"normalize_keys": normalize}).delete(country=COUNTRY, record_key=record_key)
@@ -405,12 +444,15 @@ def test_delete_normalize_keys_option(client, record_key, encrypt, normalize):
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
 def test_find(client, query, records, encrypt):
+    records = [
+        {**record, "updated_at": get_random_datetime(), "created_at": get_random_datetime()} for record in records
+    ]
     enc_data = [client(encrypt).encrypt_record(dict(x)) for x in records]
 
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(len(enc_data), enc_data)),
+        body=json.dumps(get_default_find_response(len(enc_data), enc_data), default=json_converter),
     )
 
     find_response = client(encrypt).find(country=COUNTRY, **query)
@@ -453,7 +495,7 @@ def test_find_filters_improper_or_none_keys(client, query, records, encrypt):
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(len(enc_data), enc_data)),
+        body=json.dumps(get_default_find_response(len(enc_data), enc_data), default=json_converter),
     )
 
     client(encrypt).find(country=COUNTRY, **query)
@@ -486,7 +528,7 @@ def test_find_enc_and_non_enc(client, query, records, encrypt):
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(len(stored_data), stored_data)),
+        body=json.dumps(get_default_find_response(len(stored_data), stored_data), default=json_converter),
     )
 
     find_response = client(encrypt).find(country=COUNTRY, **query)
@@ -525,7 +567,7 @@ def test_find_incorrect_records(client, query, records, encrypt):
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(len(stored_data), stored_data)),
+        body=json.dumps(get_default_find_response(len(stored_data), stored_data), default=json_converter),
     )
 
     find_response = client(encrypt).find(country=COUNTRY, **query)
@@ -559,7 +601,7 @@ def test_find_normalize_keys_option(client, query, records, encrypt, normalize):
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(len(enc_data), enc_data)),
+        body=json.dumps(get_default_find_response(len(enc_data), enc_data), default=json_converter),
     )
 
     client(encrypt, options={"normalize_keys": normalize}).find(country=COUNTRY, **query)
@@ -609,7 +651,7 @@ def test_find_one(client, query, record, encrypt):
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(count, data)),
+        body=json.dumps(get_default_find_response(count, data), default=json_converter),
     )
 
     find_one_response = client(encrypt).find_one(country=COUNTRY, **query)
@@ -647,7 +689,9 @@ def test_migrate(client, records, keys_data_old, keys_data_new):
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(len(stored_records), stored_records, total_stored)),
+        body=json.dumps(
+            get_default_find_response(len(stored_records), stored_records, total_stored), default=json_converter
+        ),
     )
 
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
@@ -710,7 +754,9 @@ def test_migrate_with_nones(client, records, keys_data_old, keys_data_new):
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(len(stored_records), stored_records, total_stored)),
+        body=json.dumps(
+            get_default_find_response(len(stored_records), stored_records, total_stored), default=json_converter
+        ),
     )
 
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
@@ -755,10 +801,12 @@ def test_default_endpoints(client, record, country, countries):
     endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY)
 
     countries_url = HttpClient.DEFAULT_COUNTRIES_ENDPOINT
-    httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))
+    httpretty.register_uri(
+        httpretty.GET, countries_url, body=json.dumps({"countries": countries}, default=json_converter)
+    )
 
     read_url = endpoint + "/v2/storage/records/" + country + "/" + stored_record["record_key"]
-    httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(record))
+    httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(record, default=json_converter))
 
     client(endpoint=None).read(country=country, record_key=record["record_key"])
 
@@ -789,11 +837,13 @@ def test_custom_countries_endpoint(client, record, country, countries):
     endpoint = HttpClient.get_pop_url(country) if is_midpop else HttpClient.get_pop_url(HttpClient.DEFAULT_COUNTRY)
 
     countries_url = "https://countries.com/"
-    httpretty.register_uri(httpretty.GET, countries_url, body=json.dumps({"countries": countries}))
+    httpretty.register_uri(
+        httpretty.GET, countries_url, body=json.dumps({"countries": countries}, default=json_converter)
+    )
 
     read_url = endpoint + "/v2/storage/records/" + country + "/" + stored_record["record_key"]
 
-    httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(record))
+    httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(record, default=json_converter))
 
     client(endpoint=None, options={"countries_endpoint": countries_url}).read(
         country=country, record_key=record["record_key"]
@@ -815,7 +865,7 @@ def test_custom_countries_endpoint(client, record, country, countries):
 def test_custom_endpoint(client, record, country):
     stored_record = client().encrypt_record(dict(record))
     read_url = POPAPI_URL + "/v2/storage/records/" + country + "/" + stored_record["record_key"]
-    httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(stored_record))
+    httpretty.register_uri(httpretty.GET, read_url, body=json.dumps(stored_record, default=json_converter))
 
     client(endpoint=POPAPI_URL).read(country=country, record_key=record["record_key"])
 
@@ -890,7 +940,7 @@ def test_custom_encryption_read(client, record, custom_encryption):
 
     stored_record = client.encrypt_record(dict(record))
     read_record_url = POPAPI_URL + "/v2/storage/records/" + country + "/" + stored_record["record_key"]
-    httpretty.register_uri(httpretty.GET, read_record_url, body=json.dumps(stored_record))
+    httpretty.register_uri(httpretty.GET, read_record_url, body=json.dumps(stored_record, default=json_converter))
 
     res = client.read(country=country, record_key=record["record_key"])
 
@@ -936,11 +986,11 @@ def test_primary_custom_encryption_with_default_encryption(client, custom_encryp
 
     stored_record1 = client_old.encrypt_record(dict(record1))
     read_record1_url = POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record1["record_key"]
-    httpretty.register_uri(httpretty.GET, read_record1_url, body=json.dumps(stored_record1))
+    httpretty.register_uri(httpretty.GET, read_record1_url, body=json.dumps(stored_record1, default=json_converter))
 
     stored_record2 = client_new.encrypt_record(dict(record2))
     read_record2_url = POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record2["record_key"]
-    httpretty.register_uri(httpretty.GET, read_record2_url, body=json.dumps(stored_record2))
+    httpretty.register_uri(httpretty.GET, read_record2_url, body=json.dumps(stored_record2, default=json_converter))
 
     rec1_res = client_new.read(country=COUNTRY, record_key=record1["record_key"])
     rec2_res = client_new.read(country=COUNTRY, record_key=record2["record_key"])
@@ -987,11 +1037,11 @@ def test_custom_encryption_with_primary_default_encryption(client, custom_encryp
 
     stored_record1 = client_old.encrypt_record(dict(record1))
     read_record1_url = POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record1["record_key"]
-    httpretty.register_uri(httpretty.GET, read_record1_url, body=json.dumps(stored_record1))
+    httpretty.register_uri(httpretty.GET, read_record1_url, body=json.dumps(stored_record1, default=json_converter))
 
     stored_record2 = client_new.encrypt_record(dict(record2))
     read_record2_url = POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record2["record_key"]
-    httpretty.register_uri(httpretty.GET, read_record2_url, body=json.dumps(stored_record2))
+    httpretty.register_uri(httpretty.GET, read_record2_url, body=json.dumps(stored_record2, default=json_converter))
 
     rec1_res = client_new.read(country=COUNTRY, record_key=record1["record_key"])
     rec2_res = client_new.read(country=COUNTRY, record_key=record2["record_key"])
@@ -1010,7 +1060,7 @@ def test_enc_payload_for_different_envs(client, record):
     record_via_client_2 = client_2.encrypt_record(record)
 
     for key, value in record.items():
-        if not isinstance(value, int):
+        if not isinstance(value, (int, datetime)):
             assert record_via_client_1[key] != record_via_client_2[key]
 
 
@@ -1073,7 +1123,7 @@ def test_find_error(client, query):
     httpretty.register_uri(
         httpretty.POST,
         POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
-        body=json.dumps(get_default_find_response(0, [])),
+        body=json.dumps(get_default_find_response(0, []), default=json_converter),
     )
 
     client().find.when.called_with(country=COUNTRY, **query).should.have.raised(StorageClientException)

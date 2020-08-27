@@ -23,7 +23,7 @@ from incountry.models import (
 )
 from incountry import SecretKeyAccessor
 
-from ..utils import get_test_records, get_invalid_records
+from ..utils import get_test_records, get_invalid_records, get_random_datetime
 
 TEST_RECORDS = get_test_records()
 
@@ -521,13 +521,44 @@ def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
     ).should.throw(ValidationError, "should return str. Threw exception instead")
 
 
-@pytest.mark.parametrize("record", TEST_RECORDS)
+@pytest.mark.parametrize(
+    "record", TEST_RECORDS,
+)
 @pytest.mark.happy_path
 def test_valid_record(record):
     item = Record(**record)
 
     for key, value in record.items():
         assert getattr(item, key) == record[key]
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {**TEST_RECORDS[-1], "created_at": get_random_datetime(), "updated_at": get_random_datetime()},
+        {
+            **TEST_RECORDS[-1],
+            "created_at": get_random_datetime().isoformat(),
+            "updated_at": get_random_datetime().isoformat(),
+        },
+        {**TEST_RECORDS[-1], "created_at": "2020-08-26T14:37:22+00:00", "updated_at": "2020-08-26T14:37:22+00:00"},
+    ],
+)
+@pytest.mark.happy_path
+def test_valid_record_with_dates(record):
+    item = Record(**record)
+
+    assert item.created_at.tzinfo is not None
+    assert item.created_at.tzinfo.utcoffset(item.created_at) is not None
+    assert item.updated_at.tzinfo is not None
+    assert item.updated_at.tzinfo.utcoffset(item.updated_at) is not None
+
+    if isinstance(record["created_at"], str):
+        assert getattr(item, "updated_at").isoformat() == record["updated_at"]
+        assert getattr(item, "created_at").isoformat() == record["created_at"]
+    else:
+        assert getattr(item, "updated_at") == record["updated_at"]
+        assert getattr(item, "created_at") == record["created_at"]
 
 
 @pytest.mark.parametrize("record", INVALID_RECORDS)

@@ -1,7 +1,9 @@
-from random import randrange, choices
+from random import randrange, choices, random
 import string
 import uuid
 import sys
+from datetime import datetime, timedelta, timezone
+
 
 STRING_FIELDS = [
     "record_key",
@@ -33,17 +35,29 @@ INT_FIELDS = [
     "range_key9",
     "range_key10",
 ]
+DATE_FIELDS = ["created_at", "updated_at"]
 ALL_FIELDS = STRING_FIELDS + INT_FIELDS
+ALL_FIELDS_WITH_DATES = ALL_FIELDS + DATE_FIELDS
 
 
 def get_random_str():
     return "".join(choices(string.ascii_uppercase + string.ascii_lowercase, k=10))
 
 
+def get_random_datetime(min_year=1900, max_year=datetime.now().year):
+    start = datetime(min_year, 1, 1, 00, 00, 00, 00, timezone.utc)
+    years = max_year - min_year + 1
+    end = start + timedelta(days=365 * years)
+    return start + (end - start) * random()
+
+
 def generate_record(fields, use_last_field_value=False, last_field_value=None, allow_invalid_record=True):
     record = {}
     for field in fields:
-        record[field] = str(uuid.uuid1()) if field in STRING_FIELDS else randrange(sys.maxsize)
+        if field in STRING_FIELDS:
+            record[field] = str(uuid.uuid1())
+        if field in INT_FIELDS:
+            record[field] = randrange(sys.maxsize)
     if use_last_field_value:
         if allow_invalid_record:
             record[fields[-1]] = last_field_value
@@ -66,8 +80,10 @@ def get_test_records(use_last_field_value=False, last_field_value=None):
 
 def get_invalid_records():
     return [
-        generate_record(ALL_FIELDS[: i + 1], use_last_field_value=True, last_field_value=["not a ", "str or int"])
-        for i in range(len(ALL_FIELDS))
+        generate_record(
+            ALL_FIELDS_WITH_DATES[: i + 1], use_last_field_value=True, last_field_value=["not a ", "str or int"]
+        )
+        for i in range(len(ALL_FIELDS_WITH_DATES))
     ]
 
 

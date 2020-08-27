@@ -6,6 +6,8 @@ from incountry import StorageServerException, Storage, RecordListForBatch
 import sure  # noqa: F401
 import pytest
 from typing import Dict, List, Any
+from datetime import datetime, timezone
+from time import sleep
 
 from ..utils import get_valid_test_record, get_test_records
 
@@ -43,6 +45,38 @@ def test_read_record(storage: Storage, encrypt: bool, use_oauth: bool, record_ke
     read_response.should.have.key("record")
     for field in record:
         read_response["record"][field].should.be.equal(record[field])
+
+
+@pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])
+@pytest.mark.parametrize("record_key", [uuid.uuid4().hex])
+@pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
+def test_read_record_dates_with_update(
+    storage: Storage, encrypt: bool, use_oauth: bool, record_key: str, clean_up_records: None
+) -> None:
+    record = get_valid_test_record()
+    record["record_key"] = record_key
+    start = datetime.now(tz=timezone.utc).replace(microsecond=0)
+    storage.write(country=COUNTRY, **record)
+
+    read_response = storage.read(country=COUNTRY, record_key=record_key)
+    read_response.should.be.a("dict")
+    read_response.should.have.key("record")
+    for field in record:
+        read_response["record"][field].should.be.equal(record[field])
+    assert read_response["record"]["created_at"] >= start
+    assert read_response["record"]["updated_at"] >= start
+
+    sleep(1)
+    record = get_valid_test_record()
+    record["record_key"] = record_key
+    storage.write(country=COUNTRY, **record)
+    read_response2 = storage.read(country=COUNTRY, record_key=record_key)
+    for field in record:
+        read_response2["record"][field].should.be.equal(record[field])
+
+    assert read_response2["record"]["created_at"] == read_response["record"]["created_at"]
+    assert read_response2["record"]["updated_at"] > start
+    assert read_response2["record"]["updated_at"] > read_response["record"]["updated_at"]
 
 
 @pytest.mark.parametrize("encrypt", [True, False], ids=["encrypted", "not encrypted"])

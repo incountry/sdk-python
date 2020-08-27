@@ -200,7 +200,7 @@ For the list of possible `record_data` kwargs see section below
 #### List of available record fields
 v3.0.0 release introduced a series of new fields available for storage. Below is an exhaustive list of fields available for storage in InCountry along with their types and  storage methods - each field is either encrypted, hashed or stored as is:
 ```python
-# String fields, hashed:
+# String fields, hashed
 record_key
 key1
 key2
@@ -281,6 +281,9 @@ def read(self, country: str, record_key: str) -> Dict[str, TRecord]:
 }
 ```
 
+#### Date fields
+Use `created_at` and `updated_at` fields to access date-related information about records. `created_at` indicates date when the record was initially created in the target country. `updated_at` shows the date of the latest write operation for the given recordKey
+
 You can use `read` method as follows:
 ```python
 read_result = storage.read(country="us", record_key="user1")
@@ -294,6 +297,8 @@ read_result = {
         "range_key1": 10000,
         "key1": "english",
         "key2": "rolls-royce",
+        "created_at": datetime.datetime(...),
+        "update_at": datetime.datetime(...),
     }
 }
 ```
@@ -385,6 +390,8 @@ find_result = {
             "body": "<body>",
             "key1": "value1",
             "key2": "value2",
+            "created_at": datetime.datetime(...),
+            "update_at": datetime.datetime(...),
             ...
         }
     ],

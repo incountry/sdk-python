@@ -119,7 +119,7 @@ def test_write_valid_response(client, response):
     )
 
     res = client().write(country=COUNTRY, data="data")
-    assert res == response
+    res.should.contain(response)
 
 
 @httpretty.activate
@@ -188,7 +188,7 @@ def test_read_valid_response(client, response):
     )
 
     res = client().read(country=COUNTRY, record_key=record_key_hash)
-    assert res == response
+    assert res.items() >= response.items()
 
 
 @httpretty.activate
@@ -227,7 +227,9 @@ def test_find_valid_response(client, response):
     )
 
     res = client().find(country=COUNTRY, data="data")
-    assert res == response
+    res["meta"].should.equal(response["meta"])
+    for i, record in enumerate(res["data"]):
+        assert record.items() >= response["data"][i].items()
 
 
 @httpretty.activate
