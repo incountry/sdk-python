@@ -22,4 +22,4 @@ script:
   - pipenv run tests
   - pipenv run integrations
   - bandit --ini bandit.ini -r -o bandit.json -f json
-  - if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then sonar-scanner; fi
+  - sonar-scanner
