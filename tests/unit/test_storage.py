@@ -860,6 +860,21 @@ def test_custom_countries_endpoint(client, record, country, countries):
 
 
 @httpretty.activate
+@pytest.mark.parametrize(
+    "record,country,countries",
+    [({"record_key": "key1", "version": 0}, "ru", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}])],
+)
+@pytest.mark.error_path
+def test_custom_countries_endpoint_failure(client, record, country, countries):
+    countries_url = "https://countries.com/"
+    httpretty.register_uri(httpretty.GET, countries_url, body="error", status=500)
+
+    client(endpoint=None, options={"countries_endpoint": countries_url}).read.when.called_with(
+        country=country, record_key=record["record_key"]
+    ).should.throw(StorageServerException)
+
+
+@httpretty.activate
 @pytest.mark.parametrize("record,country", [({"record_key": "key1"}, "ru"), ({"record_key": "key1"}, "ag")])
 @pytest.mark.happy_path
 def test_custom_endpoint(client, record, country):

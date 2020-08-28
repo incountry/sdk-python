@@ -44,6 +44,10 @@ def get_random_str():
     return "".join(choices(string.ascii_uppercase + string.ascii_lowercase, k=10))
 
 
+def get_random_int():
+    return randrange(sys.maxsize)
+
+
 def get_random_datetime(min_year=1900, max_year=datetime.now().year):
     start = datetime(min_year, 1, 1, 00, 00, 00, 00, timezone.utc)
     years = max_year - min_year + 1
@@ -57,7 +61,7 @@ def generate_record(fields, use_last_field_value=False, last_field_value=None, a
         if field in STRING_FIELDS:
             record[field] = str(uuid.uuid1())
         if field in INT_FIELDS:
-            record[field] = randrange(sys.maxsize)
+            record[field] = get_random_int()
     if use_last_field_value:
         if allow_invalid_record:
             record[fields[-1]] = last_field_value
@@ -98,33 +102,33 @@ def get_valid_find_filter_test_options():
             res.append({field: [get_random_str(), get_random_str()]})
             res.append({field: {"$not": get_random_str()}})
         if field in INT_FIELDS:
-            res.append({field: randrange(sys.maxsize)})
-            res.append({field: [randrange(sys.maxsize), randrange(sys.maxsize)]})
+            res.append({field: get_random_int()})
+            res.append({field: [get_random_int(), get_random_int()]})
 
-            res.append({field: {"$gt": randrange(sys.maxsize)}})
-            res.append({field: {"$lt": randrange(sys.maxsize)}})
-            res.append({field: {"$gte": randrange(sys.maxsize)}})
-            res.append({field: {"$lte": randrange(sys.maxsize)}})
+            res.append({field: {"$gt": get_random_int()}})
+            res.append({field: {"$lt": get_random_int()}})
+            res.append({field: {"$gte": get_random_int()}})
+            res.append({field: {"$lte": get_random_int()}})
 
-            res.append({field: {"$lte": randrange(sys.maxsize), "$gte": randrange(sys.maxsize)}})
-            res.append({field: {"$lte": randrange(sys.maxsize), "$gt": randrange(sys.maxsize)}})
-            res.append({field: {"$lt": randrange(sys.maxsize), "$gte": randrange(sys.maxsize)}})
-            res.append({field: {"$lt": randrange(sys.maxsize), "$gt": randrange(sys.maxsize)}})
+            res.append({field: {"$lte": get_random_int(), "$gte": get_random_int()}})
+            res.append({field: {"$lte": get_random_int(), "$gt": get_random_int()}})
+            res.append({field: {"$lt": get_random_int(), "$gte": get_random_int()}})
+            res.append({field: {"$lt": get_random_int(), "$gt": get_random_int()}})
 
-    res.append({"version": randrange(sys.maxsize)})
-    res.append({"version": [randrange(sys.maxsize), randrange(sys.maxsize)]})
+    res.append({"version": get_random_int()})
+    res.append({"version": [get_random_int(), get_random_int()]})
 
-    res.append({"version": {"$not": randrange(sys.maxsize)}})
+    res.append({"version": {"$not": get_random_int()}})
 
-    res.append({"version": {"$gt": randrange(sys.maxsize)}})
-    res.append({"version": {"$lt": randrange(sys.maxsize)}})
-    res.append({"version": {"$gte": randrange(sys.maxsize)}})
-    res.append({"version": {"$lte": randrange(sys.maxsize)}})
+    res.append({"version": {"$gt": get_random_int()}})
+    res.append({"version": {"$lt": get_random_int()}})
+    res.append({"version": {"$gte": get_random_int()}})
+    res.append({"version": {"$lte": get_random_int()}})
 
-    res.append({"version": {"$lte": randrange(sys.maxsize), "$gte": randrange(sys.maxsize)}})
-    res.append({"version": {"$lte": randrange(sys.maxsize), "$gt": randrange(sys.maxsize)}})
-    res.append({"version": {"$lt": randrange(sys.maxsize), "$gte": randrange(sys.maxsize)}})
-    res.append({"version": {"$lt": randrange(sys.maxsize), "$gt": randrange(sys.maxsize)}})
+    res.append({"version": {"$lte": get_random_int(), "$gte": get_random_int()}})
+    res.append({"version": {"$lte": get_random_int(), "$gt": get_random_int()}})
+    res.append({"version": {"$lt": get_random_int(), "$gte": get_random_int()}})
+    res.append({"version": {"$lt": get_random_int(), "$gt": get_random_int()}})
 
     return res
 
