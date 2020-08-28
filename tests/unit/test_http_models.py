@@ -1,14 +1,11 @@
-import os
-
 import pytest
 import sure  # noqa: F401
 from pydantic import ValidationError
 
 
 from incountry.models import HttpRecordBatchWrite, HttpRecordDelete, HttpRecordFind, HttpRecordRead, HttpRecordWrite
-from incountry import SecretKeyAccessor
 
-from ..utils import get_test_records, get_invalid_records, get_random_int
+from ..utils import get_test_records, get_random_int
 
 
 TEST_RECORDS = get_test_records()
