@@ -232,7 +232,6 @@ def test_find_valid_response(client, response):
         assert record.items() >= response["data"][i].items()
 
 
-@httpretty.activate
 @pytest.mark.parametrize(
     "query", [{"record_key": "key1"}],
 )

@@ -298,7 +298,7 @@ read_result = {
         "key1": "english",
         "key2": "rolls-royce",
         "created_at": datetime.datetime(...),
-        "update_at": datetime.datetime(...),
+        "updated_at": datetime.datetime(...),
     }
 }
 ```
@@ -391,7 +391,7 @@ find_result = {
             "key1": "value1",
             "key2": "value2",
             "created_at": datetime.datetime(...),
-            "update_at": datetime.datetime(...),
+            "updated_at": datetime.datetime(...),
             ...
         }
     ],
