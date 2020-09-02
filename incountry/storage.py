@@ -352,12 +352,19 @@ class Storage:
         """
         current_secret_version = self.crypto.get_current_secret_version()
         find_res = self.find(country=country, limit=limit, version={"$not": current_secret_version})
-        self.batch_write(country=country, records=find_res["records"])
+        records_to_migrage_count = len(find_res["records"])
 
-        return {
-            "migrated": find_res["meta"]["count"],
-            "total_left": find_res["meta"]["total"] - find_res["meta"]["count"],
+        if records_to_migrage_count > 0:
+            self.batch_write(country=country, records=find_res["records"])
+
+        return_data = {
+            "migrated": records_to_migrage_count,
+            "total_left": find_res["meta"]["total"] - records_to_migrage_count,
         }
+        if "errors" in find_res:
+            return_data["errors"] = find_res["errors"]
+
+        return return_data
 
     ###########################################
     # Common functions
