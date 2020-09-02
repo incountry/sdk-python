@@ -23,6 +23,11 @@ HASHABLE_KEYS = [
     "key10",
 ]
 
+KEYS_TO_OMIT_ON_ENCRYPTION = [
+    "created_at",
+    "updated_at",
+]
+
 
 def validate_crypto(crypto):
     if not isinstance(crypto, InCrypto):
@@ -78,7 +83,11 @@ def encrypt_record(crypto, record, salt, normalize_keys=False):
         (enc_precommit_body, *_) = crypto.encrypt(res["precommit_body"])
         res["precommit_body"] = enc_precommit_body
 
-    return {key: value for key, value in res.items() if value is not None}
+    return {
+        key: value
+        for key, value in res.items()
+        if value is not None and key in Record.__fields__ and key not in KEYS_TO_OMIT_ON_ENCRYPTION
+    }
 
 
 def decrypt_record(crypto, record):
