@@ -37,7 +37,14 @@ class Storage:
         ...
 ```
 
-`api_key`, `client_id`, `client_secret`,  and `environment_id` can be fetched from your dashboard on `Incountry` site.
+---
+**WARNING**
+
+API Key authorization is being deprecated. We keep backwards compatibility for `api_key` param but you no longer can get API keys (neither old nor new) from your dashboard.
+
+---
+
+`client_id`, `client_secret`,  and `environment_id` can be fetched from your dashboard on `Incountry` site.
 
 
 `endpoint` defines API URL and is used to override default one.
@@ -298,7 +305,7 @@ read_result = {
         "key1": "english",
         "key2": "rolls-royce",
         "created_at": datetime.datetime(...),
-        "update_at": datetime.datetime(...),
+        "updated_at": datetime.datetime(...),
     }
 }
 ```
@@ -391,7 +398,7 @@ find_result = {
             "key1": "value1",
             "key2": "value2",
             "created_at": datetime.datetime(...),
-            "update_at": datetime.datetime(...),
+            "updated_at": datetime.datetime(...),
             ...
         }
     ],

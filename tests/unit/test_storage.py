@@ -444,10 +444,14 @@ def test_delete_normalize_keys_option(client, record_key, encrypt, normalize):
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
 def test_find(client, query, records, encrypt):
-    records = [
-        {**record, "updated_at": get_random_datetime(), "created_at": get_random_datetime()} for record in records
+    enc_data = [
+        {
+            **client(encrypt).encrypt_record(dict(x)),
+            "updated_at": get_random_datetime(),
+            "created_at": get_random_datetime(),
+        }
+        for x in records
     ]
-    enc_data = [client(encrypt).encrypt_record(dict(x)) for x in records]
 
     httpretty.register_uri(
         httpretty.POST,
@@ -470,8 +474,12 @@ def test_find(client, query, records, encrypt):
 
     for data_record in find_response.get("records"):
         match = next(r for r in records if data_record["record_key"] == r["record_key"])
+        match_raw = next(r for r in enc_data if get_key_hash(data_record["record_key"]) == r["record_key"])
+        assert get_key_hash(match["record_key"]) == match_raw["record_key"]
         for key, value in match.items():
             assert data_record[key] == match[key]
+        assert match_raw["created_at"] == data_record["created_at"]
+        assert match_raw["updated_at"] == data_record["updated_at"]
 
 
 @httpretty.activate
@@ -681,7 +689,12 @@ def test_migrate(client, records, keys_data_old, keys_data_new):
     secret_accessor_new = SecretKeyAccessor(lambda: keys_data_new)
 
     stored_records = [
-        client(encrypt=True, secret_accessor=secret_accessor_old).encrypt_record(dict(x)) for x in records
+        {
+            **client(encrypt=True, secret_accessor=secret_accessor_old).encrypt_record(dict(x)),
+            "created_at": get_random_datetime().isoformat(),
+            "updated_at": get_random_datetime().isoformat(),
+        }
+        for x in records
     ]
 
     total_stored = len(stored_records) + 1
@@ -703,6 +716,110 @@ def test_migrate(client, records, keys_data_old, keys_data_new):
 
     received_records = json.loads(httpretty.last_request().body)
     for received_record in received_records["records"]:
+        original_stored_record = next(
+            (item for item in stored_records if item.get("record_key") == received_record.get("record_key")), None
+        )
+
+        assert original_stored_record is not None
+
+        assert original_stored_record.get("version") != received_record.get("version")
+        assert received_record.get("version") == keys_data_new.get("currentVersion")
+
+        for key, value in original_stored_record.items():
+            if key in ["body", "precommit_body", "version", "created_at", "updated_at"]:
+                continue
+            assert received_record[key] == original_stored_record[key]
+
+        if original_stored_record.get("body", None):
+            assert received_record["body"] != original_stored_record["body"]
+
+        if original_stored_record.get("precommit_body", None):
+            assert received_record["precommit_body"] != original_stored_record["precommit_body"]
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "keys_data",
+    [
+        {
+            "currentVersion": 2,
+            "secrets": [{"secret": SECRET_KEY, "version": 1}, {"secret": SECRET_KEY + "2", "version": 2}],
+        }
+    ],
+)
+@pytest.mark.happy_path
+def test_migrate_no_records(client, keys_data):
+    secret_accessor = SecretKeyAccessor(lambda: keys_data)
+
+    stored_records = []
+    total_stored = len(stored_records) + 1
+
+    httpretty.register_uri(
+        httpretty.POST,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
+        body=json.dumps(
+            get_default_find_response(len(stored_records), stored_records, total_stored), default=json_converter
+        ),
+    )
+
+    httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
+
+    migrate_res = client(encrypt=True, secret_accessor=secret_accessor).migrate(country=COUNTRY)
+
+    assert migrate_res["total_left"] == total_stored - len(stored_records)
+    assert migrate_res["migrated"] == len(stored_records)
+
+    assert len(httpretty.HTTPretty.latest_requests) == 1
+
+
+@httpretty.activate
+@pytest.mark.parametrize("records", [TEST_RECORDS[-5:]])
+@pytest.mark.parametrize("keys_data_old", [{"currentVersion": 1, "secrets": [{"secret": SECRET_KEY, "version": 1}]}])
+@pytest.mark.parametrize(
+    "keys_data_new",
+    [
+        {
+            "currentVersion": 2,
+            "secrets": [{"secret": SECRET_KEY, "version": 1}, {"secret": SECRET_KEY + "2", "version": 2}],
+        }
+    ],
+)
+@pytest.mark.happy_path
+def test_migrate_with_errors(client, records, keys_data_old, keys_data_new):
+    secret_accessor_old = SecretKeyAccessor(lambda: keys_data_old)
+    secret_accessor_new = SecretKeyAccessor(lambda: keys_data_new)
+
+    stored_records = [
+        {**(client(encrypt=True, secret_accessor=secret_accessor_old).encrypt_record(dict(r)))} for r in records
+    ]
+
+    total_stored = len(stored_records)
+    total_undecryptable = len(records) // 2
+
+    stored_records = [
+        {**r, "body": "undecryptable"} if i < total_undecryptable else r for i, r in enumerate(stored_records)
+    ]
+
+    httpretty.register_uri(
+        httpretty.POST,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find",
+        body=json.dumps(get_default_find_response(total_stored, stored_records, total_stored), default=json_converter),
+    )
+
+    httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
+
+    migrate_res = client(encrypt=True, secret_accessor=secret_accessor_new).migrate(country=COUNTRY)
+
+    assert migrate_res["total_left"] == total_undecryptable
+    assert migrate_res["migrated"] == len(stored_records) - total_undecryptable
+    for i, err in enumerate(migrate_res["errors"]):
+        for key in stored_records[i].keys():
+            assert err["rawData"][key] == stored_records[i][key]
+
+    received_records = json.loads(httpretty.last_request().body)
+    for received_record in received_records["records"]:
+        assert received_record["record_key"] not in [err["rawData"]["record_key"] for err in migrate_res["errors"]]
+
         original_stored_record = next(
             (item for item in stored_records if item.get("record_key") == received_record.get("record_key")), None
         )
