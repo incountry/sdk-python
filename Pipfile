@@ -11,6 +11,7 @@ sure = "*"
 pytest-cov = "*"
 pytest-tldr = "*"
 flake8 = "*"
+darglint = "*"
 
 [packages]
 requests = "*"

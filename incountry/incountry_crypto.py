@@ -83,17 +83,15 @@ class InCrypto:
                 "Custom encryption 'encrypt' method should return string. Got " + str(type(encrypted))
             )
 
-        return (
-            self.custom_encryption_version + ":" + InCrypto.str_to_base64(encrypted),
-            key_version,
-        )
+        return (self.custom_encryption_version + ":" + InCrypto.str_to_base64(encrypted), key_version, True)
 
     def encrypt_default(self, raw):
         if self.secret_key_accessor is None:
-            return [
+            return (
                 InCrypto.PT_ENC_VERSION + ":" + InCrypto.str_to_base64(raw),
                 SecretKeyAccessor.DEFAULT_VERSION,
-            ]
+                False,
+            )
 
         salt = os.urandom(InCrypto.SALT_LENGTH)
         iv = os.urandom(InCrypto.IV_LENGTH)
@@ -102,10 +100,7 @@ class InCrypto:
         encryptor = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend()).encryptor()
         encrypted = encryptor.update(raw.encode("utf8")) + encryptor.finalize()
         auth_tag = encryptor.tag
-        return (
-            InCrypto.ENC_VERSION + ":" + self.pack_base64(salt, iv, encrypted, auth_tag),
-            key_version,
-        )
+        return (InCrypto.ENC_VERSION + ":" + self.pack_base64(salt, iv, encrypted, auth_tag), key_version, True)
 
     def decrypt(self, enc, key_version=None):
         parts = enc.split(":")

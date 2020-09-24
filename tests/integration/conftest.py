@@ -7,8 +7,16 @@ import uuid
 
 API_KEY = os.environ.get("INT_INC_API_KEY")
 ENVIRONMENT_ID = os.environ.get("INT_INC_ENVIRONMENT_ID")
+
+CLIENT_ID = os.environ.get("INT_INC_CLIENT_ID")
+CLIENT_SECRET = os.environ.get("INT_INC_CLIENT_SECRET")
+ENVIRONMENT_ID_OAUTH = os.environ.get("INT_INC_ENVIRONMENT_ID_OAUTH")
+OAUTH_ENDPOINT = os.environ.get("INT_INC_DEFAULT_AUTH_ENDPOINT")
+COUNTRIES_LIST_ENDPOINT = os.environ.get("INT_COUNTRIES_LIST_ENDPOINT")
+
 ENDPOINT = os.environ.get("INT_INC_ENDPOINT")
 COUNTRY = os.environ.get("INT_INC_COUNTRY")
+
 SECRETS_DATA = {
     "secrets": [{"secret": "super secret", "version": 2}],
     "currentVersion": 2,
@@ -16,29 +24,27 @@ SECRETS_DATA = {
 
 
 @pytest.fixture
-def storage(encrypt: bool, normalize_keys: bool) -> Storage:
-    """Creating storage"""
-    secret_key_accessor = SecretKeyAccessor(lambda: SECRETS_DATA)
+def storage(encrypt: bool, normalize_keys: bool, use_oauth: bool) -> Storage:
+    args = {
+        "encrypt": encrypt,
+        "debug": True,
+        "api_key": API_KEY,
+        "environment_id": ENVIRONMENT_ID,
+        "endpoint": ENDPOINT,
+        "options": {"normalize_keys": normalize_keys, "countries_endpoint": COUNTRIES_LIST_ENDPOINT},
+    }
+
+    if use_oauth:
+        args["client_id"] = CLIENT_ID
+        args["client_secret"] = CLIENT_SECRET
+        args["environment_id"] = ENVIRONMENT_ID_OAUTH
+        args["options"]["auth_endpoints"] = {"default": OAUTH_ENDPOINT}
+        del args["api_key"]
 
     if encrypt:
-        storage = Storage(
-            encrypt=True,
-            debug=True,
-            api_key=API_KEY,
-            environment_id=ENVIRONMENT_ID,
-            endpoint=ENDPOINT,
-            secret_key_accessor=secret_key_accessor,
-            options={"normalize_keys": normalize_keys},
-        )
-    else:
-        storage = Storage(
-            encrypt=False,
-            debug=True,
-            api_key=API_KEY,
-            environment_id=ENVIRONMENT_ID,
-            endpoint=ENDPOINT,
-            options={"normalize_keys": normalize_keys},
-        )
+        args["secret_key_accessor"] = SecretKeyAccessor(lambda: SECRETS_DATA)
+
+    storage = Storage(**args)
 
     yield storage
 
@@ -49,12 +55,32 @@ def create_records(number_of_records: int, uppercase_values: bool = False) -> Li
 
     return [
         {
-            "key": gen_value(),
+            "record_key": gen_value(),
+            "profile_key": gen_value(),
+            "service_key1": gen_value(),
+            "service_key2": gen_value(),
+            "key1": gen_value(),
             "key2": gen_value(),
             "key3": gen_value(),
-            "profile_key": gen_value(),
-            "range_key": randint(-(2 ** 63), 2 ** 63 - 1),
+            "key4": gen_value(),
+            "key5": gen_value(),
+            "key6": gen_value(),
+            "key7": gen_value(),
+            "key8": gen_value(),
+            "key9": gen_value(),
+            "key10": gen_value(),
+            "range_key1": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key2": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key3": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key4": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key5": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key6": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key7": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key8": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key9": randint(-(2 ** 63), 2 ** 63 - 1),
+            "range_key10": randint(-(2 ** 63), 2 ** 63 - 1),
             "body": gen_value(),
+            "precommit_body": gen_value(),
         }
         for _ in range(number_of_records)
     ]
@@ -76,26 +102,26 @@ def expected_records(
 ) -> Generator[List[Dict[str, Any]], None, None]:
     data = create_records(number_of_records, normalize_keys)
     for record in data:
-        assert "key" in record.keys()
+        assert "record_key" in record.keys()
         response = storage.write(country=country, **record)
-        assert response["record"]["key"] == record["key"]
+        assert response["record"]["record_key"] == record["record_key"]
     yield data
 
     for record in data:
-        key = record["key"]
-        response = storage.delete(country=country, key=key)
+        record_key = record["record_key"]
+        response = storage.delete(country=country, record_key=record_key)
         assert response == {"success": True}
 
 
 @pytest.fixture
 def clean_up_records(
-    storage: Storage, key: Union[List[str], str], country: str = COUNTRY
+    storage: Storage, record_key: Union[List[str], str], country: str = COUNTRY
 ) -> Generator[None, None, None]:
     yield
-    if isinstance(key, list):
-        for k in key:
-            deletion = storage.delete(country=country, key=k)
+    if isinstance(record_key, list):
+        for k in record_key:
+            deletion = storage.delete(country=country, record_key=k)
             assert deletion == {"success": True}
-    elif isinstance(key, str):
-        deletion = storage.delete(country=country, key=key)
+    elif isinstance(record_key, str):
+        deletion = storage.delete(country=country, record_key=record_key)
         assert deletion == {"success": True}

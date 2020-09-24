@@ -21,6 +21,7 @@ def validate_model(model):
     @wrapt.decorator
     def decorator(function, instance, args, kwargs):
         function_args_to_kwargs(function, args, kwargs)
+
         validated_data_dict = get_validated_data(function, model, **kwargs)
         func_args = getfullargspec(function)[0]
 

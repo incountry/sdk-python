@@ -18,7 +18,7 @@ def validate_http_response(model):
     @wrapt.decorator
     def decorator(function, instance, args, kwargs):
         response = function(*args, **kwargs)
-        validate_http_response_wrapper(function, model, **{"body": response})
-        return response
+        validation_res = validate_http_response_wrapper(function, model, **{"body": response})
+        return validation_res["body"]
 
     return decorator
