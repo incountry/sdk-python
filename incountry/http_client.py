@@ -2,9 +2,11 @@ from __future__ import absolute_import
 
 import requests
 import json
+import re
+from io import BytesIO
 
 from .exceptions import StorageServerException
-from .models import HttpOptions, HttpRecordRead, HttpRecordFind
+from .models import HttpOptions, HttpRecordRead, HttpRecordFind, HttpAttachmentMeta
 from .validation import validate_http_response
 from .__version__ import __version__
 
@@ -38,27 +40,46 @@ class HttpClient:
             self.log(f"Connecting to custom endpoint: {self.endpoint}. Connection timeout {self.options.timeout}s")
 
     def write(self, country, data):
-        response = self.request(country, method="POST", data=json.dumps(data))
-        return response
+        return self.request(country, method="POST", data=data)
 
     def batch_write(self, country, data):
-        response = self.request(country, path="/batchWrite", method="POST", data=json.dumps(data))
-        return response
+        return self.request(country, path="/batchWrite", method="POST", data=data)
 
     @validate_http_response(HttpRecordRead)
     def read(self, country, record_key):
-        response = self.request(country, path="/" + record_key)
-        return response
+        return self.request(country, path=f"/{record_key}")
 
     @validate_http_response(HttpRecordFind)
     def find(self, country, data):
-        response = self.request(country, path="/find", method="POST", data=json.dumps(data))
-        return response
+        return self.request(country, path="/find", method="POST", data=data)
 
     def delete(self, country, record_key):
-        return self.request(country, path="/" + record_key, method="DELETE")
+        return self.request(country, path=f"/{record_key}", method="DELETE")
 
-    def request(self, country, path="", method="GET", data=None, retries=AUTH_TOTAL_RETRIES):
+    @validate_http_response(HttpAttachmentMeta)
+    def add_attachment(self, country, record_key, file, upsert=False):
+        return self.request(
+            country, path=f"/{record_key}/attachments", method="PUT" if upsert else "POST", files={"file": file},
+        )
+
+    def delete_attachment(self, country, record_key, file_id):
+        return self.request(country, path=f"/{record_key}/attachments/{file_id}", method="DELETE")
+
+    def get_attachment_file(self, country, record_key, file_id):
+        response = self.request(country, path=f"/{record_key}/attachments/{file_id}", method="GET", raw=True)
+        return {"filename": self.get_filename_from_headers(response.headers), "file": BytesIO(response.content)}
+
+    @validate_http_response(HttpAttachmentMeta)
+    def get_attachment_meta(self, country, record_key, file_id):
+        return self.request(country, path=f"/{record_key}/attachments/{file_id}/meta", method="GET")
+
+    @validate_http_response(HttpAttachmentMeta)
+    def update_attachment_meta(self, country, record_key, file_id, meta):
+        return self.request(country, path=f"/{record_key}/attachments/{file_id}/meta", method="PATCH", data=meta)
+
+    def request(
+        self, country, path="", method="GET", data=None, retries=AUTH_TOTAL_RETRIES, files=None, raw=False,
+    ):
         try:
             (endpoint, audience, region) = self.get_request_pop_details(country)
 
@@ -67,24 +88,31 @@ class HttpClient:
                 audience=audience, region=region, refetch=retries < HttpClient.AUTH_TOTAL_RETRIES
             )
 
-            res = requests.request(
-                method=method,
-                url=url,
-                headers=self.get_headers(auth_token=auth_token),
-                data=data,
-                timeout=self.options.timeout,
-            )
+            params = {
+                "method": method,
+                "url": url,
+                "headers": self.get_headers(auth_token=auth_token),
+                "timeout": self.options.timeout,
+            }
 
-            if res.status_code == 401 and self.token_client.can_refetch() and retries > 0:
-                return self.request(country=country, path=path, method=method, data=data, retries=retries - 1)
+            if data is not None:
+                params["json"] = data
+            if files is not None:
+                params["files"] = files
 
-            if res.status_code >= 400:
-                raise StorageServerException("{} {} - {}".format(res.status_code, res.url, res.text))
+            with requests.request(**params) as res:
+                if res.status_code == 401 and self.token_client.can_refetch() and retries > 0:
+                    return self.request(country=country, path=path, method=method, data=data, retries=retries - 1)
 
-            try:
-                return res.json()
-            except Exception:
-                return res.text
+                if res.status_code >= 400:
+                    raise StorageServerException(f"{res.request.method} {res.status_code} {res.url} - {res.text}")
+
+                try:
+                    if raw:
+                        return res
+                    return res.json()
+                except Exception:
+                    return res.text
         except StorageServerException as e:
             raise e
         except Exception as e:
@@ -140,9 +168,16 @@ class HttpClient:
         return {
             "Authorization": "Bearer " + auth_token,
             "x-env-id": self.env_id,
-            "Content-Type": "application/json",
             "User-Agent": "SDK-Python/" + __version__,
         }
+
+    def get_filename_from_headers(self, headers):
+        if headers is None:
+            return "file"
+        content_disposition = headers.get("content-disposition", None)
+        if content_disposition is None:
+            return "file"
+        return re.findall("filename=(.+)", headers["content-disposition"])[0].strip('"')
 
     def log(self, *args):
         if self.debug:

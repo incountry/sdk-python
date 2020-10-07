@@ -1,9 +1,13 @@
+from .attachment_create import AttachmentCreate
+from .attachment_meta_update import AttachmentMetaUpdate
+from .attachment_request import AttachmentRequest
 from .country import Country
 from .custom_encryption_config import CustomEncryptionConfig
 from .custom_encryption_config_method_validation import CustomEncryptionConfigMethodValidation
 from .find_filter import FindFilter
 from .find_filter import Operators as FindFilterOperators
 from .find_filter import FIND_LIMIT
+from .http_attachment_meta import HttpAttachmentMeta
 from .http_options import HttpOptions
 from .http_record_write import HttpRecordWrite
 from .http_record_batch_write import HttpRecordBatchWrite

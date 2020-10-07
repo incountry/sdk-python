@@ -3,9 +3,24 @@ import sure  # noqa: F401
 from pydantic import ValidationError
 
 
-from incountry.models import HttpRecordBatchWrite, HttpRecordDelete, HttpRecordFind, HttpRecordRead, HttpRecordWrite
+from incountry.models import (
+    HttpRecordBatchWrite,
+    HttpRecordDelete,
+    HttpRecordFind,
+    HttpRecordRead,
+    HttpRecordWrite,
+    HttpAttachmentMeta,
+)
 
-from ..utils import get_test_records, get_random_int
+from ..utils import (
+    get_test_records,
+    get_random_int,
+    get_attachment_meta_valid_response,
+    get_attachment_meta_invalid_responses,
+    get_random_datetime,
+    get_random_str,
+    get_random_mime_type,
+)
 
 
 TEST_RECORDS = get_test_records()
@@ -105,6 +120,11 @@ def test_find_invalid_response(body):
         {**TEST_RECORDS[-1], "version": get_random_int()},
         {**TEST_RECORDS[-1], "version": get_random_int(), "is_encrypted": True},
         {**TEST_RECORDS[-1], "version": get_random_int(), "is_encrypted": False},
+        {**TEST_RECORDS[-1], "attachments": [get_attachment_meta_valid_response()]},
+        {
+            **TEST_RECORDS[-1],
+            "attachments": [get_attachment_meta_valid_response(), get_attachment_meta_valid_response()],
+        },
     ],
 )
 @pytest.mark.happy_path
@@ -125,8 +145,23 @@ def test_read_valid_response(body):
         {**TEST_RECORDS[-1], "version": get_random_int(), "is_encrypted": []},
         {**TEST_RECORDS[-1], "version": get_random_int(), "is_encrypted": {}},
         {**TEST_RECORDS[-1], "version": get_random_int(), "is_encrypted": ()},
+        {**TEST_RECORDS[-1], "attachments": get_attachment_meta_invalid_responses()},
     ],
 )
 @pytest.mark.error_path
 def test_read_invalid_response(body):
     HttpRecordRead.when.called_with(body=body).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "body", [get_attachment_meta_valid_response()],
+)
+@pytest.mark.happy_path
+def test_attachment_meta_valid_response(body):
+    HttpAttachmentMeta.when.called_with(body=body).should_not.throw(ValidationError)
+
+
+@pytest.mark.parametrize("body", get_attachment_meta_invalid_responses())
+@pytest.mark.error_path
+def test_attachment_meta_invalid_response(body):
+    HttpAttachmentMeta.when.called_with(body=body).should.throw(ValidationError)
