@@ -1,6 +1,5 @@
 from __future__ import absolute_import
 from typing import List, Dict, Union, Any, Optional, BinaryIO
-from io import BufferedIOBase
 from datetime import datetime
 
 from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash, HASHABLE_KEYS, normalize_key
