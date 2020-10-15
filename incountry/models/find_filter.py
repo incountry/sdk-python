@@ -89,7 +89,9 @@ class FindFilter(BaseModel):
                     )
             for operator_group in COMPARISON_GROUPS:
                 total_operators_from_group = reduce(
-                    lambda agg, operator: agg + 1 if operator in value else agg, operator_group, 0,
+                    lambda agg, operator: agg + 1 if operator in value else agg,
+                    operator_group,
+                    0,
                 )
                 if total_operators_from_group > 1:
                     raise ValueError(

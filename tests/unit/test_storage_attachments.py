@@ -171,7 +171,8 @@ def test_add_attachment_invalid_input(client, method_params, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [get_attachment_meta_valid_response()],
+    "response",
+    [get_attachment_meta_valid_response()],
 )
 @pytest.mark.happy_path
 def test_get_attachment(client, response):
@@ -198,10 +199,12 @@ def test_get_attachment(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [get_attachment_meta_valid_response()],
+    "response",
+    [get_attachment_meta_valid_response()],
 )
 @pytest.mark.parametrize(
-    "headers", [{}, {"content_disposition": "attachment; filename=invalid_filename_header.txt"}],
+    "headers",
+    [{}, {"content_disposition": "attachment; filename=invalid_filename_header.txt"}],
 )
 @pytest.mark.happy_path
 def test_get_attachment_without_filename(client, response, headers):
@@ -227,7 +230,8 @@ def test_get_attachment_without_filename(client, response, headers):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [get_attachment_meta_invalid_responses()[0]],
+    "response",
+    [get_attachment_meta_invalid_responses()[0]],
 )
 @pytest.mark.error_path
 def test_get_attachment_error(client, response):
@@ -361,7 +365,8 @@ def test_update_attachment_meta_invalid_input(client, method_params):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", ["", [], {}],
+    "response",
+    ["", [], {}],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path

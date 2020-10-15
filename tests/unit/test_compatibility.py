@@ -107,7 +107,8 @@ PREPARED_PAYLOADS = [
 
 
 @pytest.mark.parametrize(
-    "stored_record, expected_record, env_id, password", PREPARED_PAYLOADS,
+    "stored_record, expected_record, env_id, password",
+    PREPARED_PAYLOADS,
 )
 @pytest.mark.happy_path
 def test_dec_stored_data(stored_record, expected_record, env_id, password):
@@ -120,7 +121,8 @@ def test_dec_stored_data(stored_record, expected_record, env_id, password):
 
 
 @pytest.mark.parametrize(
-    "stored_record, expected_record, env_id, password", PREPARED_PAYLOADS,
+    "stored_record, expected_record, env_id, password",
+    PREPARED_PAYLOADS,
 )
 @pytest.mark.happy_path
 def test_enc_data(stored_record, expected_record, env_id, password):

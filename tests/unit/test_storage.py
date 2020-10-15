@@ -149,7 +149,8 @@ def test_write_with_keys_data(client, record, encrypt, keys_data):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "record", [get_randomcase_record()],
+    "record",
+    [get_randomcase_record()],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -199,7 +200,8 @@ def test_batch_write(client, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "records", [get_test_records(use_last_field_value=True, last_field_value=None)[1:]],
+    "records",
+    [get_test_records(use_last_field_value=True, last_field_value=None)[1:]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -230,7 +232,8 @@ def test_batch_write_with_nones(client, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "records", [[get_randomcase_record(), get_randomcase_record()]],
+    "records",
+    [[get_randomcase_record(), get_randomcase_record()]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -311,10 +314,12 @@ def test_read_with_dates(client, record, created_at, updated_at, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "record_1", [get_test_records()[-1]],
+    "record_1",
+    [get_test_records()[-1]],
 )
 @pytest.mark.parametrize(
-    "record_2", [get_test_records()[-1]],
+    "record_2",
+    [get_test_records()[-1]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("keys_data_old", [{"currentVersion": 1, "secrets": [{"secret": SECRET_KEY, "version": 1}]}])
@@ -366,7 +371,8 @@ def test_read_multiple_keys(client, record_1, record_2, encrypt, keys_data_old, 
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "record", [get_randomcase_record()],
+    "record",
+    [get_randomcase_record()],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -436,10 +442,12 @@ def test_delete_normalize_keys_option(client, record_key, encrypt, normalize):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query", get_valid_find_filter_test_options(),
+    "query",
+    get_valid_find_filter_test_options(),
 )
 @pytest.mark.parametrize(
-    "records", [TEST_RECORDS[-2:]],
+    "records",
+    [TEST_RECORDS[-2:]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -484,10 +492,12 @@ def test_find(client, query, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query", [{"key1": "key1"}],
+    "query",
+    [{"key1": "key1"}],
 )
 @pytest.mark.parametrize(
-    "records", [TEST_RECORDS[-2:]],
+    "records",
+    [TEST_RECORDS[-2:]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -522,7 +532,8 @@ def test_find_filters_improper_or_none_keys(client, query, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query,records", [({"record_key": "key1"}, TEST_RECORDS[-2:])],
+    "query,records",
+    [({"record_key": "key1"}, TEST_RECORDS[-2:])],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -561,7 +572,8 @@ def test_find_enc_and_non_enc(client, query, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query,records", [({"record_key": "key1"}, TEST_RECORDS)],
+    "query,records",
+    [({"record_key": "key1"}, TEST_RECORDS)],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -595,10 +607,12 @@ def test_find_incorrect_records(client, query, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query", [get_randomcase_record(), get_randomcase_record(use_list_values=True)],
+    "query",
+    [get_randomcase_record(), get_randomcase_record(use_list_values=True)],
 )
 @pytest.mark.parametrize(
-    "records", [TEST_RECORDS[-2:]],
+    "records",
+    [TEST_RECORDS[-2:]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -1232,7 +1246,9 @@ def test_read_not_found(client, record, encrypt):
     stored_record = client(encrypt).encrypt_record(stored_record)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"], status=404,
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
+        status=404,
     )
 
     client(encrypt).read.when.called_with(country=COUNTRY, record_key=record["record_key"]).should.throw(
@@ -1286,10 +1302,14 @@ def test_error_on_popapi_error(client, record, encrypt):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find", status=400)
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, status=400)
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"], status=400,
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
+        status=400,
     )
     httpretty.register_uri(
-        httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"], status=400,
+        httpretty.DELETE,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
+        status=400,
     )
 
     client(encrypt).write.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerException)

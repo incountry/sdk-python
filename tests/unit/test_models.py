@@ -83,7 +83,8 @@ def clear_envs():
 
 
 @pytest.mark.parametrize(
-    "country", ["us", "US", "uS", "Us"],
+    "country",
+    ["us", "US", "uS", "Us"],
 )
 @pytest.mark.happy_path
 def test_valid_country(country):
@@ -93,7 +94,8 @@ def test_valid_country(country):
 
 
 @pytest.mark.parametrize(
-    "country", ["usa", 0, 1, True, False, "", "u", [], {}, ()],
+    "country",
+    ["usa", 0, 1, True, False, "", "u", [], {}, ()],
 )
 @pytest.mark.error_path
 def test_invalid_country(country):
@@ -116,12 +118,30 @@ def test_valid_custom_enc_config(config):
 @pytest.mark.parametrize(
     "config, error_text",
     [
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": True}, "is not callable",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": True}, "is not callable",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": 1}, "str type expected",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": 1}, "value is not a valid boolean",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": lambda text, key, key_version: "text"}, "Invalid signature",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": lambda text, key, key_version: "text"}, "Invalid signature",),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": True},
+            "is not callable",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": True},
+            "is not callable",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": 1},
+            "str type expected",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": 1},
+            "value is not a valid boolean",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": lambda text, key, key_version: "text"},
+            "Invalid signature",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": lambda text, key, key_version: "text"},
+            "Invalid signature",
+        ),
     ],
 )
 @pytest.mark.error_path
@@ -152,7 +172,10 @@ def test_valid_custom_enc_config_method_validation(config):
     "config, error_text",
     [
         ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": 1, "keyVersion": 1}, "value is not valid bytes"),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": "password", "keyVersion": "1"}, "value is not a valid integer",),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": "password", "keyVersion": "1"},
+            "value is not a valid integer",
+        ),
         (
             {
                 **VALID_CUSTOM_ENCRYPTION_CONFIG,
@@ -214,7 +237,8 @@ def test_default_find_filter():
 
 
 @pytest.mark.parametrize(
-    "filter", [{"limit": 20, "offset": 20}],
+    "filter",
+    [{"limit": 20, "offset": 20}],
 )
 @pytest.mark.happy_path
 def test_valid_limit_offset_find_filter(filter):
@@ -341,7 +365,8 @@ def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
 
 
 @pytest.mark.parametrize(
-    "http_options", [{}, {"timeout": 1}, {"timeout": 100}],
+    "http_options",
+    [{}, {"timeout": 1}, {"timeout": 100}],
 )
 @pytest.mark.error_path
 def test_valid_http_options(http_options):
@@ -522,7 +547,8 @@ def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
 
 
 @pytest.mark.parametrize(
-    "record", TEST_RECORDS,
+    "record",
+    TEST_RECORDS,
 )
 @pytest.mark.happy_path
 def test_valid_record(record):
@@ -665,7 +691,8 @@ def test_invalid_secrets_data(keys_data):
 
 
 @pytest.mark.parametrize(
-    "keys_data", [{"currentVersion": 2, "secrets": [{"secret": "password", "version": 1}]}],
+    "keys_data",
+    [{"currentVersion": 2, "secrets": [{"secret": "password", "version": 1}]}],
 )
 @pytest.mark.error_path
 def test_invalid_secrets_data_current_version_not_found(keys_data):
@@ -730,7 +757,8 @@ def test_valid_secrets_data_for_custom_encryption(keys_data):
 
 
 @pytest.mark.parametrize(
-    "keys_data", [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}],
+    "keys_data",
+    [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}],
 )
 @pytest.mark.error_path
 def test_invalid_secrets_data_for_custom_encryption(keys_data):
@@ -749,7 +777,8 @@ def text_valid_secret_key_accessor():
 
 
 @pytest.mark.parametrize(
-    "accessor_function", [(), [], {}, 0, 1, "", "password", SecretKeyAccessor],
+    "accessor_function",
+    [(), [], {}, 0, 1, "", "password", SecretKeyAccessor],
 )
 @pytest.mark.error_path
 def text_invalid_secret_key_accessor(accessor_function):
@@ -1062,7 +1091,8 @@ def test_invalid_storage(storage_params):
 
 
 @pytest.mark.parametrize(
-    "secret_key_accessor", [{}, [], (), "", "password", 0, 1, StorageWithEnv],
+    "secret_key_accessor",
+    [{}, [], (), "", "password", 0, 1, StorageWithEnv],
 )
 @pytest.mark.error_path
 def test_invalid_secret_key_accessor_param_for_storage(secret_key_accessor):
@@ -1072,7 +1102,8 @@ def test_invalid_secret_key_accessor_param_for_storage(secret_key_accessor):
 
 
 @pytest.mark.parametrize(
-    "endpoint", [{}, [], (), "", "not a url", 0, 1, {"url": "http://api.com"}, ["http://api.com"], ("http://api.com",)],
+    "endpoint",
+    [{}, [], (), "", "not a url", 0, 1, {"url": "http://api.com"}, ["http://api.com"], ("http://api.com",)],
 )
 @pytest.mark.error_path
 def test_invalid_endpoint_param_for_storage(endpoint):
@@ -1080,7 +1111,8 @@ def test_invalid_endpoint_param_for_storage(endpoint):
 
 
 @pytest.mark.parametrize(
-    "endpoint", ["", "not a url", "1", "0"],
+    "endpoint",
+    ["", "not a url", "1", "0"],
 )
 @pytest.mark.error_path
 def test_invalid_env_endpoint_param_for_storage(endpoint):

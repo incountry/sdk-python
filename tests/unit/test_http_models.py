@@ -24,7 +24,8 @@ TEST_RECORDS = get_test_records()
 
 
 @pytest.mark.parametrize(
-    "body", [{}, [], ""],
+    "body",
+    [{}, [], ""],
 )
 @pytest.mark.error_path
 def test_delete_valid_body(body):
@@ -32,7 +33,8 @@ def test_delete_valid_body(body):
 
 
 @pytest.mark.parametrize(
-    "body", [True, {"record_key": "record_key"}],
+    "body",
+    [True, {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 def test_delete_invalid_body(body):
@@ -40,7 +42,8 @@ def test_delete_invalid_body(body):
 
 
 @pytest.mark.parametrize(
-    "body", ["OK"],
+    "body",
+    ["OK"],
 )
 @pytest.mark.happy_path
 def test_write_valid_body(body):
@@ -48,7 +51,8 @@ def test_write_valid_body(body):
 
 
 @pytest.mark.parametrize(
-    "body", [{}, [], True, "", {"record_key": "record_key"}],
+    "body",
+    [{}, [], True, "", {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 def test_write_invalid_body(body):
@@ -56,7 +60,8 @@ def test_write_invalid_body(body):
 
 
 @pytest.mark.parametrize(
-    "body", ["OK"],
+    "body",
+    ["OK"],
 )
 @pytest.mark.happy_path
 def test_batch_write_valid_body(body):
@@ -64,7 +69,8 @@ def test_batch_write_valid_body(body):
 
 
 @pytest.mark.parametrize(
-    "body", [{}, [], True, "", {"record_key": "record_key"}],
+    "body",
+    [{}, [], True, "", {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 def test_batch_write_invalid_body(body):
@@ -151,7 +157,8 @@ def test_read_invalid_response(body):
 
 
 @pytest.mark.parametrize(
-    "body", [get_attachment_meta_valid_response()],
+    "body",
+    [get_attachment_meta_valid_response()],
 )
 @pytest.mark.happy_path
 def test_attachment_meta_valid_response(body):

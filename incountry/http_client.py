@@ -20,7 +20,14 @@ class HttpClient:
     DEFAULT_AUTH_REGION = "default"
 
     def __init__(
-        self, env_id, token_client, endpoint=None, debug=False, endpoint_mask=None, countries_endpoint=None, options={},
+        self,
+        env_id,
+        token_client,
+        endpoint=None,
+        debug=False,
+        endpoint_mask=None,
+        countries_endpoint=None,
+        options={},
     ):
         self.token_client = token_client
         self.endpoint = endpoint
@@ -65,7 +72,10 @@ class HttpClient:
             files["file"] = (filename, file, mime_type)
 
         return self.request(
-            country, path=f"/{record_key}/attachments", method="PUT" if upsert else "POST", files=files,
+            country,
+            path=f"/{record_key}/attachments",
+            method="PUT" if upsert else "POST",
+            files=files,
         )
 
     def delete_attachment(self, country, record_key, file_id):
@@ -84,7 +94,14 @@ class HttpClient:
         return self.request(country, path=f"/{record_key}/attachments/{file_id}/meta", method="PATCH", data=meta)
 
     def request(
-        self, country, path="", method="GET", data=None, retries=AUTH_TOTAL_RETRIES, files=None, raw=False,
+        self,
+        country,
+        path="",
+        method="GET",
+        data=None,
+        retries=AUTH_TOTAL_RETRIES,
+        files=None,
+        raw=False,
     ):
         try:
             (endpoint, audience, region) = self.get_request_pop_details(country)
@@ -130,7 +147,10 @@ class HttpClient:
             raise StorageServerException("Unable to retrieve countries list")
         countries_data = r.json()["countries"]
 
-        country_data = next((data for data in countries_data if data["id"].lower() == country), None,)
+        country_data = next(
+            (data for data in countries_data if data["id"].lower() == country),
+            None,
+        )
 
         if country_data is None:
             return (False, HttpClient.DEFAULT_AUTH_REGION)

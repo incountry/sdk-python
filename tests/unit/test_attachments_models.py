@@ -57,7 +57,8 @@ def test_attachment_create_invalid_data(data):
 
 
 @pytest.mark.parametrize(
-    "data", [{"record_key": get_random_str(), "file_id": get_random_str()}],
+    "data",
+    [{"record_key": get_random_str(), "file_id": get_random_str()}],
 )
 @pytest.mark.happy_path
 def test_attachment_request_valid_data(data):
@@ -98,7 +99,8 @@ def test_attachment_meta_update_valid_data(data):
 
 
 @pytest.mark.parametrize(
-    "data", [{}, {"filename": "", "mime_type": "application/json"}, {"filename": get_random_str(), "mime_type": ""}],
+    "data",
+    [{}, {"filename": "", "mime_type": "application/json"}, {"filename": get_random_str(), "mime_type": ""}],
 )
 @pytest.mark.error_path
 def test_attachment_meta_update_invalid_data(data):

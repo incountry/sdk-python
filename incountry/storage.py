@@ -268,7 +268,10 @@ class Storage:
     @validate_model(Country)
     @validate_model(FindFilter)
     def find_one(
-        self, country: str, offset: Optional[int] = 0, **filters: Union[TIntFilter, TStringFilter],
+        self,
+        country: str,
+        offset: Optional[int] = 0,
+        **filters: Union[TIntFilter, TStringFilter],
     ) -> Union[None, Dict[str, Dict]]:
         """Finds record that satisfies provided filters
 
