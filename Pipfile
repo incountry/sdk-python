@@ -12,6 +12,7 @@ pytest-cov = "*"
 pytest-tldr = "*"
 flake8 = "*"
 darglint = "*"
+requests-toolbelt = "*"
 
 [packages]
 requests = "*"
