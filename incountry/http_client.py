@@ -1,9 +1,9 @@
 from __future__ import absolute_import
 
 import requests
-import json
 import re
 from io import BytesIO
+from pathlib import Path
 
 from .exceptions import StorageServerException
 from .models import HttpOptions, HttpRecordRead, HttpRecordFind, HttpAttachmentMeta
@@ -57,9 +57,15 @@ class HttpClient:
         return self.request(country, path=f"/{record_key}", method="DELETE")
 
     @validate_http_response(HttpAttachmentMeta)
-    def add_attachment(self, country, record_key, file, upsert=False):
+    def add_attachment(self, country, record_key, file, upsert=False, mime_type=None):
+        filename = Path(getattr(file, "name", "file")).name
+        files = {"file": file}
+
+        if mime_type is not None:
+            files["file"] = (filename, file, mime_type)
+
         return self.request(
-            country, path=f"/{record_key}/attachments", method="PUT" if upsert else "POST", files={"file": file},
+            country, path=f"/{record_key}/attachments", method="PUT" if upsert else "POST", files=files,
         )
 
     def delete_attachment(self, country, record_key, file_id):
@@ -172,12 +178,13 @@ class HttpClient:
         }
 
     def get_filename_from_headers(self, headers):
-        if headers is None:
-            return "file"
         content_disposition = headers.get("content-disposition", None)
         if content_disposition is None:
             return "file"
-        return re.findall("filename=(.+)", headers["content-disposition"])[0].strip('"')
+        filename_re_from_header = re.findall("filename\\*=UTF-8''(.+)", headers["content-disposition"])
+        if len(filename_re_from_header) == 0:
+            return "file"
+        return requests.utils.unquote(filename_re_from_header[0].strip('"'))
 
     def log(self, *args):
         if self.debug:

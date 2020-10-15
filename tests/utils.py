@@ -181,22 +181,20 @@ def get_attachment_meta_valid_response():
 
 def get_attachment_meta_invalid_responses():
     return [
-        get_attachment_meta_valid_response().update({"updated_at": 123}),
-        get_attachment_meta_valid_response().update({"created_at": 123}),
-        get_attachment_meta_valid_response().update({"download_link": 123}),
-        get_attachment_meta_valid_response().update({"download_link": ""}),
-        get_attachment_meta_valid_response().update({"file_id": 123}),
-        get_attachment_meta_valid_response().update({"file_id": ""}),
-        get_attachment_meta_valid_response().update({"filename": 123}),
-        get_attachment_meta_valid_response().update({"filename": ""}),
-        get_attachment_meta_valid_response().update({"hash": 123}),
-        get_attachment_meta_valid_response().update({"hash": ""}),
-        get_attachment_meta_valid_response().update({"hash": "123"}),
-        get_attachment_meta_valid_response().update({"mime_type": 123}),
-        get_attachment_meta_valid_response().update({"mime_type": ""}),
-        get_attachment_meta_valid_response().update({"size": -123}),
-        get_attachment_meta_valid_response().update({"size": ""}),
-        get_attachment_meta_valid_response().update({"size": "invalid size"}),
+        dict(get_attachment_meta_valid_response(), **{"download_link": 123}),
+        dict(get_attachment_meta_valid_response(), **{"download_link": ""}),
+        dict(get_attachment_meta_valid_response(), **{"file_id": 123}),
+        dict(get_attachment_meta_valid_response(), **{"file_id": ""}),
+        dict(get_attachment_meta_valid_response(), **{"filename": 123}),
+        dict(get_attachment_meta_valid_response(), **{"filename": ""}),
+        dict(get_attachment_meta_valid_response(), **{"hash": 123}),
+        dict(get_attachment_meta_valid_response(), **{"hash": ""}),
+        dict(get_attachment_meta_valid_response(), **{"hash": "123"}),
+        dict(get_attachment_meta_valid_response(), **{"mime_type": 123}),
+        dict(get_attachment_meta_valid_response(), **{"mime_type": ""}),
+        dict(get_attachment_meta_valid_response(), **{"size": -123}),
+        dict(get_attachment_meta_valid_response(), **{"size": ""}),
+        dict(get_attachment_meta_valid_response(), **{"size": "invalid size"}),
     ]
 
 

@@ -4,9 +4,10 @@ from pydantic import BaseModel, constr, StrictBool, validator, FilePath
 
 
 class AttachmentCreate(BaseModel):
-    record_key: constr(strict=True, min_length=1)
-    upsert: StrictBool = False
     file: Union[BufferedIOBase, FilePath]
+    record_key: constr(strict=True, min_length=1)
+    mime_type: constr(strict=True, min_length=1) = None
+    upsert: StrictBool = False
 
     @validator("file")
     def filepath_to_file(cls, value):

@@ -382,22 +382,14 @@ class Storage:
     @validate_model(Country)
     @validate_model(AttachmentCreate)
     def add_attachment(
-        self, country: str, record_key: str, file: Union[BinaryIO, str], upsert: bool = False
+        self, country: str, record_key: str, file: Union[BinaryIO, str], mime_type: str = None, upsert: bool = False
     ) -> Dict[str, Union[str, int, datetime]]:
         record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
-
         return {
             "attachment_meta": self.http_client.add_attachment(
-                country=country, record_key=record_key, file=file, upsert=upsert
+                country=country, record_key=record_key, file=file, upsert=upsert, mime_type=mime_type
             )
         }
-
-    @validate_model(Country)
-    @validate_model(AttachmentRequest)
-    def delete_attachment(self, country: str, record_key: str, file_id: str):
-        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
-        self.http_client.delete_attachment(country=country, record_key=record_key, file_id=file_id)
-        return {"success": True}
 
     @validate_model(Country)
     @validate_model(AttachmentRequest)
@@ -435,6 +427,13 @@ class Storage:
                 country=country, record_key=record_key, file_id=file_id, meta=meta
             )
         }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    def delete_attachment(self, country: str, record_key: str, file_id: str):
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        self.http_client.delete_attachment(country=country, record_key=record_key, file_id=file_id)
+        return {"success": True}
 
     ###########################################
     # Common functions

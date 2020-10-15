@@ -18,8 +18,14 @@ TEST_RECORDS = get_test_records()
     "data",
     [
         {"record_key": get_random_str(), "upsert": True, "file": __file__},
-        {"record_key": get_random_str(), "upsert": False, "file": __file__},
+        {"record_key": get_random_str(), "upsert": False, "file": __file__, "mime_type": "application/python"},
         {"record_key": get_random_str(), "upsert": True, "file": open(__file__, "rb")},
+        {
+            "record_key": get_random_str(),
+            "upsert": True,
+            "file": open(__file__, "rb"),
+            "mime_type": "application/python",
+        },
     ],
 )
 @pytest.mark.happy_path
@@ -42,6 +48,7 @@ def test_attachment_create_valid_data(data):
         {"record_key": 123, "upsert": True, "file": __file__},
         {"record_key": get_random_str(), "upsert": 123, "file": __file__},
         {"record_key": get_random_str(), "upsert": True, "file": 123},
+        {"record_key": get_random_str(), "upsert": True, "file": __file__, "mime_type": ""},
     ],
 )
 @pytest.mark.error_path

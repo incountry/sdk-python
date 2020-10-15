@@ -972,8 +972,9 @@ def test_http_client_using_custom_auth_endpoints(
     "response", [get_attachment_meta_valid_response()],
 )
 @pytest.mark.parametrize("upsert", [True, False])
+@pytest.mark.parametrize("mime_type", [None, "application/python"])
 @pytest.mark.happy_path
-def test_add_attachment_valid_response(client, response, upsert):
+def test_add_attachment_valid_response(client, response, upsert, mime_type):
     f = open(__file__, "rb")
     original_file_body = f.read()
     f.seek(0)
@@ -987,7 +988,9 @@ def test_add_attachment_valid_response(client, response, upsert):
         body=json.dumps(response, default=json_converter),
     )
 
-    res = client().add_attachment(country=COUNTRY, record_key=record_key_hash, upsert=upsert, file=f)
+    res = client().add_attachment(
+        country=COUNTRY, record_key=record_key_hash, upsert=upsert, file=f, mime_type=mime_type
+    )
     res_json = json.dumps(res, default=json_converter)
     res_json.should.contain(json.dumps(response, default=json_converter))
 
@@ -995,6 +998,8 @@ def test_add_attachment_valid_response(client, response, upsert):
 
     decoder = MultipartDecoder(last_request.body, last_request.headers["Content-Type"])
     assert decoder.parts[0].content == original_file_body
+    if mime_type is not None:
+        assert decoder.parts[0].headers[b"Content-Type"] == mime_type.encode("utf-8")
 
 
 @httpretty.activate
@@ -1061,7 +1066,7 @@ def test_get_attachment_valid_response(client, response, mime_type):
         f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments/{file_id}",
         body=original_file_body,
         content_type=mime_type,
-        content_disposition=f'attachment; filename="{filename}"',
+        content_disposition=f"attachment; filename*=UTF-8''{filename}",
     )
 
     res = client().get_attachment_file(country=COUNTRY, record_key=record_key_hash, file_id=file_id)
