@@ -201,7 +201,7 @@ class HttpClient:
         content_disposition = headers.get("content-disposition", None)
         if content_disposition is None:
             return "file"
-        filename_re_from_header = re.findall("filename\\*=UTF-8''(.+)", headers["content-disposition"])
+        filename_re_from_header = re.findall("filename\\*=UTF-8''([^;]*)", headers["content-disposition"])
         if len(filename_re_from_header) == 0:
             return "file"
         return requests.utils.unquote(filename_re_from_header[0].strip('"'))
