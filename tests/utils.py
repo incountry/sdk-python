@@ -1,9 +1,9 @@
-from random import randrange, choices, random
+from random import randrange, choice, choices, random
 import string
 import uuid
 import sys
 from datetime import datetime, timedelta, timezone
-
+import mimetypes
 
 STRING_FIELDS = [
     "record_key",
@@ -40,12 +40,16 @@ ALL_FIELDS = STRING_FIELDS + INT_FIELDS
 ALL_FIELDS_WITH_DATES = ALL_FIELDS + DATE_FIELDS
 
 
-def get_random_str():
-    return "".join(choices(string.ascii_uppercase + string.ascii_lowercase, k=10))
+def get_random_str(length=10):
+    return "".join(choices(string.ascii_uppercase + string.ascii_lowercase, k=length))
 
 
 def get_random_int():
     return randrange(sys.maxsize)
+
+
+def get_random_mime_type():
+    return choice(list(mimetypes.types_map.values()))
 
 
 def get_random_datetime(min_year=1900, max_year=datetime.now().year):
@@ -160,6 +164,38 @@ def get_randomcase_record(use_list_values=False):
         "range_key9": 42,
         "range_key10": 42,
     }
+
+
+def get_attachment_meta_valid_response():
+    return {
+        "created_at": get_random_datetime(),
+        "updated_at": get_random_datetime(),
+        "download_link": get_random_str(),
+        "file_id": get_random_str(),
+        "filename": get_random_str(),
+        "hash": get_random_str(64),
+        "mime_type": get_random_mime_type(),
+        "size": 100,
+    }
+
+
+def get_attachment_meta_invalid_responses():
+    return [
+        dict(get_attachment_meta_valid_response(), **{"download_link": 123}),
+        dict(get_attachment_meta_valid_response(), **{"download_link": ""}),
+        dict(get_attachment_meta_valid_response(), **{"file_id": 123}),
+        dict(get_attachment_meta_valid_response(), **{"file_id": ""}),
+        dict(get_attachment_meta_valid_response(), **{"filename": 123}),
+        dict(get_attachment_meta_valid_response(), **{"filename": ""}),
+        dict(get_attachment_meta_valid_response(), **{"hash": 123}),
+        dict(get_attachment_meta_valid_response(), **{"hash": ""}),
+        dict(get_attachment_meta_valid_response(), **{"hash": "123"}),
+        dict(get_attachment_meta_valid_response(), **{"mime_type": 123}),
+        dict(get_attachment_meta_valid_response(), **{"mime_type": ""}),
+        dict(get_attachment_meta_valid_response(), **{"size": -123}),
+        dict(get_attachment_meta_valid_response(), **{"size": ""}),
+        dict(get_attachment_meta_valid_response(), **{"size": "invalid size"}),
+    ]
 
 
 def omit(d, *keys):

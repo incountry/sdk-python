@@ -69,7 +69,8 @@ def test_get_secret(secrets_data):
     [secret, secret_version, is_key] = secret_accessor.get_secret()
 
     current_secret_data = next(
-        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]), None,
+        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]),
+        None,
     )
 
     assert secret_version == current_secret_data["version"]
@@ -118,7 +119,8 @@ def test_get_secret_with_custom_keys(secrets_data):
     [secret, secret_version, is_key] = secret_accessor.get_secret()
 
     current_secret = next(
-        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]), None,
+        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]),
+        None,
     )
 
     assert secret_version == current_secret["version"]
@@ -133,7 +135,8 @@ def test_get_secret_with_custom_keys(secrets_data):
 
 
 @pytest.mark.parametrize(
-    "secrets_data", [{"currentVersion": 0, "secrets": [{"secret": "custom key", "version": 0}]}],
+    "secrets_data",
+    [{"currentVersion": 0, "secrets": [{"secret": "custom key", "version": 0}]}],
 )
 @pytest.mark.error_path
 def test_get_secret_returning_non_custom_key_for_custom_request(secrets_data):
@@ -162,7 +165,8 @@ def test_non_existing_version_requested(keys_data):
 
 
 @pytest.mark.parametrize(
-    "keys_data", INVALID_SECRETS_DATA,
+    "keys_data",
+    INVALID_SECRETS_DATA,
 )
 @pytest.mark.error_path
 def test_validation_failure_invalid_keys_object(keys_data):

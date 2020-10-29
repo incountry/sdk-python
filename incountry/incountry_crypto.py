@@ -173,7 +173,11 @@ class InCrypto:
 
         return (
             hashlib.pbkdf2_hmac(
-                InCrypto.PBKDF2_DIGEST, secret.encode("utf8"), salt, InCrypto.PBKDF2_ROUNDS, InCrypto.KEY_LENGTH,
+                InCrypto.PBKDF2_DIGEST,
+                secret.encode("utf8"),
+                salt,
+                InCrypto.PBKDF2_ROUNDS,
+                InCrypto.KEY_LENGTH,
             ),
             version,
         )

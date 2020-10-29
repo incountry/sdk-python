@@ -37,7 +37,8 @@ def test_encrypt_record_args_validation(crypto, record, salt, error):
 
 
 @pytest.mark.parametrize(
-    "crypto,record,error", [(None, {}, "'crypto' argument should be an instance of InCrypto. Got <class 'NoneType'>")],
+    "crypto,record,error",
+    [(None, {}, "'crypto' argument should be an instance of InCrypto. Got <class 'NoneType'>")],
 )
 @pytest.mark.happy_path
 def test_decrypt_record_args_validation(crypto, record, error):
@@ -45,7 +46,8 @@ def test_decrypt_record_args_validation(crypto, record, error):
 
 
 @pytest.mark.parametrize(
-    "data,result", [("test", False), ('"test"', True), ("1", True), ('{"test": 42}', True), ("42", True)],
+    "data,result",
+    [("test", False), ('"test"', True), ("1", True), ('{"test": 42}', True), ("42", True)],
 )
 @pytest.mark.happy_path
 def test_is_json(data, result):

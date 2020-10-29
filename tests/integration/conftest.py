@@ -125,3 +125,15 @@ def clean_up_records(
     elif isinstance(record_key, str):
         deletion = storage.delete(country=country, record_key=record_key)
         assert deletion == {"success": True}
+
+
+@pytest.fixture
+def tempfile(filename: str, filebody: str) -> Generator[None, None, None]:
+    filepath = f"./{filename}"
+    with open(filepath, "wb") as f:
+        f.write(filebody)
+        f.close()
+
+    yield {"path": filepath}
+
+    os.remove(filepath)

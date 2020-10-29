@@ -1,11 +1,23 @@
 from __future__ import absolute_import
-from typing import List, Dict, Union, Any, Optional
+from typing import List, Dict, Union, Any, Optional, BinaryIO
+from datetime import datetime
 
 from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash, HASHABLE_KEYS, normalize_key
 from .exceptions import StorageCryptoException
 from .incountry_crypto import InCrypto
 from .http_client import HttpClient
-from .models import Country, FindFilter, FindFilterOperators, FIND_LIMIT, Record, RecordListForBatch, StorageWithEnv
+from .models import (
+    AttachmentCreate,
+    AttachmentMetaUpdate,
+    AttachmentRequest,
+    Country,
+    FindFilter,
+    FindFilterOperators,
+    FIND_LIMIT,
+    Record,
+    RecordListForBatch,
+    StorageWithEnv,
+)
 from .secret_key_accessor import SecretKeyAccessor
 from .token_clients import ApiKeyTokenClient, OAuthTokenClient
 from .types import TIntFilter, TStringFilter, TRecord
@@ -256,7 +268,10 @@ class Storage:
     @validate_model(Country)
     @validate_model(FindFilter)
     def find_one(
-        self, country: str, offset: Optional[int] = 0, **filters: Union[TIntFilter, TStringFilter],
+        self,
+        country: str,
+        offset: Optional[int] = 0,
+        **filters: Union[TIntFilter, TStringFilter],
     ) -> Union[None, Dict[str, Dict]]:
         """Finds record that satisfies provided filters
 
@@ -352,12 +367,75 @@ class Storage:
         """
         current_secret_version = self.crypto.get_current_secret_version()
         find_res = self.find(country=country, limit=limit, version={"$not": current_secret_version})
-        self.batch_write(country=country, records=find_res["records"])
+        records_to_migrate_count = len(find_res["records"])
 
-        return {
-            "migrated": find_res["meta"]["count"],
-            "total_left": find_res["meta"]["total"] - find_res["meta"]["count"],
+        if records_to_migrate_count > 0:
+            self.batch_write(country=country, records=find_res["records"])
+
+        return_data = {
+            "migrated": records_to_migrate_count,
+            "total_left": find_res["meta"]["total"] - records_to_migrate_count,
         }
+        if "errors" in find_res:
+            return_data["errors"] = find_res["errors"]
+
+        return return_data
+
+    @validate_model(Country)
+    @validate_model(AttachmentCreate)
+    def add_attachment(
+        self, country: str, record_key: str, file: Union[BinaryIO, str], mime_type: str = None, upsert: bool = False
+    ) -> Dict[str, Union[str, int, datetime]]:
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        return {
+            "attachment_meta": self.http_client.add_attachment(
+                country=country, record_key=record_key, file=file, upsert=upsert, mime_type=mime_type
+            )
+        }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    def get_attachment_file(self, country: str, record_key: str, file_id: str):
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        res = self.http_client.get_attachment_file(country=country, record_key=record_key, file_id=file_id)
+        return {
+            "attachment_data": res,
+        }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    def get_attachment_meta(self, country: str, record_key: str, file_id: str):
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        return {
+            "attachment_meta": self.http_client.get_attachment_meta(
+                country=country, record_key=record_key, file_id=file_id
+            )
+        }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    @validate_model(AttachmentMetaUpdate)
+    def update_attachment_meta(
+        self, country: str, record_key: str, file_id: str, filename: str = None, mime_type: str = None
+    ):
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        meta = {}
+        if filename is not None:
+            meta["filename"] = filename
+        if mime_type is not None:
+            meta["mime_type"] = mime_type
+        return {
+            "attachment_meta": self.http_client.update_attachment_meta(
+                country=country, record_key=record_key, file_id=file_id, meta=meta
+            )
+        }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    def delete_attachment(self, country: str, record_key: str, file_id: str):
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        self.http_client.delete_attachment(country=country, record_key=record_key, file_id=file_id)
+        return {"success": True}
 
     ###########################################
     # Common functions

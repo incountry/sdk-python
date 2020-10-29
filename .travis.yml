@@ -6,20 +6,36 @@ git:
   depth: false
 
 language: python
-python:
-  - "3.7"
+python: 3.7
+node_js: 11
 
-install:
-  - pip3 install bandit
-  - if [[ ($TRAVIS_BRANCH == "master") && ($TRAVIS_EVENT_TYPE == "cron") ]]; then npm install -g snyk; fi
-  - pipenv sync
+jobs:
+  include:
+    - stage: build
+      name: "Scan code with Snyk, run tests, run Sonar Quality Gate"
+      before_install:
+        # Install Sonar-scanner
+        - wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONARSCANNER_VERSION}-linux.zip
+        - unzip -q sonar-scanner-cli-${SONARSCANNER_VERSION}-linux.zip -d /home/travis/bin
+      script:
+        # Print debug information
+        - echo "Building for branch=$TRAVIS_BRANCH, PR=${TRAVIS_PULL_REQUEST} ..."; env | grep "COMMIT\|PULL\|BRANCH"
+        # Perform the build
+        - ./travis-build.sh
+    - stage: build
+      name: "Run integration tests"
+      before_install:
+        - pipenv sync --dev
+      script:
+        - pipenv run integrations
 
-script:
-  - if [[ ($TRAVIS_BRANCH == "master") && ($TRAVIS_EVENT_TYPE == "cron") ]]; then snyk monitor --org=incountry; fi
-  - pipenv sync --dev
-  - pipenv run check-format
-  - pipenv run check-flake8
-  - pipenv run tests
-  - pipenv run integrations
-  - bandit --ini bandit.ini -r -o bandit.json -f json
-  - sonar-scanner
+stages:
+  - name: build
+
+env:
+  global:
+    # App properties
+    - APP_NAME=sdk-python
+    - PIPENV_VERBOSITY=-1 # Do not print pipenv 'running in virtual environment' warnings
+    # Versions of deps
+    - SONARSCANNER_VERSION=4.3.0.2102

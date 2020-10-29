@@ -1,5 +1,8 @@
+from typing import List
 from datetime import datetime
 from pydantic import BaseModel, conint, constr, StrictInt, StrictStr
+
+from .attachment_meta import AttachmentMeta
 
 
 class Record(BaseModel):
@@ -32,3 +35,4 @@ class Record(BaseModel):
     version: conint(ge=0, strict=True) = None
     created_at: datetime = None
     updated_at: datetime = None
+    attachments: List[AttachmentMeta] = None

@@ -137,7 +137,10 @@ def test_dec(ciphertext, plaintext, password):
     "secret_key_accessor, expected_version",
     [
         (SecretKeyAccessor(lambda: "password"), SecretKeyAccessor.DEFAULT_VERSION),
-        (SecretKeyAccessor(lambda: {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}), 1,),
+        (
+            SecretKeyAccessor(lambda: {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}),
+            1,
+        ),
     ],
 )
 def test_get_current_version(secret_key_accessor, expected_version):
@@ -165,7 +168,8 @@ def test_dec_non_pt_without_secret_key_accessor(ciphertext, plaintext, password)
 
 @pytest.mark.parametrize("plaintext", PLAINTEXTS)
 @pytest.mark.parametrize(
-    "custom_encryption", [[VALID_CUSTOM_ENCRYPTION_CONFIG]],
+    "custom_encryption",
+    [[VALID_CUSTOM_ENCRYPTION_CONFIG]],
 )
 @pytest.mark.happy_path
 def test_custom_enc_dec(plaintext, custom_encryption):
@@ -270,7 +274,8 @@ def test_custom_enc_with_methods_not_returning_str(custom_encryption):
 
 
 @pytest.mark.parametrize(
-    "custom_encryption", [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
+    "custom_encryption",
+    [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
 )
 @pytest.mark.error_path
 def test_custom_enc_returning_nonstr_on_enc_after_successful_validation(custom_encryption):
@@ -305,7 +310,8 @@ def test_custom_enc_returning_nonstr_on_enc_after_successful_validation(custom_e
 
 
 @pytest.mark.parametrize(
-    "custom_encryption", [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
+    "custom_encryption",
+    [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
 )
 @pytest.mark.error_path
 def test_custom_enc_returning_nonstr_on_dec_after_successful_validation(custom_encryption):
@@ -341,7 +347,8 @@ def test_custom_enc_returning_nonstr_on_dec_after_successful_validation(custom_e
 
 
 @pytest.mark.parametrize(
-    "custom_encryption", [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
+    "custom_encryption",
+    [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
 )
 @pytest.mark.error_path
 def test_custom_enc_throwing_on_enc_after_successful_validation(custom_encryption):
@@ -376,7 +383,8 @@ def test_custom_enc_throwing_on_enc_after_successful_validation(custom_encryptio
 
 
 @pytest.mark.parametrize(
-    "custom_encryption", [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
+    "custom_encryption",
+    [[dict(VALID_CUSTOM_ENCRYPTION_CONFIG)]],
 )
 @pytest.mark.error_path
 def test_custom_enc_throwing_on_dec_after_successful_validation(custom_encryption):

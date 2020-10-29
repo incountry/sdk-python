@@ -2,6 +2,9 @@ import uuid
 import json
 from urllib.parse import parse_qs
 import time
+from datetime import datetime
+import os
+from requests_toolbelt import MultipartDecoder
 
 import pytest
 import sure  # noqa: F401
@@ -18,8 +21,19 @@ from incountry import (
 
 from incountry.__version__ import __version__
 
+from ..utils import (
+    get_random_str,
+    get_attachment_meta_valid_response,
+    get_attachment_meta_invalid_responses,
+)
+
 POPAPI_URL = "https://popapi.com:8082"
 COUNTRY = "us"
+
+
+def json_converter(o):
+    if isinstance(o, datetime):
+        return o.__str__()
 
 
 def get_key_hash(key):
@@ -91,18 +105,20 @@ def test_http_client_headers(kwargs):
     headers = client_instance.get_headers(auth_token=kwargs["token_client"].get_token())
     assert headers["Authorization"] == f"Bearer {kwargs['token_client'].get_token()}"
     assert headers["x-env-id"] == kwargs["env_id"]
-    assert headers["Content-Type"] == "application/json"
     assert headers["User-Agent"] == f"SDK-Python/{__version__}"
 
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response_code", [400, 401, 402, 403, 404, 500, 501, 502, 503],
+    "response_code",
+    [400, 401, 402, 403, 404, 500, 501, 502, 503],
 )
 @pytest.mark.error_path
 def test_request_invalid_response_code(client, response_code):
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY, status=response_code,
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY,
+        status=response_code,
     )
 
     client().request.when.called_with(country=COUNTRY, path="", method="GET").should.throw(StorageServerException)
@@ -110,12 +126,15 @@ def test_request_invalid_response_code(client, response_code):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", ["OK"],
+    "response",
+    ["OK"],
 )
 @pytest.mark.happy_path
 def test_write_valid_response(client, response):
     httpretty.register_uri(
-        httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body=json.dumps(response),
+        httpretty.POST,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY,
+        body=json.dumps(response),
     )
 
     res = client().write(country=COUNTRY, data="data")
@@ -124,13 +143,16 @@ def test_write_valid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [{}, [], True, "", {"record_key": "record_key"}],
+    "response",
+    [{}, [], True, "", {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 @pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
 def test_write_invalid_response(client, response):
     httpretty.register_uri(
-        httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body=json.dumps(response),
+        httpretty.POST,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY,
+        body=json.dumps(response),
     )
 
     client().write.when.called_with(country=COUNTRY, data="data").should.have.raised(
@@ -140,12 +162,15 @@ def test_write_invalid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", ["OK"],
+    "response",
+    ["OK"],
 )
 @pytest.mark.happy_path
 def test_batch_write_valid_response(client, response):
     httpretty.register_uri(
-        httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body=json.dumps(response),
+        httpretty.POST,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite",
+        body=json.dumps(response),
     )
 
     res = client().batch_write(country=COUNTRY, data="data")
@@ -154,13 +179,16 @@ def test_batch_write_valid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [{}, [], True, "", {"record_key": "record_key"}],
+    "response",
+    [{}, [], True, "", {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 @pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
 def test_batch_write_invalid_response(client, response):
     httpretty.register_uri(
-        httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body=json.dumps(response),
+        httpretty.POST,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite",
+        body=json.dumps(response),
     )
 
     client().batch_write.when.called_with(country=COUNTRY, data="data").should.have.raised(
@@ -184,7 +212,9 @@ def test_read_valid_response(client, response):
     record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash, body=json.dumps(response),
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps(response),
     )
 
     res = client().read(country=COUNTRY, record_key=record_key_hash)
@@ -193,7 +223,8 @@ def test_read_valid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [{}, [], True, "", {"record_key": "record_key", "version": "invalid version"}],
+    "response",
+    [{}, [], True, "", {"record_key": "record_key", "version": "invalid version"}],
 )
 @pytest.mark.error_path
 def test_read_invalid_response(client, response):
@@ -201,7 +232,9 @@ def test_read_invalid_response(client, response):
     record_key_hash = get_key_hash(record_key)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash, body=json.dumps(response),
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + record_key_hash,
+        body=json.dumps(response),
     )
 
     client().read.when.called_with(country=COUNTRY, record_key=record_key_hash).should.have.raised(
@@ -232,9 +265,9 @@ def test_find_valid_response(client, response):
         assert record.items() >= response["data"][i].items()
 
 
-@httpretty.activate
 @pytest.mark.parametrize(
-    "query", [{"record_key": "key1"}],
+    "query",
+    [{"record_key": "key1"}],
 )
 @httpretty.activate
 @pytest.mark.parametrize(
@@ -269,7 +302,8 @@ def test_find_invalid_response(client, query, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", ["", [], {}],
+    "response",
+    ["", [], {}],
 )
 @pytest.mark.happy_path
 def test_delete_valid_response(client, response):
@@ -288,7 +322,8 @@ def test_delete_valid_response(client, response):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "response", [True, {"record_key": "record_key"}],
+    "response",
+    [True, {"record_key": "record_key"}],
 )
 @pytest.mark.error_path
 @pytest.mark.skip(reason="Disabling until versioning support on PoPAPI")
@@ -617,7 +652,11 @@ def test_httpclient_oauth_throw_error(client):
 @pytest.mark.happy_path
 def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, expected_audience, countries):
     record = {"record_key": "key1", "version": 0}
-    client = HttpClient(env_id="test", endpoint_mask=endpoint_mask, token_client=get_oauth_token_client(scope="test"),)
+    client = HttpClient(
+        env_id="test",
+        endpoint_mask=endpoint_mask,
+        token_client=get_oauth_token_client(scope="test"),
+    )
 
     httpretty.register_uri(
         httpretty.GET, HttpClient.DEFAULT_COUNTRIES_ENDPOINT, body=json.dumps({"countries": countries})
@@ -709,12 +748,42 @@ def test_http_client_endpoint_mask_with_endpoint(
 @pytest.mark.parametrize(
     "country, is_midpop,  expected_region, countries",
     [
-        ("ca", False, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ru", True, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ag", False, "emea", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
-        ("ag", True, "emea", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
-        ("au", False, "emea", [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],),
-        ("au", True, "apac", [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],),
+        (
+            "ca",
+            False,
+            "emea",
+            [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "ru",
+            True,
+            "emea",
+            [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "ag",
+            False,
+            "emea",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],
+        ),
+        (
+            "ag",
+            True,
+            "emea",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],
+        ),
+        (
+            "au",
+            False,
+            "emea",
+            [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],
+        ),
+        (
+            "au",
+            True,
+            "apac",
+            [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],
+        ),
     ],
 )
 @pytest.mark.happy_path
@@ -751,7 +820,8 @@ def test_http_client_using_proper_regional_auth_endpoint(client, country, is_mid
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "country,  expected_region", [("ca", "emea"), ("ru", "emea"), ("ag", "emea"), ("au", "emea")],
+    "country,  expected_region",
+    [("ca", "emea"), ("ru", "emea"), ("ag", "emea"), ("au", "emea")],
 )
 @pytest.mark.happy_path
 def test_http_client_using_default_regional_auth_for_custom_endpoint(client, country, expected_region):
@@ -811,12 +881,42 @@ def test_http_client_using_custom_auth_endpoint_for_custom_endpoint(client, coun
 @pytest.mark.parametrize(
     "country, is_midpop,  expected_region, countries",
     [
-        ("ca", False, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ru", True, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ag", False, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
-        ("ag", True, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
-        ("au", False, "emea", [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],),
-        ("au", True, "apac", [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],),
+        (
+            "ca",
+            False,
+            "emea",
+            [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "ru",
+            True,
+            "emea",
+            [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "ag",
+            False,
+            "default",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],
+        ),
+        (
+            "ag",
+            True,
+            "default",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],
+        ),
+        (
+            "au",
+            False,
+            "emea",
+            [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],
+        ),
+        (
+            "au",
+            True,
+            "apac",
+            [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],
+        ),
     ],
 )
 @pytest.mark.happy_path
@@ -826,8 +926,16 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
     endpoint_mask = ".qa.incountry.com"
     record = {"record_key": "key1", "version": 0}
 
-    token_client = OAuthTokenClient(client_id="client_id", client_secret="client_secret", scope="test",)
-    client = HttpClient(env_id="test", token_client=token_client, endpoint_mask=endpoint_mask,)
+    token_client = OAuthTokenClient(
+        client_id="client_id",
+        client_secret="client_secret",
+        scope="test",
+    )
+    client = HttpClient(
+        env_id="test",
+        token_client=token_client,
+        endpoint_mask=endpoint_mask,
+    )
 
     httpretty.register_uri(
         httpretty.GET, HttpClient.DEFAULT_COUNTRIES_ENDPOINT, body=json.dumps({"countries": countries})
@@ -856,12 +964,42 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask(
 @pytest.mark.parametrize(
     "country, is_midpop,  expected_region, countries",
     [
-        ("ca", False, "default", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ru", True, "default", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ag", False, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
-        ("ag", True, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
-        ("au", False, "default", [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],),
-        ("au", True, "default", [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],),
+        (
+            "ca",
+            False,
+            "default",
+            [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "ru",
+            True,
+            "default",
+            [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "ag",
+            False,
+            "default",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],
+        ),
+        (
+            "ag",
+            True,
+            "default",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],
+        ),
+        (
+            "au",
+            False,
+            "default",
+            [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],
+        ),
+        (
+            "au",
+            True,
+            "default",
+            [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],
+        ),
     ],
 )
 @pytest.mark.happy_path
@@ -871,8 +1009,17 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_en
     endpoint_mask = ".qa.incountry.com"
     record = {"record_key": "key1", "version": 0}
 
-    token_client = OAuthTokenClient(client_id="client_id", client_secret="client_secret", scope="test",)
-    client = HttpClient(env_id="test", token_client=token_client, endpoint=POPAPI_URL, endpoint_mask=endpoint_mask,)
+    token_client = OAuthTokenClient(
+        client_id="client_id",
+        client_secret="client_secret",
+        scope="test",
+    )
+    client = HttpClient(
+        env_id="test",
+        token_client=token_client,
+        endpoint=POPAPI_URL,
+        endpoint_mask=endpoint_mask,
+    )
 
     httpretty.register_uri(
         httpretty.GET, HttpClient.DEFAULT_COUNTRIES_ENDPOINT, body=json.dumps({"countries": countries})
@@ -911,12 +1058,42 @@ def test_http_client_using_proper_regional_auth_endpoint_with_mask_and_custom_en
 @pytest.mark.parametrize(
     "country, is_midpop, expected_region, countries",
     [
-        ("ca", False, "default", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ru", True, "emea", [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],),
-        ("ag", False, "default", [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],),
-        ("ag", True, "amer", [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],),
-        ("au", False, "default", [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],),
-        ("au", True, "apac", [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],),
+        (
+            "ca",
+            False,
+            "default",
+            [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "ru",
+            True,
+            "emea",
+            [{"id": "RU", "direct": True, "region": "EMEA"}, {"id": "AG", "direct": False}],
+        ),
+        (
+            "ag",
+            False,
+            "default",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False, "region": "AMER"}],
+        ),
+        (
+            "ag",
+            True,
+            "amer",
+            [{"id": "RU", "direct": True}, {"id": "AG", "direct": True, "region": "AMER"}],
+        ),
+        (
+            "au",
+            False,
+            "default",
+            [{"id": "RU", "direct": True}, {"id": "AU", "direct": False, "region": "APAC"}],
+        ),
+        (
+            "au",
+            True,
+            "apac",
+            [{"id": "RU", "direct": True}, {"id": "AU", "direct": True, "region": "APAC"}],
+        ),
     ],
 )
 @pytest.mark.happy_path
@@ -953,3 +1130,261 @@ def test_http_client_using_custom_auth_endpoints(
     )
 
     client.read.when.called_with(country=country, record_key=record.get("record_key")).should_not.throw(Exception)
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    [get_attachment_meta_valid_response()],
+)
+@pytest.mark.parametrize("upsert", [True, False])
+@pytest.mark.parametrize("mime_type", [None, "application/python"])
+@pytest.mark.happy_path
+def test_add_attachment_valid_response(client, response, upsert, mime_type):
+    f = open(__file__, "rb")
+    original_file_body = f.read()
+    f.seek(0)
+
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
+
+    httpretty.register_uri(
+        httpretty.PUT if upsert else httpretty.POST,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments",
+        body=json.dumps(response, default=json_converter),
+    )
+
+    res = client().add_attachment(
+        country=COUNTRY, record_key=record_key_hash, upsert=upsert, file=f, mime_type=mime_type
+    )
+    res_json = json.dumps(res, default=json_converter)
+    res_json.should.contain(json.dumps(response, default=json_converter))
+
+    last_request = httpretty.last_request()
+
+    decoder = MultipartDecoder(last_request.body, last_request.headers["Content-Type"])
+    assert decoder.parts[0].content == original_file_body
+    if mime_type is not None:
+        assert decoder.parts[0].headers[b"Content-Type"] == mime_type.encode("utf-8")
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    get_attachment_meta_invalid_responses(),
+)
+@pytest.mark.parametrize("upsert", [True, False])
+@pytest.mark.happy_path
+def test_add_attachment_invalid_response(client, response, upsert):
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
+
+    httpretty.register_uri(
+        httpretty.PUT if upsert else httpretty.POST,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments",
+        body=json.dumps(response, default=json_converter),
+    )
+
+    client().add_attachment.when.called_with(
+        country=COUNTRY, record_key=record_key_hash, upsert=upsert, file=open(__file__, "rb")
+    ).should.throw(StorageServerException)
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    [{}, [], (), True, False, "", 123, "123"],
+)
+@pytest.mark.parametrize("upsert", [True, False])
+@pytest.mark.happy_path
+def test_add_attachment_invalid_response_2(client, response, upsert):
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
+
+    httpretty.register_uri(
+        httpretty.PUT if upsert else httpretty.POST,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments",
+        body=json.dumps(response, default=json_converter),
+    )
+
+    client().add_attachment.when.called_with(
+        country=COUNTRY, record_key=record_key_hash, upsert=upsert, file=open(__file__, "rb")
+    ).should.throw(StorageServerException)
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    [get_attachment_meta_valid_response()],
+)
+@pytest.mark.parametrize(
+    "mime_type",
+    ["application/octet-stream", "text/plain", "application/json"],
+)
+@pytest.mark.happy_path
+def test_get_attachment_valid_response(client, response, mime_type):
+    f = open(__file__, "rb")
+    original_file_body = f.read()
+    f.seek(0)
+
+    filename = os.path.basename(__file__)
+    file_id = get_random_str()
+    record_key_hash = get_key_hash(str(uuid.uuid1()))
+
+    httpretty.register_uri(
+        httpretty.GET,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments/{file_id}",
+        body=original_file_body,
+        content_type=mime_type,
+        content_disposition=f"attachment; filename*=UTF-8''{filename}",
+    )
+
+    res = client().get_attachment_file(country=COUNTRY, record_key=record_key_hash, file_id=file_id)
+
+    assert res["filename"] == filename
+    assert res["file"].read() == original_file_body
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    [get_attachment_meta_valid_response()],
+)
+@pytest.mark.parametrize(
+    "mime_type",
+    ["application/octet-stream", "text/plain", "application/json"],
+)
+@pytest.mark.happy_path
+def test_get_attachment_without_filename(client, response, mime_type):
+    f = open(__file__, "rb")
+    original_file_body = f.read()
+    f.seek(0)
+
+    file_id = get_random_str()
+    record_key_hash = get_key_hash(str(uuid.uuid1()))
+
+    httpretty.register_uri(
+        httpretty.GET,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments/{file_id}",
+        body=original_file_body,
+        content_type=mime_type,
+    )
+
+    res = client().get_attachment_file(country=COUNTRY, record_key=record_key_hash, file_id=file_id)
+
+    assert res["file"].read() == original_file_body
+    assert res["filename"] == "file"
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    [get_attachment_meta_valid_response()],
+)
+@pytest.mark.happy_path
+def test_get_attachment_meta_valid_response(client, response):
+    file_id = get_random_str()
+    record_key = get_key_hash(str(uuid.uuid1()))
+
+    httpretty.register_uri(
+        httpretty.GET,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key}/attachments/{file_id}/meta",
+        body=json.dumps(response, default=json_converter),
+    )
+
+    res = client().get_attachment_meta(country=COUNTRY, record_key=record_key, file_id=file_id)
+    res_json = json.dumps(res, default=json_converter)
+    res_json.should.contain(json.dumps(response, default=json_converter))
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    get_attachment_meta_invalid_responses(),
+)
+@pytest.mark.happy_path
+def test_get_attachment_meta_invalid_response(client, response):
+    file_id = get_random_str()
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
+
+    httpretty.register_uri(
+        httpretty.GET,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments/{file_id}/meta",
+        body=json.dumps(response, default=json_converter),
+    )
+
+    client().get_attachment_meta.when.called_with(
+        country=COUNTRY, record_key=record_key_hash, file_id=file_id
+    ).should.throw(StorageServerException)
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "new_meta",
+    [
+        {"filename": get_random_str()},
+        {"mime_type": get_random_str()},
+        {"filename": get_random_str(), "mime_type": get_random_str()},
+    ],
+)
+@pytest.mark.parametrize("response", [get_attachment_meta_valid_response()])
+@pytest.mark.happy_path
+def test_update_attachment_meta_valid_response(client, new_meta, response):
+    file_id = get_random_str()
+    record_key = get_key_hash(str(uuid.uuid1()))
+
+    httpretty.register_uri(
+        httpretty.PATCH,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key}/attachments/{file_id}/meta",
+        body=json.dumps(response, default=json_converter),
+    )
+
+    res = client().update_attachment_meta(country=COUNTRY, record_key=record_key, file_id=file_id, meta=new_meta)
+    res_json = json.dumps(res, default=json_converter)
+    res_json.should.contain(json.dumps(response, default=json_converter))
+
+    last_request = httpretty.last_request()
+    last_request.parsed_body.should.equal(new_meta)
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    get_attachment_meta_invalid_responses(),
+)
+@pytest.mark.happy_path
+def test_update_attachment_meta_invalid_response(client, response):
+    file_id = get_random_str()
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
+
+    httpretty.register_uri(
+        httpretty.GET,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments/{file_id}/meta",
+        body=json.dumps(response, default=json_converter),
+    )
+
+    client().get_attachment_meta.when.called_with(
+        country=COUNTRY, record_key=record_key_hash, file_id=file_id
+    ).should.throw(StorageServerException)
+
+
+@httpretty.activate
+@pytest.mark.parametrize(
+    "response",
+    ["", [], {}],
+)
+@pytest.mark.happy_path
+def test_delete_attachment_meta_valid_response(client, response):
+    file_id = get_random_str()
+    record_key = get_key_hash(str(uuid.uuid1()))
+
+    httpretty.register_uri(
+        httpretty.DELETE,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key}/attachments/{file_id}",
+        body=json.dumps(response),
+    )
+
+    res = client().delete_attachment(country=COUNTRY, record_key=record_key, file_id=file_id)
+    assert res == response
