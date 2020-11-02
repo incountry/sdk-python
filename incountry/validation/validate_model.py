@@ -8,21 +8,21 @@ from .utils import function_args_to_kwargs, get_formatted_validation_error
 from ..exceptions import StorageException, StorageClientException, StorageServerException
 
 
-def get_validated_data(function, model, **kwargs):
+def get_validated_data(function, model, exclude_to_dict, **kwargs):
     try:
-        return model.validate(kwargs).dict()
+        return model.validate(kwargs).dict(exclude=exclude_to_dict)
     except ValidationError as e:
         errors_report = get_formatted_validation_error(e)
         error_text = "Validation failed during {}():{}".format(function.__qualname__, errors_report)
         raise StorageClientException(error_text) from None
 
 
-def validate_model(model):
+def validate_model(model, exclude_to_dict={}):
     @wrapt.decorator
     def decorator(function, instance, args, kwargs):
         function_args_to_kwargs(function, args, kwargs)
 
-        validated_data_dict = get_validated_data(function, model, **kwargs)
+        validated_data_dict = get_validated_data(function, model, exclude_to_dict, **kwargs)
         func_args = getfullargspec(function)[0]
 
         exception_context_str = f"during {function.__qualname__}()"

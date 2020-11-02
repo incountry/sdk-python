@@ -27,14 +27,14 @@ class HttpClient:
         debug=False,
         endpoint_mask=None,
         countries_endpoint=None,
-        options={},
+        options: HttpOptions = HttpOptions(),
     ):
         self.token_client = token_client
         self.endpoint = endpoint
         self.env_id = env_id
         self.debug = debug
         self.endpoint_mask = endpoint_mask
-        self.options = HttpOptions(**options)
+        self.options = options if isinstance(options, HttpOptions) else HttpOptions(**options)
         self.countries_endpoint = countries_endpoint or HttpClient.DEFAULT_COUNTRIES_ENDPOINT
 
         if self.endpoint is None:

@@ -8,7 +8,7 @@ from .find_filter import FindFilter
 from .find_filter import Operators as FindFilterOperators
 from .find_filter import FIND_LIMIT
 from .http_attachment_meta import HttpAttachmentMeta
-from .http_options import HttpOptions
+from .http_options import HttpOptions, DEFAULT_HTTP_TIMEOUT_SECONDS
 from .http_record_write import HttpRecordWrite
 from .http_record_batch_write import HttpRecordBatchWrite
 from .http_record_read import HttpRecordRead
@@ -20,4 +20,4 @@ from .record_from_server import RecordFromServer
 from .record_list_for_batch import RecordListForBatch
 from .secrets_data import SecretsData, SecretsDataForDefaultEncryption, SecretsDataForCustomEncryption
 from .secret_key_accessor import SecretKeyAccessor
-from .storage_with_env import StorageWithEnv
+from .storage_with_env import StorageWithEnv, StorageOptions

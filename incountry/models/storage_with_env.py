@@ -6,23 +6,24 @@ from pydantic import AnyHttpUrl, BaseModel, constr, StrictBool, StrictStr, valid
 from .http_options import HttpOptions
 
 
-class Options(BaseModel):
+class StorageOptions(BaseModel):
     http_options: Optional[HttpOptions] = {}
     auth_endpoints: Dict[constr(min_length=1), AnyHttpUrl] = None
     normalize_keys: StrictBool = False
+    hash_search_keys: StrictBool = True
     endpoint_mask: StrictStr = None
     countries_endpoint: AnyHttpUrl = None
 
     @root_validator(pre=True)
     def check_empty_options(cls, values):
-        if isinstance(values, dict) and len(values) == 0:
-            raise ValueError("Options cannot be empty dict")
+        if not isinstance(values, dict):
+            raise ValueError("Options is not a valid dict")
 
         return values
 
     @validator("http_options", pre=True)
-    def check_options(cls, value):
-        if not isinstance(value, dict) or len(value) == 0:
+    def check_http_options(cls, value):
+        if not isinstance(value, dict):
             raise ValueError("value is not a valid dict")
         return value
 
@@ -47,7 +48,13 @@ class StorageWithEnv(BaseModel):
     endpoint: AnyHttpUrl = None
     secret_key_accessor: Any = None
     debug: StrictBool = False
-    options: Options = {}
+    options: StorageOptions = {}
+
+    @validator("options", pre=True)
+    def check_options(cls, value):
+        if not isinstance(value, dict):
+            raise ValueError("value is not a valid dict")
+        return value
 
     @validator("environment_id", pre=True, always=True)
     def environment_id_env(cls, value):

@@ -41,7 +41,9 @@ ALL_FIELDS_WITH_DATES = ALL_FIELDS + DATE_FIELDS
 
 
 def get_random_str(length=10):
-    return "".join(choices(string.ascii_uppercase + string.ascii_lowercase, k=length))
+    return choice(string.ascii_uppercase) + "".join(
+        choices(string.ascii_uppercase + string.ascii_lowercase, k=length - 1)
+    )
 
 
 def get_random_int():

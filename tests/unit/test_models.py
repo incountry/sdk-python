@@ -20,6 +20,7 @@ from incountry.models import (
     SecretsDataForCustomEncryption,
     SecretKeyAccessor as SecretKeyAccessorModel,
     StorageWithEnv,
+    DEFAULT_HTTP_TIMEOUT_SECONDS,
 )
 from incountry import SecretKeyAccessor
 
@@ -371,6 +372,13 @@ def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
 @pytest.mark.error_path
 def test_valid_http_options(http_options):
     HttpOptions.when.called_with(**http_options).should_not.throw(ValidationError)
+
+    item = HttpOptions(**http_options)
+
+    if http_options.get("timeout"):
+        assert item.timeout == http_options["timeout"]
+    else:
+        assert item.timeout == DEFAULT_HTTP_TIMEOUT_SECONDS
 
 
 @pytest.mark.parametrize(
@@ -857,7 +865,6 @@ def test_valid_options_storage(options):
     "options",
     [
         [],
-        {},
         (),
         "",
         -1,
@@ -867,7 +874,6 @@ def test_valid_options_storage(options):
         True,
         False,
         {"http_options": []},
-        {"http_options": {}},
         {"http_options": ()},
         {"http_options": ""},
         {"http_options": -1},
