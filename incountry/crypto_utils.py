@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from .incountry_crypto import InCrypto
 from .exceptions import StorageClientException
 
-from .models import FindFilter, FindFilterOperators, Record
+from .models import FindFilterOperators, Record
 
 SERVICE_KEYS = [
     "record_key",
@@ -93,6 +93,10 @@ def hash_object_record_keys(obj, salt, normalize_keys=False, hash_search_keys=Tr
 
         if key not in KEYS_TO_HASH:
             res[key] = value
+            continue
+
+        if not hash_search_keys and key in SEARCH_KEYS:
+            res[key] = normalize_key(value, normalize=normalize_keys)
             continue
 
         if FindFilterOperators.NOT in value:

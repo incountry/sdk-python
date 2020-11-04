@@ -36,3 +36,16 @@ class Record(BaseModel):
     created_at: datetime = None
     updated_at: datetime = None
     attachments: List[AttachmentMeta] = None
+
+
+class RecordNonHashed(Record):
+    key1: constr(strict=True, min_length=1, max_length=256) = None
+    key2: constr(strict=True, min_length=1, max_length=256) = None
+    key3: constr(strict=True, min_length=1, max_length=256) = None
+    key4: constr(strict=True, min_length=1, max_length=256) = None
+    key5: constr(strict=True, min_length=1, max_length=256) = None
+    key6: constr(strict=True, min_length=1, max_length=256) = None
+    key7: constr(strict=True, min_length=1, max_length=256) = None
+    key8: constr(strict=True, min_length=1, max_length=256) = None
+    key9: constr(strict=True, min_length=1, max_length=256) = None
+    key10: constr(strict=True, min_length=1, max_length=256) = None

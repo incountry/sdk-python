@@ -21,6 +21,7 @@ from .models import (
     FindFilter,
     FIND_LIMIT,
     Record,
+    RecordNonHashed,
     RecordListForBatch,
     StorageWithEnv,
     StorageOptions,
@@ -111,7 +112,15 @@ class Storage:
         self.log("Using API key: ", api_key)
 
     @validate_model(Country)
-    @validate_model(Record)
+    @validate_model(
+        {
+            "condition": ("options", "hash_search_keys"),
+            "values": [
+                {"value": True, "model": Record},
+                {"value": False, "model": RecordNonHashed},
+            ],
+        }
+    )
     def write(self, country: str, record_key: str, **record_data: Union[str, int]) -> Dict[str, TRecord]:
         """Writes record to InCountry storage network.
 
