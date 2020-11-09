@@ -1,7 +1,7 @@
 import pytest
 import sure  # noqa: F401
 
-from incountry import decrypt_record, encrypt_record, get_salted_hash, InCrypto, StorageClientException
+from incountry import decrypt_record, encrypt_record, get_salted_hash, InCrypto, StorageClientException, SEARCH_KEYS
 
 from incountry.crypto_utils import hash, is_json, normalize_key, hash_string_key_value, hash_object_record_keys
 
@@ -93,56 +93,93 @@ def test_hash_string_key_value(data, normalize):
 
 
 @pytest.mark.parametrize(
-    "obj, normalize, result",
+    "key_value_before, normalize, key_value_after",
     [
-        (
-            {"key1": "Key1", "service_key1": "service_key1", "range_key1": 1},
-            False,
-            {
-                "key1": "Key1",
-                "service_key1": hash_string_key_value("service_key1", "salt", normalize=False),
-                "range_key1": 1,
-            },
-        ),
-        (
-            {"key1": "Key1", "service_key1": "service_key1", "range_key1": 1},
-            True,
-            {
-                "key1": "key1",
-                "service_key1": hash_string_key_value("service_key1", "salt", normalize=True),
-                "range_key1": 1,
-            },
-        ),
+        # ("Key1", False, "Key1"),
+        # ("Key1", True, "key1"),
+        # (["Key1", "Key2"], False, ["Key1", "Key2"]),
+        (["Key1", "Key2"], True, ["key1", "key2"]),
+        # ({"$not": "Key1"}, False, {"$not": "Key1"}),
+        # (["Key1", "Key2"], True, {"$not": "key1"}),
+        # ({"$not": ["Key1", "Key2"]}, False, {"$not": ["Key1", "Key2"]}),
+        # ({"$not": ["Key1", "Key2"]}, True, {"$not": ["key1", "key2"]}),
     ],
 )
-@pytest.mark.happy_path
-def test_hash_object_record_keys_without_search_keys(obj, normalize, result):
-    assert hash_object_record_keys(obj, "salt", normalize_keys=normalize, hash_search_keys=False) == result
-
-
 @pytest.mark.parametrize(
-    "obj, normalize, result",
+    "non_search_keys_data_with_normalize, non_search_keys_data_without_normalize",
     [
         (
-            {"key1": "Key1", "service_key1": "service_key1", "range_key1": 1},
-            False,
             {
-                "key1": hash_string_key_value("Key1", "salt", normalize=False),
-                "service_key1": hash_string_key_value("service_key1", "salt", normalize=False),
-                "range_key1": 1,
+                "before": {"service_key1": "Service_Key1", "range_key1": 1},
+                "after": {
+                    "service_key1": hash_string_key_value("service_key1", "salt", normalize=False),
+                    "range_key1": 1,
+                },
             },
-        ),
-        (
-            {"key1": "Key1", "service_key1": "service_key1", "range_key1": 1},
-            True,
             {
-                "key1": hash_string_key_value("key1", "salt", normalize=False),
-                "service_key1": hash_string_key_value("service_key1", "salt", normalize=True),
-                "range_key1": 1,
+                "before": {"service_key1": "Service_Key1", "range_key1": 1},
+                "after": {
+                    "service_key1": hash_string_key_value("Service_Key1", "salt", normalize=False),
+                    "range_key1": 1,
+                },
             },
-        ),
+        )
     ],
 )
 @pytest.mark.happy_path
-def test_hash_object_record_keys_with_search_keys(obj, normalize, result):
-    assert hash_object_record_keys(obj, "salt", normalize_keys=normalize, hash_search_keys=True) == result
+def test_hash_object_record_keys_without_search_keys(
+    key_value_before,
+    normalize,
+    key_value_after,
+    non_search_keys_data_with_normalize,
+    non_search_keys_data_without_normalize,
+):
+    for key in SEARCH_KEYS:
+        obj_before = {
+            key: key_value_before,
+            # **(
+            #     non_search_keys_data_with_normalize["before"]
+            #     if normalize
+            #     else non_search_keys_data_without_normalize["before"]
+            # ),
+        }
+        obj_after = {
+            key: key_value_after,
+            # **(
+            #     non_search_keys_data_with_normalize["after"]
+            #     if normalize
+            #     else non_search_keys_data_without_normalize["after"]
+            # ),
+        }
+
+        assert (
+            hash_object_record_keys(obj_before, "salt", normalize_keys=normalize, hash_search_keys=False) == obj_after
+        )
+
+
+# @pytest.mark.parametrize(
+#     "obj, normalize, result",
+#     [
+#         (
+#             {"key_placeholder": "Key1", "service_key1": "service_key1", "range_key1": 1},
+#             False,
+#             {
+#                 "key_placeholder": hash_string_key_value("Key1", "salt", normalize=False),
+#                 "service_key1": hash_string_key_value("service_key1", "salt", normalize=False),
+#                 "range_key1": 1,
+#             },
+#         ),
+#         (
+#             {"key_placeholder": "Key1", "service_key1": "service_key1", "range_key1": 1},
+#             True,
+#             {
+#                 "key_placeholder": hash_string_key_value("key1", "salt", normalize=False),
+#                 "service_key1": hash_string_key_value("service_key1", "salt", normalize=True),
+#                 "range_key1": 1,
+#             },
+#         ),
+#     ],
+# )
+# @pytest.mark.happy_path
+# def test_hash_object_record_keys_with_search_keys(obj, normalize, result):
+#     assert hash_object_record_keys(obj, "salt", normalize_keys=normalize, hash_search_keys=True) == result

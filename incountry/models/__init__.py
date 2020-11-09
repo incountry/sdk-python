@@ -13,7 +13,7 @@ from .http_record_read import HttpRecordRead
 from .http_record_find import HttpRecordFind
 from .http_record_delete import HttpRecordDelete
 from .incrypto import InCrypto
-from .record import Record, RecordNonHashed
+from .record import Record, RecordNonHashed, MAX_LEN_NON_HASHED
 from .record_from_server import RecordFromServer
 from .record_list_for_batch import RecordListForBatch
 from .secrets_data import SecretsData, SecretsDataForDefaultEncryption, SecretsDataForCustomEncryption

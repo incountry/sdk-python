@@ -263,7 +263,6 @@ class Storage:
             self.env_id,
             normalize_keys=self.options.normalize_keys,
             hash_search_keys=self.options.hash_search_keys,
-            hash_for_find=True,
         )
         options = {"limit": limit, "offset": offset}
 

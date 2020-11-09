@@ -24,14 +24,18 @@ SECRETS_DATA = {
 
 
 @pytest.fixture
-def storage(encrypt: bool, normalize_keys: bool, use_oauth: bool) -> Storage:
+def storage(encrypt: bool, normalize_keys: bool, use_oauth: bool, hash_search_keys: bool) -> Storage:
     args = {
         "encrypt": encrypt,
         "debug": True,
         "api_key": API_KEY,
         "environment_id": ENVIRONMENT_ID,
         "endpoint": ENDPOINT,
-        "options": {"normalize_keys": normalize_keys, "countries_endpoint": COUNTRIES_LIST_ENDPOINT},
+        "options": {
+            "normalize_keys": normalize_keys,
+            "countries_endpoint": COUNTRIES_LIST_ENDPOINT,
+            "hash_search_keys": True if hash_search_keys is None else hash_search_keys,
+        },
     }
 
     if use_oauth:

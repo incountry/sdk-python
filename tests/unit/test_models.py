@@ -10,9 +10,11 @@ from incountry.models import (
     CustomEncryptionConfig,
     CustomEncryptionConfigMethodValidation,
     FindFilter,
+    FindFilterNonHashed,
     HttpOptions,
     InCrypto,
     Record,
+    RecordNonHashed,
     RecordFromServer,
     RecordListForBatch,
     SecretsData,
@@ -21,16 +23,41 @@ from incountry.models import (
     SecretKeyAccessor as SecretKeyAccessorModel,
     StorageWithEnv,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
+    MAX_LEN_NON_HASHED,
 )
 from incountry import SecretKeyAccessor
 
-from ..utils import get_test_records, get_invalid_records, get_random_datetime
+from ..utils import (
+    get_test_records,
+    get_invalid_records,
+    get_random_datetime,
+    get_random_str,
+    get_invalid_records_non_hashed,
+)
 
-TEST_RECORDS = get_test_records()
+EMPTY_RECORD = {
+    "record_key": get_random_str(),
+    "key1": "",
+    "key2": "",
+    "key3": "",
+    "key4": "",
+    "key5": "",
+    "key6": "",
+    "key7": "",
+    "key8": "",
+    "key9": "",
+    "key10": "",
+    "service_key1": "",
+    "service_key2": "",
+    "profile_key": "",
+}
+
+TEST_RECORDS = get_test_records() + [EMPTY_RECORD]
 
 INVALID_RECORDS = get_invalid_records()
 
 INVALID_RECORDS = INVALID_RECORDS + [{**INVALID_RECORDS[-1], "version": "version"}]
+
 
 INVALID_RECORDS_FOR_BATCH = [
     [],
@@ -366,6 +393,29 @@ def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
 
 
 @pytest.mark.parametrize(
+    "filter_key",
+    ["record_key", "key1", "key2", "key3", "key4", "key5", "key6", "key7", "key8", "key9", "key10", "profile_key"],
+)
+@pytest.mark.parametrize(
+    "filter",
+    [
+        "single_value",
+        "x" * MAX_LEN_NON_HASHED,
+        ["list_value_1", "list_value_2", "list_value_3"],
+        {"$not": "not_single_value"},
+        {"$not": ["list_not_value_1", "list_not_value_2", "list_not_value_3"]},
+    ],
+)
+@pytest.mark.happy_path
+def test_valid_str_filters_find_filter_non_hashed(filter_key, filter):
+    kwargs = {}
+    kwargs[filter_key] = filter
+    item = FindFilterNonHashed(**kwargs)
+
+    assert getattr(item, filter_key) == filter
+
+
+@pytest.mark.parametrize(
     "http_options",
     [{}, {"timeout": 1}, {"timeout": 100}],
 )
@@ -599,6 +649,24 @@ def test_valid_record_with_dates(record):
 @pytest.mark.error_path
 def test_invalid_record(record):
     Record.when.called_with(**record).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "record",
+    TEST_RECORDS,
+)
+@pytest.mark.happy_path
+def test_valid_record_non_hashed(record):
+    item = RecordNonHashed(**record)
+
+    for key, value in record.items():
+        assert getattr(item, key) == record[key]
+
+
+@pytest.mark.parametrize("record", INVALID_RECORDS + get_invalid_records_non_hashed())
+@pytest.mark.error_path
+def test_invalid_record_non_hashed(record):
+    RecordNonHashed.when.called_with(**record).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize("record", TEST_RECORDS)

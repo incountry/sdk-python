@@ -64,6 +64,12 @@ def normalize_key(key, normalize=False):
     return key.lower() if normalize else key
 
 
+def normalize_key_value(value, normalize=False):
+    if isinstance(value, list):
+        return [normalize_key(x, normalize=normalize) for x in value]
+    return normalize_key(value, normalize=normalize)
+
+
 def get_salted_hash(value, salt):
     validate_is_string(value, "value")
     validate_is_string(salt, "salt")
@@ -84,7 +90,7 @@ def sanitize_obj_for_model(obj: dict, model: BaseModel):
     return res
 
 
-def hash_object_record_keys(obj, salt, normalize_keys=False, hash_search_keys=True, hash_for_find=False):
+def hash_object_record_keys(obj, salt, normalize_keys=False, hash_search_keys=True):
     res = {}
 
     for key, value in obj.items():
@@ -95,20 +101,20 @@ def hash_object_record_keys(obj, salt, normalize_keys=False, hash_search_keys=Tr
             res[key] = value
             continue
 
-        if not hash_search_keys and key in SEARCH_KEYS:
-            res[key] = normalize_key(value, normalize=normalize_keys)
-            continue
+        should_hash_key = hash_search_keys or (not hash_search_keys and key not in SEARCH_KEYS)
+
+        key_value_before = value if FindFilterOperators.NOT not in value else value[FindFilterOperators.NOT]
+        key_value_after = (
+            hash_string_key_value(key_value_before, salt, normalize=normalize_keys)
+            if should_hash_key
+            else normalize_key_value(key_value_before, normalize=normalize_keys)
+        )
 
         if FindFilterOperators.NOT in value:
-            res[key] = {
-                key: {
-                    FindFilterOperators.NOT: hash_string_key_value(
-                        value[FindFilterOperators.NOT], salt, normalize=normalize_keys
-                    )
-                }
-            }
-        elif hash_search_keys or key not in SEARCH_KEYS:
-            res[key] = hash_string_key_value(value, salt, normalize=normalize_keys)
+            res[key] = {FindFilterOperators.NOT: key_value_after}
+        else:
+            res[key] = key_value_after
+
     return res
 
 

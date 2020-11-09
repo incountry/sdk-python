@@ -4,6 +4,8 @@ from pydantic import BaseModel, conint, constr, StrictInt, StrictStr
 
 from .attachment_meta import AttachmentMeta
 
+MAX_LEN_NON_HASHED = 256
+
 
 class Record(BaseModel):
     record_key: constr(strict=True, min_length=1)
@@ -39,13 +41,13 @@ class Record(BaseModel):
 
 
 class RecordNonHashed(Record):
-    key1: constr(strict=True, min_length=1, max_length=256) = None
-    key2: constr(strict=True, min_length=1, max_length=256) = None
-    key3: constr(strict=True, min_length=1, max_length=256) = None
-    key4: constr(strict=True, min_length=1, max_length=256) = None
-    key5: constr(strict=True, min_length=1, max_length=256) = None
-    key6: constr(strict=True, min_length=1, max_length=256) = None
-    key7: constr(strict=True, min_length=1, max_length=256) = None
-    key8: constr(strict=True, min_length=1, max_length=256) = None
-    key9: constr(strict=True, min_length=1, max_length=256) = None
-    key10: constr(strict=True, min_length=1, max_length=256) = None
+    key1: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key2: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key3: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key4: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key5: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key6: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key7: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key8: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key9: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key10: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
