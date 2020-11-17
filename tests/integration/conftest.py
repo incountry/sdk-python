@@ -100,6 +100,11 @@ def normalize_keys() -> bool:
     yield False
 
 
+@pytest.fixture(autouse=True)
+def hash_search_keys() -> bool:
+    yield True
+
+
 @pytest.fixture
 def expected_records(
     storage: Storage, number_of_records: int, normalize_keys: bool, country: str = COUNTRY

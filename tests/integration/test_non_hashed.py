@@ -15,7 +15,7 @@ COUNTRY = os.environ.get("INT_INC_COUNTRY")
 @pytest.mark.parametrize("use_oauth", [True, False], ids=["oauth creds", "api key"])
 @pytest.mark.parametrize("hash_search_keys", [False], ids=["with plaintext search keys"])
 @pytest.mark.parametrize("record_key", [uuid.uuid4().hex])
-def test_attachments(storage: Storage, encrypt: bool, use_oauth: bool, record_key: str, clean_up_records) -> None:
+def test_attachments(storage: Storage, record_key: str, clean_up_records) -> None:
     data = get_valid_test_record()
     data["key1"] = "1" * MAX_LEN_NON_HASHED
     data["key2"] = "2" * MAX_LEN_NON_HASHED
