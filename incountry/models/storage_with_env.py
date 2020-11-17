@@ -48,7 +48,7 @@ class StorageWithEnv(BaseModel):
     endpoint: AnyHttpUrl = None
     secret_key_accessor: Any = None
     debug: StrictBool = False
-    options: StorageOptions = {}
+    options: StorageOptions = None
 
     @validator("options", pre=True)
     def check_options(cls, value):
