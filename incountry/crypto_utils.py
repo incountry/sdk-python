@@ -6,27 +6,8 @@ from pydantic import BaseModel
 from .incountry_crypto import InCrypto
 from .exceptions import StorageClientException
 
-from .models import FindFilterOperators, Record
+from .models import FindFilterOperators, Record, SERVICE_KEYS, SEARCH_KEYS
 
-SERVICE_KEYS = [
-    "record_key",
-    "profile_key",
-    "service_key1",
-    "service_key2",
-]
-
-SEARCH_KEYS = [
-    "key1",
-    "key2",
-    "key3",
-    "key4",
-    "key5",
-    "key6",
-    "key7",
-    "key8",
-    "key9",
-    "key10",
-]
 
 KEYS_TO_HASH = SERVICE_KEYS + SEARCH_KEYS
 

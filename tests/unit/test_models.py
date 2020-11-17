@@ -17,6 +17,7 @@ from incountry.models import (
     RecordNonHashed,
     RecordFromServer,
     RecordListForBatch,
+    RecordListNonHashedForBatch,
     SecretsData,
     SecretsDataForDefaultEncryption,
     SecretsDataForCustomEncryption,
@@ -24,6 +25,9 @@ from incountry.models import (
     StorageWithEnv,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     MAX_LEN_NON_HASHED,
+    SEARCH_KEYS,
+    SERVICE_KEYS,
+    INT_KEYS,
 )
 from incountry import SecretKeyAccessor
 
@@ -34,6 +38,8 @@ from ..utils import (
     get_random_str,
     get_invalid_records_non_hashed,
 )
+
+ALL_KEYS = SEARCH_KEYS + SERVICE_KEYS + INT_KEYS
 
 EMPTY_RECORD = {
     "record_key": get_random_str(),
@@ -256,11 +262,12 @@ def test_invalid_custom_enc_config_method_validation(config, error_text):
     CustomEncryptionConfigMethodValidation.when.called_with(**config).should.throw(ValidationError, error_text)
 
 
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.happy_path
-def test_default_find_filter():
-    item = FindFilter()
+def test_default_find_filter(model):
+    item = model()
 
-    assert item.limit == FindFilter.getFindLimit()
+    assert item.limit == model.getFindLimit()
     assert item.offset == 0
 
 
@@ -268,34 +275,40 @@ def test_default_find_filter():
     "filter",
     [{"limit": 20, "offset": 20}],
 )
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.happy_path
-def test_valid_limit_offset_find_filter(filter):
-    item = FindFilter(limit=filter["limit"], offset=filter["offset"])
+def test_valid_limit_offset_find_filter(filter, model):
+    item = model(limit=filter["limit"], offset=filter["offset"])
 
     assert item.limit == filter["limit"]
     assert item.offset == filter["offset"]
 
 
-@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key"])
+@pytest.mark.parametrize("filter_key", SERVICE_KEYS + SEARCH_KEYS)
 @pytest.mark.parametrize(
     "filter",
     [
         "single_value",
+        "x" * MAX_LEN_NON_HASHED,
         ["list_value_1", "list_value_2", "list_value_3"],
+        ["x" * MAX_LEN_NON_HASHED, "y" * MAX_LEN_NON_HASHED, "z" * MAX_LEN_NON_HASHED],
         {"$not": "not_single_value"},
+        {"$not": "x" * MAX_LEN_NON_HASHED},
         {"$not": ["list_not_value_1", "list_not_value_2", "list_not_value_3"]},
+        {"$not": ["x" * MAX_LEN_NON_HASHED, "y" * MAX_LEN_NON_HASHED, "z" * MAX_LEN_NON_HASHED]},
     ],
 )
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.happy_path
-def test_valid_str_filters_find_filter(filter_key, filter):
+def test_valid_str_filters_find_filter(filter_key, filter, model):
     kwargs = {}
     kwargs[filter_key] = filter
-    item = FindFilter(**kwargs)
+    item = model(**kwargs)
 
     assert getattr(item, filter_key) == filter
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
+@pytest.mark.parametrize("filter_key", INT_KEYS)
 @pytest.mark.parametrize(
     "filter",
     [
@@ -313,106 +326,103 @@ def test_valid_str_filters_find_filter(filter_key, filter):
         {"$gte": 1, "$lte": 1},
     ],
 )
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.happy_path
-def test_valid_int_filters_find_filter(filter_key, filter):
+def test_valid_int_filters_find_filter(filter_key, filter, model):
     kwargs = {}
     kwargs[filter_key] = filter
-    item = FindFilter(**kwargs)
+    item = model(**kwargs)
 
     assert getattr(item, filter_key) == filter
 
 
-@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key"])
+@pytest.mark.parametrize("filter_key", SERVICE_KEYS + SEARCH_KEYS)
 @pytest.mark.parametrize("values", [[0, 1, [], {}, (), False, True]])
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path
-def test_invalid_str_filters_find_filter(filter_key, values):
+def test_invalid_str_filters_find_filter(filter_key, values, model):
     kwargs = {}
     kwargs[filter_key] = values
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
     kwargs = {}
     kwargs[filter_key] = {"$not": values}
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
     for value in values:
         kwargs = {}
         kwargs[filter_key] = value
-        FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+        model.when.called_with(**kwargs).should.throw(ValidationError)
 
         kwargs = {}
         kwargs[filter_key] = {"$not": value}
-        FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+        model.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
+@pytest.mark.parametrize("filter_key", INT_KEYS)
 @pytest.mark.parametrize("values", [["text", "", [], {}, (), False, True]])
 @pytest.mark.parametrize("operator", ["$not", "$gt", "$gte", "$lt", "$lte"])
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path
-def test_invalid_int_filters_find_filter(filter_key, values, operator):
+def test_invalid_int_filters_find_filter(filter_key, values, operator, model):
     kwargs = {}
     kwargs[filter_key] = values
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
     kwargs = {}
     kwargs[filter_key] = {}
     kwargs[filter_key][operator] = values
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
     for value in values:
         kwargs = {}
         kwargs[filter_key] = value
-        FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+        model.when.called_with(**kwargs).should.throw(ValidationError)
 
         kwargs = {}
         kwargs[filter_key] = {}
         kwargs[filter_key][operator] = values
-        FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+        model.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key", "version", "range_key1"])
+@pytest.mark.parametrize("filter_key", ALL_KEYS + ["version"])
 @pytest.mark.parametrize("operator", ["gt", "gte", "lt", "lte", "not", "$no", "$", "", False, True, 0, 1, ()])
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path
-def test_invalid_operators_find_filter(filter_key, operator):
+def test_invalid_operators_find_filter(filter_key, operator, model):
     kwargs = {}
     kwargs[filter_key] = {}
     kwargs[filter_key][operator] = "value"
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
+@pytest.mark.parametrize("filter_key", INT_KEYS)
 @pytest.mark.parametrize("operators", [["$gt", "$gte"], ["$lt", "$lte"]])
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path
-def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
+def test_invalid_int_operators_combinations_find_filter(filter_key, operators, model):
     kwargs = {}
     kwargs[filter_key] = {}
     for operator in operators:
         kwargs[filter_key][operator] = 1
-    FindFilter.when.called_with(**kwargs).should.throw(
+    model.when.called_with(**kwargs).should.throw(
         ValidationError, "Must contain not more than one key from the following group"
     )
 
 
+@pytest.mark.parametrize("filter_key", SEARCH_KEYS)
 @pytest.mark.parametrize(
-    "filter_key",
-    ["record_key", "key1", "key2", "key3", "key4", "key5", "key6", "key7", "key8", "key9", "key10", "profile_key"],
-)
-@pytest.mark.parametrize(
-    "filter",
+    "value",
     [
-        "single_value",
-        "x" * MAX_LEN_NON_HASHED,
-        ["list_value_1", "list_value_2", "list_value_3"],
-        {"$not": "not_single_value"},
-        {"$not": ["list_not_value_1", "list_not_value_2", "list_not_value_3"]},
+        "x" * (MAX_LEN_NON_HASHED + 1),
+        ["x" * (MAX_LEN_NON_HASHED + 1), "y" * (MAX_LEN_NON_HASHED + 1)],
+        {"$not": "x" * (MAX_LEN_NON_HASHED + 1)},
+        {"$not": ["x" * (MAX_LEN_NON_HASHED + 1), "y" * (MAX_LEN_NON_HASHED + 1)]},
     ],
 )
-@pytest.mark.happy_path
-def test_valid_str_filters_find_filter_non_hashed(filter_key, filter):
-    kwargs = {}
-    kwargs[filter_key] = filter
-    item = FindFilterNonHashed(**kwargs)
-
-    assert getattr(item, filter_key) == filter
+@pytest.mark.error_path
+def test_invalid_non_hashed_find_filter(filter_key, value):
+    FindFilterNonHashed.when.called_with(**{filter_key: value}).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize(
@@ -608,9 +618,10 @@ def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
     "record",
     TEST_RECORDS,
 )
+@pytest.mark.parametrize("model", [Record, RecordNonHashed])
 @pytest.mark.happy_path
-def test_valid_record(record):
-    item = Record(**record)
+def test_valid_record(record, model):
+    item = model(**record)
 
     for key, value in record.items():
         assert getattr(item, key) == record[key]
@@ -628,9 +639,10 @@ def test_valid_record(record):
         {**TEST_RECORDS[-1], "created_at": "2020-08-26T14:37:22+00:00", "updated_at": "2020-08-26T14:37:22+00:00"},
     ],
 )
+@pytest.mark.parametrize("model", [Record, RecordNonHashed])
 @pytest.mark.happy_path
-def test_valid_record_with_dates(record):
-    item = Record(**record)
+def test_valid_record_with_dates(record, model):
+    item = model(**record)
 
     assert item.created_at.tzinfo is not None
     assert item.created_at.tzinfo.utcoffset(item.created_at) is not None
@@ -646,21 +658,10 @@ def test_valid_record_with_dates(record):
 
 
 @pytest.mark.parametrize("record", INVALID_RECORDS)
+@pytest.mark.parametrize("model", [Record, RecordNonHashed])
 @pytest.mark.error_path
-def test_invalid_record(record):
-    Record.when.called_with(**record).should.throw(ValidationError)
-
-
-@pytest.mark.parametrize(
-    "record",
-    TEST_RECORDS,
-)
-@pytest.mark.happy_path
-def test_valid_record_non_hashed(record):
-    item = RecordNonHashed(**record)
-
-    for key, value in record.items():
-        assert getattr(item, key) == record[key]
+def test_invalid_record(record, model):
+    model.when.called_with(**record).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize("record", INVALID_RECORDS + get_invalid_records_non_hashed())
@@ -689,19 +690,28 @@ def test_invalid_record_from_server(record, invalid_version):
 
 
 @pytest.mark.happy_path
-def test_valid_records_for_batch():
-    RecordListForBatch.when.called_with(records=TEST_RECORDS).should_not.throw(ValidationError)
+@pytest.mark.parametrize("model", [RecordListForBatch, RecordListNonHashedForBatch])
+def test_valid_records_for_batch(model):
+    model.when.called_with(records=TEST_RECORDS).should_not.throw(ValidationError)
 
 
-@pytest.mark.parametrize("record", INVALID_RECORDS_FOR_BATCH)
+@pytest.mark.parametrize("records", INVALID_RECORDS_FOR_BATCH)
+@pytest.mark.parametrize("model", [RecordListForBatch, RecordListNonHashedForBatch])
 @pytest.mark.error_path
-def test_invalid_records_for_batch(record):
-    RecordListForBatch.when.called_with(records=[record]).should.throw(ValidationError)
+def test_invalid_records_for_batch(records, model):
+    model.when.called_with(records=records).should.throw(ValidationError)
 
 
+@pytest.mark.parametrize("model", [RecordListForBatch, RecordListNonHashedForBatch])
 @pytest.mark.error_path
-def test_invalid_empty_records_for_batch():
-    RecordListForBatch.when.called_with(records=[]).should.throw(ValidationError)
+def test_invalid_empty_records_for_batch(model):
+    model.when.called_with(records=[]).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize("records", INVALID_RECORDS_FOR_BATCH + [INVALID_RECORDS + get_invalid_records_non_hashed()])
+@pytest.mark.error_path
+def test_invalid_records_non_hashed_for_batch(records):
+    RecordListNonHashedForBatch.when.called_with(records=records).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize(

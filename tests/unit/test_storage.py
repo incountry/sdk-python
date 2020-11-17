@@ -19,6 +19,7 @@ from incountry import (
     RecordListForBatch,
     get_salted_hash,
     SEARCH_KEYS,
+    INT_KEYS,
 )
 
 from ..utils import (
@@ -500,14 +501,19 @@ def test_find(client, query, records, encrypt, hash_search_keys):
 
     find_response = client(encrypt, options={"hash_search_keys": hash_search_keys}).find(country=COUNTRY, **query)
 
-    received_record = json.loads(httpretty.last_request().body)
-    received_record.should.be.a(dict)
-    received_record.should.have.key("filter")
-    received_record.should.have.key("options")
-    received_record["options"].should.equal(
+    received_data = json.loads(httpretty.last_request().body)
+    received_data.should.be.a(dict)
+    received_data.should.have.key("filter")
+    received_data.should.have.key("options")
+    received_data["options"].should.equal(
         {"limit": query.get("limit", FindFilter.getFindLimit()), "offset": query.get("offset", 0)}
     )
-    received_record["filter"].keys().should.equal(query.keys())
+    received_data["filter"].keys().should.equal(query.keys())
+    for key in received_data["filter"]:
+        if (hash_search_keys or key not in SEARCH_KEYS) and key not in INT_KEYS:
+            assert received_data["filter"][key] != query[key]
+        else:
+            assert received_data["filter"][key] == query[key]
 
     find_response.should.be.a(dict)
 

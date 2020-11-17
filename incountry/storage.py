@@ -19,10 +19,12 @@ from .models import (
     AttachmentRequest,
     Country,
     FindFilter,
+    FindFilterNonHashed,
     FIND_LIMIT,
     Record,
     RecordNonHashed,
     RecordListForBatch,
+    RecordListNonHashedForBatch,
     StorageWithEnv,
     StorageOptions,
 )
@@ -151,7 +153,15 @@ class Storage:
         return {"record": record}
 
     @validate_model(Country)
-    @validate_model(RecordListForBatch)
+    @validate_model(
+        {
+            "condition": ("options", "hash_search_keys"),
+            "values": [
+                {"value": True, "model": RecordListForBatch},
+                {"value": False, "model": RecordListNonHashedForBatch},
+            ],
+        }
+    )
     def batch_write(self, country: str, records: List[TRecord]) -> Dict[str, List[TRecord]]:
         """Writes multiple records to InCountry storage network.
 
@@ -201,6 +211,15 @@ class Storage:
 
     @validate_model(Country)
     @validate_model(FindFilter)
+    @validate_model(
+        {
+            "condition": ("options", "hash_search_keys"),
+            "values": [
+                {"value": True, "model": FindFilter},
+                {"value": False, "model": FindFilterNonHashed},
+            ],
+        }
+    )
     def find(
         self,
         country: str,
@@ -286,7 +305,15 @@ class Storage:
         return result
 
     @validate_model(Country)
-    @validate_model(FindFilter)
+    @validate_model(
+        {
+            "condition": ("options", "hash_search_keys"),
+            "values": [
+                {"value": True, "model": FindFilter},
+                {"value": False, "model": FindFilterNonHashed},
+            ],
+        }
+    )
     def find_one(
         self,
         country: str,

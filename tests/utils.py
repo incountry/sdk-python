@@ -104,7 +104,7 @@ def get_invalid_records_non_hashed():
     res = []
     for i in range(10):
         rec = get_valid_test_record()
-        rec.update({"key" + str(i + 1): 257 * "x"})
+        rec.update({"key" + str(i + 1): "x" * (MAX_LEN_NON_HASHED + 1)})
         res.append(rec)
     return res
 
