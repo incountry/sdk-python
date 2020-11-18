@@ -14,13 +14,6 @@ class StorageOptions(BaseModel):
     endpoint_mask: StrictStr = None
     countries_endpoint: AnyHttpUrl = None
 
-    @root_validator(pre=True)
-    def check_empty_options(cls, values):
-        if not isinstance(values, dict):
-            raise ValueError("Options is not a valid dict")
-
-        return values
-
     @validator("http_options", pre=True)
     def check_http_options(cls, value):
         if not isinstance(value, dict):
