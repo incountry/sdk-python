@@ -327,7 +327,8 @@ class Storage:
             offset: Search offset. Should be non-negative int. Defaults to 0.
             **filters: Various filters to tweak the search query.
                 Available String filter keys:
-                - profile_key, service_key1, service_key2, key1, ..., key10.
+                - profile_key, service_key1, service_key2, key1, ..., key10,
+                - search_keys - for partial match search on key1, ..., key10.
                 Available String filter types:
                 - single value: Storage.find_one(..., key1="v1"),
                 - list of values: Storage.find_one(..., key1=["v1", "v2"]),
