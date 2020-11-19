@@ -135,7 +135,6 @@ def test_hash_object_record_keys_without_search_keys(
     non_search_keys_data_without_normalize,
 ):
     for key in SEARCH_KEYS:
-        print(key, normalize, key_value_before, key_value_after)
         obj_before = {
             key: key_value_before,
             **(
