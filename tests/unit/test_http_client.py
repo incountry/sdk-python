@@ -630,25 +630,23 @@ def test_httpclient_oauth_throw_error(client):
 
 
 @httpretty.activate
+@pytest.mark.parametrize("endpoint_mask", [".private.incountry.io"])
 @pytest.mark.parametrize(
-    "endpoint_mask, country, expected_endpoint, expected_audience, countries",
+    "country, expected_endpoint, expected_audience",
     [
         (
-            ".private.incountry.io",
             "ru",
             "https://ru.private.incountry.io",
             "https://ru.private.incountry.io",
-            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
         (
-            ".private.incountry.io",
             "ag",
             "https://us.private.incountry.io",
             "https://us.private.incountry.io https://ag.private.incountry.io",
-            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
     ],
 )
+@pytest.mark.parametrize("countries", [[{"id": "RU", "direct": True}, {"id": "AG", "direct": False}]])
 @pytest.mark.happy_path
 def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, expected_audience, countries):
     record = {"record_key": "key1", "version": 0}
@@ -681,39 +679,30 @@ def test_http_client_endpoint_mask(endpoint_mask, country, expected_endpoint, ex
 
 
 @httpretty.activate
+@pytest.mark.parametrize("endpoint_mask", [".private.incountry.io"])
 @pytest.mark.parametrize(
-    "endpoint_mask, endpoint, country, expected_endpoint, expected_audience, countries",
+    "endpoint, country, expected_audience",
     [
         (
-            ".private.incountry.io",
             "https://super-private.incountry.io",
             "ru",
-            "https://super-private.incountry.io",
             "https://super-private.incountry.io https://ru.private.incountry.io",
-            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
         (
-            ".private.incountry.io",
             "https://super-private.incountry.io",
             "ag",
-            "https://super-private.incountry.io",
             "https://super-private.incountry.io https://ag.private.incountry.io",
-            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
         (
-            ".private.incountry.io",
             "https://ru.private.incountry.io",
             "ru",
             "https://ru.private.incountry.io",
-            "https://ru.private.incountry.io",
-            [{"id": "RU", "direct": True}, {"id": "AG", "direct": False}],
         ),
     ],
 )
+@pytest.mark.parametrize("countries", [[{"id": "RU", "direct": True}, {"id": "AG", "direct": False}]])
 @pytest.mark.happy_path
-def test_http_client_endpoint_mask_with_endpoint(
-    endpoint_mask, endpoint, country, expected_endpoint, expected_audience, countries
-):
+def test_http_client_endpoint_mask_with_endpoint(endpoint_mask, endpoint, country, expected_audience, countries):
     record = {"record_key": "key1", "version": 0}
     client = HttpClient(
         env_id="test",
@@ -737,11 +726,7 @@ def test_http_client_endpoint_mask_with_endpoint(
     token_request = httpretty.HTTPretty.latest_requests[-2]
     token_request_body = parse_qs(token_request.body.decode("utf-8"))
 
-    read_request = httpretty.HTTPretty.latest_requests[-1]
-    read_request_endpoint = "https://" + read_request.headers.get("Host", "")
-
     assert token_request_body["audience"][0] == expected_audience
-    assert read_request_endpoint == expected_endpoint
 
 
 @httpretty.activate

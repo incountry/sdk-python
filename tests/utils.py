@@ -1,9 +1,12 @@
 from random import randrange, choice, choices, random
 import string
-import uuid
 import sys
 from datetime import datetime, timedelta, timezone
 import mimetypes
+
+
+from incountry.models import MAX_LEN_NON_HASHED
+
 
 STRING_FIELDS = [
     "record_key",
@@ -41,7 +44,9 @@ ALL_FIELDS_WITH_DATES = ALL_FIELDS + DATE_FIELDS
 
 
 def get_random_str(length=10):
-    return "".join(choices(string.ascii_uppercase + string.ascii_lowercase, k=length))
+    return choice(string.ascii_uppercase) + "".join(
+        choices(string.ascii_uppercase + string.ascii_lowercase, k=length - 1)
+    )
 
 
 def get_random_int():
@@ -63,7 +68,7 @@ def generate_record(fields, use_last_field_value=False, last_field_value=None, a
     record = {}
     for field in fields:
         if field in STRING_FIELDS:
-            record[field] = str(uuid.uuid1())
+            record[field] = get_random_str(MAX_LEN_NON_HASHED)
         if field in INT_FIELDS:
             record[field] = get_random_int()
     if use_last_field_value:
@@ -93,6 +98,15 @@ def get_invalid_records():
         )
         for i in range(len(ALL_FIELDS_WITH_DATES))
     ]
+
+
+def get_invalid_records_non_hashed():
+    res = []
+    for i in range(10):
+        rec = get_valid_test_record()
+        rec.update({"key" + str(i + 1): "x" * (MAX_LEN_NON_HASHED + 1)})
+        res.append(rec)
+    return res
 
 
 def get_valid_find_filter_test_options():

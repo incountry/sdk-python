@@ -12,6 +12,9 @@ from pydantic import (
 )
 
 
+from .record import MAX_LEN_NON_HASHED
+
+
 class Operators(str):
     NOT = "$not"
     GT = "$gt"
@@ -35,13 +38,21 @@ INT_OPERATORS = [
     Operators.LTE,
 ]
 
-NonEmptyStr = constr(min_length=1)
+
+NonEmptyStr = constr(strict=True, min_length=1)
 NonEmptyStrList = conlist(StrictStr, min_items=1)
 NonEmptyIntList = conlist(StrictInt, min_items=1)
+
+MaxLenStr = constr(strict=True, max_length=MAX_LEN_NON_HASHED)
+MaxLenStrList = conlist(MaxLenStr, min_items=1)
+
 OperatorsStrDict = Dict[NonEmptyStr, Union[StrictStr, NonEmptyStrList]]
 OperatorsIntDict = Dict[NonEmptyStr, Union[StrictInt, NonEmptyIntList]]
+OperatorsMaxLenStrDict = Dict[NonEmptyStr, Union[MaxLenStr, MaxLenStrList]]
+
 StrKey = Union[StrictStr, NonEmptyStrList, OperatorsStrDict]
 IntKey = Union[StrictInt, NonEmptyIntList, OperatorsIntDict]
+StrKeyNonHashed = Union[MaxLenStr, MaxLenStrList, OperatorsMaxLenStrDict]
 
 
 class FindFilter(BaseModel):
@@ -100,7 +111,7 @@ class FindFilter(BaseModel):
                         )
                     )
 
-        if field.type_.__args__[0] is StrictStr:
+        if field.type_.__args__[0] in [StrictStr, MaxLenStr]:
             for key in value:
                 if key not in STR_OPERATORS:
                     raise ValueError(f"Incorrect dict filter. Must contain only the following keys: {STR_OPERATORS}")
@@ -120,3 +131,16 @@ class FindFilter(BaseModel):
     @staticmethod
     def getFindLimit():
         return FIND_LIMIT
+
+
+class FindFilterNonHashed(FindFilter):
+    key1: StrKeyNonHashed = None
+    key2: StrKeyNonHashed = None
+    key3: StrKeyNonHashed = None
+    key4: StrKeyNonHashed = None
+    key5: StrKeyNonHashed = None
+    key6: StrKeyNonHashed = None
+    key7: StrKeyNonHashed = None
+    key8: StrKeyNonHashed = None
+    key9: StrKeyNonHashed = None
+    key10: StrKeyNonHashed = None
