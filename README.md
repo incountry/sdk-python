@@ -67,8 +67,7 @@ You can turn off encryption (not recommended). Set `encrypt` property to `false`
                                 # If set, all requests will be sent to https://${country}${endpointMask} host
                                 # instead of the default one (https://${country}-mt-01.api.incountry.io)
 
-    "hash_search_keys": bool    # tells the SDK not to hash search keys key1, ..., key10
-                                # which enables partial match search using search_keys find filter operator
+    "hash_search_keys": bool    # Set to False to enable partial match search among record's text fields key1, ..., key10. Defaults to True.
 }
 ```
 
@@ -353,7 +352,7 @@ key3={"$not": "value1"} # records with key3 not equal "value1"
 key4={"$not": ["value1", "value2"]} # records with key4 equal to neither "value1" or "value2"
 ```
 
-You can use special `search_keys` filter to search records by partial match (similar to `LIKE` SQL operator) amond record's text fields `key1, ..., key10`.
+You can use special `search_keys` filter to search records by partial match (similar to `LIKE` SQL operator) among record's text fields `key1, ..., key10`.
 ```python
 search_keys="text to find"
 ```
