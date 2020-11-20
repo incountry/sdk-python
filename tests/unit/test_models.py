@@ -29,6 +29,7 @@ from incountry.models import (
     SERVICE_KEYS,
     INT_KEYS,
 )
+from incountry.models.find_filter import SEARCH_KEYS_MAX_LEN, SEARCH_KEYS_MIN_LEN
 from incountry import SecretKeyAccessor
 
 from ..utils import (
@@ -36,6 +37,7 @@ from ..utils import (
     get_invalid_records,
     get_random_datetime,
     get_random_str,
+    get_random_int,
     get_invalid_records_non_hashed,
 )
 
@@ -308,6 +310,27 @@ def test_valid_str_filters_find_filter(filter_key, filter, model):
     assert getattr(item, filter_key) == filter
 
 
+@pytest.mark.parametrize(
+    "filter",
+    [
+        "x" * SEARCH_KEYS_MIN_LEN,
+        "x" * SEARCH_KEYS_MAX_LEN,
+    ],
+)
+@pytest.mark.parametrize("supplementary_key", SERVICE_KEYS + INT_KEYS)
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
+@pytest.mark.happy_path
+def test_valid_search_keys_filters_find_filter(filter, supplementary_key, model):
+    kwargs = {"search_keys": filter}
+    if supplementary_key in SERVICE_KEYS:
+        kwargs[supplementary_key] = get_random_str()
+    else:
+        kwargs[supplementary_key] = get_random_int()
+    item = model(**kwargs)
+
+    assert getattr(item, "search_keys") == filter
+
+
 @pytest.mark.parametrize("filter_key", INT_KEYS)
 @pytest.mark.parametrize(
     "filter",
@@ -423,6 +446,26 @@ def test_invalid_int_operators_combinations_find_filter(filter_key, operators, m
 @pytest.mark.error_path
 def test_invalid_non_hashed_find_filter(filter_key, value):
     FindFilterNonHashed.when.called_with(**{filter_key: value}).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "value", [0, 1, [], {}, (), False, True, "x" * (SEARCH_KEYS_MIN_LEN - 1), "x" * (SEARCH_KEYS_MAX_LEN + 1)]
+)
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
+@pytest.mark.error_path
+def test_invalid_search_keys_find_filter(value, model):
+    kwargs = {"search_keys": value}
+    model.when.called_with(**kwargs).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize("value", "123")
+@pytest.mark.parametrize("incompatible_key", SEARCH_KEYS)
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
+@pytest.mark.error_path
+def test_invalid_search_keys_with_keys_find_filter(value, incompatible_key, model):
+    kwargs = {"search_keys": value}
+    kwargs[incompatible_key] = get_random_str()
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize(

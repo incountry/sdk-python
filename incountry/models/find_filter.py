@@ -24,6 +24,8 @@ class Operators(str):
 
 
 FIND_LIMIT = 100
+SEARCH_KEYS_MIN_LEN = 3
+SEARCH_KEYS_MAX_LEN = 200
 
 STR_OPERATORS = [Operators.NOT]
 COMPARISON_GROUPS = [
@@ -72,7 +74,7 @@ class FindFilter(BaseModel):
     key8: StrKey = None
     key9: StrKey = None
     key10: StrKey = None
-    search_keys: constr(strict=True, min_length=3, max_length=200)
+    search_keys: constr(strict=True, min_length=SEARCH_KEYS_MIN_LEN, max_length=SEARCH_KEYS_MAX_LEN) = None
     range_key1: IntKey = None
     range_key2: IntKey = None
     range_key3: IntKey = None
@@ -129,9 +131,10 @@ class FindFilter(BaseModel):
 
         return value
 
-    @validator("search_keys", pre=True)
+    @validator("search_keys")
     def check_search_keys_without_regular_keys(cls, value, values, config, field):
-        if len(set(SEARCH_KEYS).intersection(set(values.keys()))) > 0:
+        non_empty_string_keys = [key for key in values.keys() if values[key] is not None]
+        if len(set(SEARCH_KEYS).intersection(set(non_empty_string_keys))) > 0:
             raise ValueError("cannot be used in conjunction with regular key1...key10 lookup")
         return value
 
