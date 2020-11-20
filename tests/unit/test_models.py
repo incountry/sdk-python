@@ -458,7 +458,7 @@ def test_invalid_search_keys_find_filter(value, model):
     model.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("value", "123")
+@pytest.mark.parametrize("value", ["123"])
 @pytest.mark.parametrize("incompatible_key", SEARCH_KEYS)
 @pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path

@@ -66,6 +66,9 @@ You can turn off encryption (not recommended). Set `encrypt` property to `false`
     "endpoint_mask": str,       # Defines API base hostname part to use.
                                 # If set, all requests will be sent to https://${country}${endpointMask} host
                                 # instead of the default one (https://${country}-mt-01.api.incountry.io)
+
+    "hash_search_keys": bool    # tells the SDK not to hash search keys key1, ..., key10
+                                # which enables partial match search using search_keys find filter operator
 }
 ```
 
@@ -349,6 +352,17 @@ key2=["value1", "value2"] # records with key2 equal to "value1" or "value2"
 key3={"$not": "value1"} # records with key3 not equal "value1"
 key4={"$not": ["value1", "value2"]} # records with key4 equal to neither "value1" or "value2"
 ```
+
+You can use special `search_keys` filter to search records by partial match (similar to `LIKE` SQL operator) amond record's text fields `key1, ..., key10`.
+```python
+search_keys="text to find"
+```
+---
+**NOTE**
+
+`search_keys` cannot be used in combination with any of `key1, key2, ..., key10` keys and works only in combination with non-hashing Storage mode (with `hash_search_keys` Storage option set to `False`).
+
+---
 
 
 You can use the following options to search by int keys from the [list above](#list-of-available-record-fields):
