@@ -12,7 +12,7 @@ from pydantic import (
 )
 
 
-from .record import MAX_LEN_NON_HASHED
+from .record import MAX_LEN_NON_HASHED, SEARCH_KEYS
 
 
 class Operators(str):
@@ -24,6 +24,8 @@ class Operators(str):
 
 
 FIND_LIMIT = 100
+SEARCH_KEYS_MIN_LEN = 3
+SEARCH_KEYS_MAX_LEN = 200
 
 STR_OPERATORS = [Operators.NOT]
 COMPARISON_GROUPS = [
@@ -72,6 +74,7 @@ class FindFilter(BaseModel):
     key8: StrKey = None
     key9: StrKey = None
     key10: StrKey = None
+    search_keys: constr(strict=True, min_length=SEARCH_KEYS_MIN_LEN, max_length=SEARCH_KEYS_MAX_LEN) = None
     range_key1: IntKey = None
     range_key2: IntKey = None
     range_key3: IntKey = None
@@ -126,6 +129,13 @@ class FindFilter(BaseModel):
         if len(value) == 0:
             raise ValueError("Filter cannot be empty dict")
 
+        return value
+
+    @validator("search_keys")
+    def check_search_keys_without_regular_keys(cls, value, values, config, field):
+        non_empty_string_keys = [key for key in values.keys() if values[key] is not None]
+        if len(set(SEARCH_KEYS).intersection(set(non_empty_string_keys))) > 0:
+            raise ValueError("cannot be used in conjunction with regular key1...key10 lookup")
         return value
 
     @staticmethod
