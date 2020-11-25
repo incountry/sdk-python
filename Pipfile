@@ -16,7 +16,7 @@ requests-toolbelt = "*"
 
 [packages]
 requests = "*"
-cryptography = "*"
+cryptography = ">=3.2"
 pydantic = "*"
 wrapt = "*"
 
