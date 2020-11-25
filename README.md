@@ -140,7 +140,7 @@ Note: even though SDK uses PBKDF2 to generate a cryptographically strong encrypt
 
 This enables the flexibility required to support Key Rotation policies when secrets/keys need to be changed with time. SDK will encrypt data using current secret/key while maintaining the ability to decrypt records encrypted with old keys/secrets. SDK also provides a method for data migration which allows to re-encrypt data with the newest key/secret. For details please see `migrate` method.
 
-SDK allows you to use custom encryption keys, instead of secrets. Please note that user-defined encryption key should be a 32-characters 'utf8' encoded string as required by AES-256 cryptographic algorithm.
+The SDK allows you to use custom encryption keys, instead of secrets. Please note that a user-defined encryption key should be a base64-encoded 32-bytes-long key as required by AES-256 cryptographic algorithm.
 
 
 Here are some examples how you can use `SecretKeyAccessor`.
@@ -612,12 +612,15 @@ import os
 from incountry import InCrypto, SecretKeyAccessor, Storage
 from cryptography.fernet import Fernet
 
-def enc(input, key, key_version):
-    cipher = Fernet(key)
+def enc(input: str, key: bytes, key_version: int):
+    # Fernet cipher from cryptography package accepts keys as base64-encoded string
+    # while InCountry SDK decodes keys as bytes
+    # thus we need to do some bytes-to-b64 encoding
+    cipher = Fernet(InCrypto.b_to_base64(key))
     return cipher.encrypt(input.encode("utf8")).decode("utf8")
 
-def dec(input, key, key_version):
-    cipher = Fernet(key)
+def dec(input: str, key: bytes, key_version: int):
+    cipher = Fernet(InCrypto.b_to_base64(key))
     return cipher.decrypt(input.encode("utf8")).decode("utf8")
 
 custom_encryption_configs = [
@@ -629,7 +632,7 @@ custom_encryption_configs = [
     }
 ]
 
-key = InCrypto.b_to_base64(os.urandom(InCrypto.KEY_LENGTH))  # Fernet uses 32-byte length key encoded using base64
+key = os.urandom(InCrypto.KEY_LENGTH)  # Fernet uses 32-byte length keys
 
 secret_key_accessor = SecretKeyAccessor(
     lambda: {

@@ -27,10 +27,10 @@ class SecretKeyAccessor:
         except Exception as e:
             raise StorageClientException("Failed to retrieve secret keys data") from e
 
-        if not isinstance(secrets_data, (str, dict)):
+        if not isinstance(secrets_data, (str, bytes, dict)):
             raise StorageClientException(
                 f"SecretKeyAccessor validation error: "
-                f"accessor_function - should return either str or secrets_data dict"
+                f"accessor_function - should return either str, bytes or secrets_data dict"
             )
 
         return secrets_data
@@ -39,19 +39,21 @@ class SecretKeyAccessor:
         secrets_data = self.get_secrets_data()
 
         if isinstance(secrets_data, str):
+            return (secrets_data.encode("utf-8"), SecretKeyAccessor.DEFAULT_VERSION, False)
+
+        if isinstance(secrets_data, bytes):
             return (secrets_data, SecretKeyAccessor.DEFAULT_VERSION, False)
 
+        model = (
+            SecretsDataForCustomEncryption if self._custom_encryption_keys_enabled else SecretsDataForDefaultEncryption
+        )
+
         try:
-            if self._custom_encryption_keys_enabled:
-                SecretsDataForCustomEncryption.validate(secrets_data)
-            else:
-                SecretsDataForDefaultEncryption.validate(secrets_data)
+            return model.validate(secrets_data).dict()
         except ValidationError as e:
             raise StorageClientException(
                 f"SecretKeyAccessor validation error: {get_formatted_validation_error(e)}", e
             ) from None
-
-        return secrets_data
 
     def validate(self):
         self.get_secrets_raw()

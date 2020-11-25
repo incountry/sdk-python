@@ -127,7 +127,14 @@ def test_write_with_none_fields(client, record, encrypt, hash_search_keys):
 @pytest.mark.parametrize("record", TEST_RECORDS)
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("hash_search_keys", [True, False])
-@pytest.mark.parametrize("keys_data", [{"currentVersion": 1, "secrets": [{"secret": SECRET_KEY, "version": 1}]}])
+@pytest.mark.parametrize(
+    "keys_data",
+    [
+        {"currentVersion": 1, "secrets": [{"secret": SECRET_KEY, "version": 1}]},
+        {"currentVersion": 1, "secrets": [{"secret": b"x" * 32, "version": 1, "isKey": True}]},
+        {"currentVersion": 1, "secrets": [{"secret": InCrypto.b_to_base64(b"x" * 32), "version": 1, "isKey": True}]},
+    ],
+)
 @pytest.mark.happy_path
 def test_write_with_keys_data(client, record, encrypt, hash_search_keys, keys_data):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
@@ -360,7 +367,11 @@ def test_read_with_dates(client, record, created_at, updated_at, encrypt):
         {
             "currentVersion": 2,
             "secrets": [{"secret": SECRET_KEY, "version": 1}, {"secret": SECRET_KEY + "2", "version": 2}],
-        }
+        },
+        {
+            "currentVersion": 2,
+            "secrets": [{"secret": SECRET_KEY, "version": 1}, {"secret": b"x" * 32, "version": 2, "isKey": True}],
+        },
     ],
 )
 @pytest.mark.happy_path
@@ -1065,8 +1076,12 @@ def test_custom_endpoint(client, record, country):
     [
         [
             {
-                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .encrypt(input.encode("utf8"))
+                .decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .decrypt(input.encode("utf8"))
+                .decode("utf8"),
                 "version": "test",
                 "isCurrent": True,
             }
@@ -1102,8 +1117,12 @@ def test_custom_encryption_write(client, record, custom_encryption):
     [
         [
             {
-                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .encrypt(input.encode("utf8"))
+                .decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .decrypt(input.encode("utf8"))
+                .decode("utf8"),
                 "version": "test",
                 "isCurrent": True,
             }
@@ -1137,8 +1156,12 @@ def test_custom_encryption_read(client, record, custom_encryption):
     [
         [
             {
-                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .encrypt(input.encode("utf8"))
+                .decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .decrypt(input.encode("utf8"))
+                .decode("utf8"),
                 "version": "test",
                 "isCurrent": True,
             }
@@ -1188,8 +1211,12 @@ def test_primary_custom_encryption_with_default_encryption(client, custom_encryp
     [
         [
             {
-                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .encrypt(input.encode("utf8"))
+                .decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .decrypt(input.encode("utf8"))
+                .decode("utf8"),
                 "version": "test",
             }
         ],
