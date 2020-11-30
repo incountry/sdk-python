@@ -44,8 +44,12 @@ PREPARED_DATA_BY_VERSION = {
 }
 
 VALID_CUSTOM_ENCRYPTION_CONFIG = {
-    "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-    "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+    "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+    .encrypt(input.encode("utf8"))
+    .decode("utf8"),
+    "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+    .decrypt(input.encode("utf8"))
+    .decode("utf8"),
     "version": "test",
     "isCurrent": True,
 }
@@ -92,7 +96,7 @@ def test_enc_dec(plaintext, secret_key_accessor):
                 "currentVersion": 2,
                 "secrets": [
                     {"secret": "password1", "version": 1},
-                    {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
+                    {"secret": b"12345678901234567890123456789012", "version": 2, "isKey": True},
                 ],
             }
         )
@@ -300,7 +304,7 @@ def test_custom_enc_returning_nonstr_on_enc_after_successful_validation(custom_e
         if i > 1:
             return True
         i += 1
-        return Fernet(key).encrypt(input.encode("utf8")).decode("utf8")
+        return Fernet(InCrypto.b_to_base64(key)).encrypt(input.encode("utf8")).decode("utf8")
 
     custom_encryption[0]["encrypt"] = enc
     cipher = InCrypto(secret_key_accessor, custom_encryption)
@@ -336,7 +340,7 @@ def test_custom_enc_returning_nonstr_on_dec_after_successful_validation(custom_e
         if i > 0:
             return True
         i += 1
-        return Fernet(key).decrypt(input.encode("utf8")).decode("utf8")
+        return Fernet(InCrypto.b_to_base64(key)).decrypt(input.encode("utf8")).decode("utf8")
 
     custom_encryption[0]["decrypt"] = dec
     cipher = InCrypto(secret_key_accessor, custom_encryption)
@@ -373,7 +377,7 @@ def test_custom_enc_throwing_on_enc_after_successful_validation(custom_encryptio
         if i > 1:
             raise Exception("error")
         i += 1
-        return Fernet(key).encrypt(input.encode("utf8")).decode("utf8")
+        return Fernet(InCrypto.b_to_base64(key)).encrypt(input.encode("utf8")).decode("utf8")
 
     custom_encryption[0]["encrypt"] = enc
     cipher = InCrypto(secret_key_accessor, custom_encryption)
@@ -409,7 +413,7 @@ def test_custom_enc_throwing_on_dec_after_successful_validation(custom_encryptio
         if i > 0:
             raise Exception("error")
         i += 1
-        return Fernet(key).decrypt(input.encode("utf8")).decode("utf8")
+        return Fernet(InCrypto.b_to_base64(key)).decrypt(input.encode("utf8")).decode("utf8")
 
     custom_encryption[0]["decrypt"] = dec
     cipher = InCrypto(secret_key_accessor, custom_encryption)

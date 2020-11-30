@@ -12,7 +12,7 @@ from incountry.models import (
     FindFilter,
     FindFilterNonHashed,
     HttpOptions,
-    InCrypto,
+    InCrypto as InCryptoModel,
     Record,
     RecordNonHashed,
     RecordFromServer,
@@ -30,7 +30,7 @@ from incountry.models import (
     INT_KEYS,
 )
 from incountry.models.find_filter import SEARCH_KEYS_MAX_LEN, SEARCH_KEYS_MIN_LEN
-from incountry import SecretKeyAccessor
+from incountry import InCrypto, SecretKeyAccessor
 
 from ..utils import (
     get_test_records,
@@ -516,7 +516,13 @@ def test_invalid_http_options(http_options):
             "secret_key_accessor": SecretKeyAccessor(
                 lambda: {
                     "currentVersion": 1,
-                    "secrets": [{"secret": "12345678901234567890123456789012", "version": 1, "isKey": True}],
+                    "secrets": [
+                        {
+                            "secret": InCrypto.b_to_base64(b"12345678901234567890123456789012"),
+                            "version": 1,
+                            "isKey": True,
+                        }
+                    ],
                 }
             )
         },
@@ -524,7 +530,7 @@ def test_invalid_http_options(http_options):
             "secret_key_accessor": SecretKeyAccessor(
                 lambda: {
                     "currentVersion": 1,
-                    "secrets": [{"secret": "123", "version": 1, "isForCustomEncryption": True}],
+                    "secrets": [{"secret": InCrypto.str_to_base64("123"), "version": 1, "isForCustomEncryption": True}],
                 }
             ),
             "custom_encryption_configs": [
@@ -540,7 +546,7 @@ def test_invalid_http_options(http_options):
             "secret_key_accessor": SecretKeyAccessor(
                 lambda: {
                     "currentVersion": 1,
-                    "secrets": [{"secret": "123", "version": 1, "isForCustomEncryption": True}],
+                    "secrets": [{"secret": InCrypto.str_to_base64("123"), "version": 1, "isForCustomEncryption": True}],
                 }
             ),
             "custom_encryption_configs": [
@@ -555,7 +561,7 @@ def test_invalid_http_options(http_options):
 )
 @pytest.mark.happy_path
 def test_valid_incrypto(params):
-    InCrypto.when.called_with(**params).should_not.throw(Exception)
+    InCryptoModel.when.called_with(**params).should_not.throw(Exception)
 
 
 @pytest.mark.parametrize(
@@ -574,7 +580,7 @@ def test_valid_incrypto(params):
 )
 @pytest.mark.happy_path
 def test_invalid_secret_key_accessor_param_for_incrypto(secret_key_accessor):
-    InCrypto.when.called_with(**{"secret_key_accessor": secret_key_accessor}).should.throw(ValidationError)
+    InCryptoModel.when.called_with(**{"secret_key_accessor": secret_key_accessor}).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize(
@@ -599,7 +605,7 @@ def test_invalid_secret_key_accessor_param_for_incrypto(secret_key_accessor):
 )
 @pytest.mark.error_path
 def test_invalid_custom_encryption_configs_param_for_incrypto(custom_encryption_configs):
-    InCrypto.when.called_with(
+    InCryptoModel.when.called_with(
         **{
             "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
             "custom_encryption_configs": custom_encryption_configs,
@@ -609,7 +615,7 @@ def test_invalid_custom_encryption_configs_param_for_incrypto(custom_encryption_
 
 @pytest.mark.error_path
 def test_invalid_params_for_incrypto():
-    InCrypto.when.called_with(
+    InCryptoModel.when.called_with(
         **{
             "secret_key_accessor": None,
             "custom_encryption_configs": [
@@ -630,7 +636,7 @@ def test_no_suitable_enc_key_for_custom_encryption_for_incrypto():
     def enc(input, key, key_version):
         raise Exception("Unsupported key")
 
-    InCrypto.when.called_with(
+    InCryptoModel.when.called_with(
         **{
             "secret_key_accessor": secret_accessor,
             "custom_encryption_configs": [
@@ -647,7 +653,7 @@ def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
     def dec(input, key, key_version):
         raise Exception("Unsupported key")
 
-    InCrypto.when.called_with(
+    InCryptoModel.when.called_with(
         **{
             "secret_key_accessor": secret_accessor,
             "custom_encryption_configs": [
@@ -761,11 +767,13 @@ def test_invalid_records_non_hashed_for_batch(records):
     "keys_data",
     [
         {"currentVersion": 1, "secrets": [{"secret": "password1", "version": 1}]},
+        {"currentVersion": 1, "secrets": [{"secret": b"password1", "version": 1}]},
         {
             "currentVersion": 1,
             "secrets": [
                 {"secret": "password1", "version": 1, "isKey": False},
-                {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
+                {"secret": InCrypto.b_to_base64(b"12345678901234567890123456789012"), "version": 2, "isKey": True},
+                {"secret": b"12345678901234567890123456789012", "version": 3, "isKey": True},
             ],
         },
         {
@@ -781,12 +789,20 @@ def test_valid_secrets_data(keys_data):
 
     assert item.currentVersion == keys_data["currentVersion"]
     for i, secret_data in enumerate(keys_data["secrets"]):
-        for k in ["secret", "version"]:
-            if k in secret_data:
-                assert secret_data[k] == item.secrets[i][k]
-        if "isKey" in secret_data:
+        assert secret_data["version"] == item.secrets[i]["version"]
+        if secret_data.get("isKey", False):
+            secret_bytes = (
+                InCrypto.base64_to_b(secret_data["secret"])
+                if isinstance(secret_data["secret"], str)
+                else secret_data["secret"]
+            )
             assert secret_data["isKey"] == item.secrets[i]["isKey"]
+            assert secret_bytes == item.secrets[i]["secret"]
         else:
+            secret_bytes = (
+                secret_data["secret"].encode() if isinstance(secret_data["secret"], str) else secret_data["secret"]
+            )
+            assert secret_bytes == item.secrets[i]["secret"]
             assert item.secrets[i]["isKey"] is False
 
 
@@ -808,6 +824,7 @@ def test_valid_secrets_data(keys_data):
         {"currentVersion": 1, "secrets": [{"secret": "password", "version": -1}]},
         {"currentVersion": -1, "secrets": [{"secret": "password", "version": 1}]},
         {"currentVersion": 1, "secrets": [{"secret": "short key", "version": 1, "isKey": True}]},
+        {"currentVersion": 1, "secrets": [{"secret": b"short key", "version": 1, "isKey": True}]},
         {
             "currentVersion": 1,
             "secrets": [{"secret": "password", "version": 1, "isKey": True, "isForCustomEncryption": True}],
@@ -835,7 +852,10 @@ def test_invalid_secrets_data_current_version_not_found(keys_data):
     [
         {
             "currentVersion": 1,
-            "secrets": [{"secret": "12345678901234567890123456789012", "version": 1, "isKey": True}],
+            "secrets": [
+                {"secret": InCrypto.b_to_base64(b"12345678901234567890123456789012"), "version": 1, "isKey": True},
+                {"secret": b"12345678901234567890123456789012", "version": 2, "isKey": True},
+            ],
         },
         {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]},
     ],
@@ -846,18 +866,31 @@ def test_valid_secrets_data_for_default_encryption(keys_data):
 
     assert item.currentVersion == keys_data["currentVersion"]
     for i, secret_data in enumerate(keys_data["secrets"]):
-        for k in ["secret", "version"]:
-            if k in secret_data:
-                assert secret_data[k] == item.secrets[i][k]
-        if "isKey" in secret_data:
+        assert secret_data["version"] == item.secrets[i]["version"]
+        if secret_data.get("isKey", False):
+            secret_bytes = (
+                InCrypto.base64_to_b(secret_data["secret"])
+                if isinstance(secret_data["secret"], str)
+                else secret_data["secret"]
+            )
             assert secret_data["isKey"] == item.secrets[i]["isKey"]
+            assert secret_bytes == item.secrets[i]["secret"]
         else:
+            secret_bytes = (
+                secret_data["secret"].encode() if isinstance(secret_data["secret"], str) else secret_data["secret"]
+            )
+            assert secret_bytes == item.secrets[i]["secret"]
             assert item.secrets[i]["isKey"] is False
 
 
 @pytest.mark.parametrize(
     "keys_data",
-    [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1, "isForCustomEncryption": True}]}],
+    [
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": InCrypto.str_to_base64("password1"), "version": 1, "isForCustomEncryption": True}],
+        }
+    ],
 )
 @pytest.mark.error_path
 def test_invalid_secrets_data_for_default_encryption(keys_data):
@@ -868,7 +901,16 @@ def test_invalid_secrets_data_for_default_encryption(keys_data):
 
 @pytest.mark.parametrize(
     "keys_data",
-    [{"currentVersion": 1, "secrets": [{"secret": "password1", "version": 1, "isForCustomEncryption": True}]}],
+    [
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": InCrypto.str_to_base64("password1"), "version": 1, "isForCustomEncryption": True}],
+        },
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": b"password1", "version": 1, "isForCustomEncryption": True}],
+        },
+    ],
 )
 @pytest.mark.error_path
 def test_valid_secrets_data_for_custom_encryption(keys_data):
@@ -876,24 +918,25 @@ def test_valid_secrets_data_for_custom_encryption(keys_data):
 
     assert item.currentVersion == keys_data["currentVersion"]
     for i, secret_data in enumerate(keys_data["secrets"]):
-        for k in ["secret", "version"]:
-            if k in secret_data:
-                assert secret_data[k] == item.secrets[i][k]
-        if "isKey" in secret_data:
-            assert secret_data["isKey"] == item.secrets[i]["isKey"]
-        else:
-            assert item.secrets[i]["isKey"] is False
+        assert secret_data["version"] == item.secrets[i]["version"]
+        secret_bytes = (
+            InCrypto.base64_to_b(secret_data["secret"])
+            if isinstance(secret_data["secret"], str)
+            else secret_data["secret"]
+        )
+        assert secret_bytes == item.secrets[i]["secret"]
 
 
 @pytest.mark.parametrize(
     "keys_data",
-    [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}],
+    [
+        {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]},
+        {"currentVersion": 1, "secrets": [{"secret": "invalid-b64-key", "version": 1, "isForCustomEncryption": True}]},
+    ],
 )
 @pytest.mark.error_path
 def test_invalid_secrets_data_for_custom_encryption(keys_data):
-    SecretsDataForCustomEncryption.when.called_with(**keys_data).should.have.raised(
-        ValidationError, "custom encryption keys not provided when using custom encryption"
-    )
+    SecretsDataForCustomEncryption.when.called_with(**keys_data).should.have.raised(ValidationError)
 
 
 @pytest.mark.happy_path

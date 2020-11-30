@@ -1,10 +1,11 @@
+from typing import Union
 from pydantic import BaseModel, conlist, conint, StrictBool, StrictStr, validator
 
 
 class Secret(BaseModel):
     isKey: StrictBool = False
     isForCustomEncryption: StrictBool = False
-    secret: StrictStr
+    secret: Union[StrictStr, bytes]
     version: conint(strict=True, ge=0)
 
     @validator("isForCustomEncryption")
@@ -13,13 +14,24 @@ class Secret(BaseModel):
             raise ValueError("secret can either be 'isKey' or 'isForCustomEncryption', not both")
         return value
 
-    @validator("secret")
+    @validator("secret", pre=True)
     def validate_secret_length(cls, value, values):
         from ..incountry_crypto import InCrypto
 
+        if not isinstance(value, (str, bytes)):
+            raise ValueError("should be bytes or base64-encoded string")
+
+        if isinstance(value, str) and (values.get("isKey", False) or values.get("isForCustomEncryption", False)):
+            try:
+                value = InCrypto.base64_to_b(value)
+            except Exception:
+                raise ValueError("should be base64-encoded string")
+        elif isinstance(value, str):
+            value = value.encode("utf-8")
+
         if values.get("isKey", False) and len(value) != InCrypto.KEY_LENGTH:
             raise ValueError(
-                f"wrong default key length. Should be {InCrypto.KEY_LENGTH}-characters 'utf8' encoded string. "
+                f"wrong default key length. Should be {InCrypto.KEY_LENGTH}-byte-length 'base64' encoded string. "
                 f"If it's a custom key, please provide 'isForCustomEncryption' param"
             )
 
