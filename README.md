@@ -49,7 +49,7 @@ The `client_id`, `client_secret`,  and `environment_id` variables can be fetched
 
 The `endpoint` variable defines API URL and is used to override the default one.
 
-You can disable the encryption (not recommended). Set the `encrypt` property to `false` if you want to disable it. Avoid using it when using for production data.
+You can disable the encryption (not recommended). Set the `encrypt` property to `false` if you want to disable it. Avoid disabling it when working with production data.
 
 The `options` variable allows you to tweak some SDK configurations
 ```python
@@ -540,7 +540,7 @@ Note:
 ---
 
 The `add_attachment` method allows you to add or replace attachments.
-File data can be provided either as `BynaryIO` object or `string` with a path to the file in the file system.
+File data can be provided either as `BinaryIO` object or `string` with a path to the file in the file system.
 
 ```python
 def add_attachment(
