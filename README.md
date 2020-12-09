@@ -118,8 +118,6 @@ storage = Storage(
 
 The `secret_key_accessor` variable is used to pass a key or secret used for data encryption.
 
-Note: even though SDK uses PBKDF2 to generate a cryptographically strong encryption key, you must ensure that you provide a secret/password which follows the modern security best practices and standards.
-
 The `SecretKeyAccessor` class constructor allows you to pass a function that should return either a string representing your secret or a dictionary (we call it `secrets_data` object):
 
 ```python
@@ -133,6 +131,8 @@ The `SecretKeyAccessor` class constructor allows you to pass a function that sho
   "currentVersion": int,
 }
 ```
+
+Note: even though SDK uses PBKDF2 to generate a cryptographically strong encryption key, you must ensure that you provide a secret/password which follows the modern security best practices and standards.
 
 The `secrets_data` variable allows you to specify multiple keys/secrets which SDK will use for data decryption based on the version of the key or secret used for encryption. Meanwhile SDK will encrypt data only by using a key (or secret) which matches the `currentVersion` parameter provided in the `secrets_data` object.
 
@@ -494,6 +494,188 @@ delete_result = storage.delete(country="us", record_key="<record_key>")
 delete_result = {
     "success": True
 }
+```
+
+## Attaching files to a record
+
+**NOTE**
+
+Attachments are currently available for InCountry dedicated instances only. Please check your subscription plan for details. This may require specifying your dedicated instance endpoint when configuring NodeJS SDK Storage.
+
+---
+
+
+InCountry Storage allows you to attach files to the previously created records. Attachments' meta information is available through the `attachments` field of `record` dictionary, returned by `read`, `find` and `find_one` methods.
+
+
+```python
+read_result = storage.read(country="us", record_key="<record_key>")
+
+# read_result with attachments would be as follows
+read_result = {
+    "record": {
+        "record_key": "user_1",
+        ...,
+        "attachments": [
+            {
+                "created_at": datetime,
+                "updated_at": datetime,
+                "download_link": "<download_url>",
+                "file_id": "<file_id>",
+                "filename": "<file_name>.<ext>",
+                "hash": "<hash>",
+                "mime_type": "<mime_type>",
+                "size": 1,
+            },
+        ],
+    },
+}
+```
+
+
+### Adding attachments
+
+---
+Note:
+---
+
+The `add_attachment` method allows you to add or replace attachments.
+File data can be provided either as `BynaryIO` object or `string` with a path to the file in the file system.
+
+```python
+def add_attachment(
+    self, country: str, record_key: str, file: Union[BinaryIO, str], mime_type: str = None, upsert: bool = False
+) -> Dict[str, Union[str, int, datetime]]:
+    ...
+
+# The add_attachment returns attachment_meta dictionary
+{
+    "attachment_meta": {
+        "created_at": datetime,
+        "updated_at": datetime,
+        "download_link": "<download_url>",
+        "file_id": "<file_id>",
+        "filename": "<file_name>.<ext>",
+        "hash": "<hash>",
+        "mime_type": "<mime_type>",
+        "size": 1,
+    }
+}
+```
+
+Example of usage:
+```python
+# using file path
+storage.add_attachment(country="us", record_key="<record_key>", file="./README.md")
+
+# using BinaryIO object
+with open("./README.md", "rb") as attachment_file:
+    storage.add_attachment(country="<country>", record_key="<record_key>", file=attachment_file)
+```
+
+### Deleting attachments
+The `delete_attachment` method allows you to delete attachment using its `file_id`.
+
+```python
+def delete_attachment(self, country: str, record_key: str, file_id: str) -> Dict[str, bool]:
+    ...
+
+# the delete_attachment method returns the following dictionary upon success
+{
+    "success": True
+}
+```
+
+Example of usage:
+```python
+delete_result = storage.delete_attachment(country="us", record_key="<record_key>", file_id="<file_id>")
+
+# delete_result would be as follows
+delete_result = {
+    "success": True
+}
+```
+
+### Downloading attachments
+The `get_attachment_file` method allows you to download attachment contents.
+It returns dictionary with readable file body and filename.
+
+```python
+def get_attachment_file(self, country: str, record_key: str, file_id: str) -> Dict[str, Dict]:
+    ...
+
+# the get_attachment_file method returns the following dictionary upon success
+{
+    "attachment_data": {
+        "filename": str,
+        "file": BytesIO,
+    }
+}
+```
+
+Example of usage:
+```python
+get_attachment_res = storage.get_attachment_file(country="us", record_key="<record_key>", file_id="<file_id>")
+attachment_data = get_attachment_res["attachment_data"]
+
+with open(attachment_data["filename"], "wb") as f:
+    f.write(attachment_data["file"].read())
+```
+
+### Working with attachment meta info
+The `get_attachment_meta` method allows you to retrieve attachment's metadata using its `file_id`.
+
+```python
+def get_attachment_meta(self, country: str, record_key: str, file_id: str) -> Dict[str, Union[str, int, datetime]]:
+    ...
+
+# The get_attachment_meta returns attachment_meta dictionary
+{
+    "attachment_meta": {
+        "created_at": datetime,
+        "updated_at": datetime,
+        "download_link": "<download_url>",
+        "file_id": "<file_id>",
+        "filename": "<file_name>.<ext>",
+        "hash": "<hash>",
+        "mime_type": "<mime_type>",
+        "size": 1,
+    }
+}
+```
+
+Example of usage:
+```python
+get_attachment_meta_res = storage.get_attachment_meta(country="us", record_key="<record_key>", file_id="<file_id>")
+```
+
+The `update_attachment_meta` method allows you to update attachment's metadata (MIME type and file name).
+
+```python
+def update_attachment_meta(
+        self, country: str, record_key: str, file_id: str, filename: str = None, mime_type: str = None
+    ) -> Dict[str, Union[str, int, datetime]]:
+    ...
+
+
+# The update_attachment_meta returns attachment_meta dictionary
+{
+    "attachment_meta": {
+        "created_at": datetime,
+        "updated_at": datetime,
+        "download_link": "<download_url>",
+        "file_id": "<file_id>",
+        "filename": "<file_name>.<ext>",
+        "hash": "<hash>",
+        "mime_type": "<mime_type>",
+        "size": 1,
+    }
+}
+```
+
+Example of usage:
+```python
+storage.update_attachment_meta(country="us", record_key="<record_key>", file_id="<file_id>", filename="new_file_name.txt", mime_type="text/plain")
 ```
 
 ## Data Migration and Key Rotation support
