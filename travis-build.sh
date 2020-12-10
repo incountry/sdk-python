@@ -43,7 +43,7 @@ else
 fi
 
 # Bandit security scan
-pip3 install bandit && bandit --ini bandit.ini -r -o bandit.json -f json
+pip3 install bandit && bandit --ini bandit.ini -r ./venv,./tests,setup.py -o bandit.json -f json
 
 if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then # Fetch the PR branch with complete history for Travis PR builds in order to let Sonar properly display annotations in coverage details
   git fetch --no-tags https://github.com/${TRAVIS_PULL_REQUEST_SLUG}.git +refs/heads/${TRAVIS_BRANCH}:refs/remotes/origin/${TRAVIS_BRANCH}

@@ -443,7 +443,7 @@ class Storage:
 
     @validate_model(Country)
     @validate_model(AttachmentRequest)
-    def get_attachment_file(self, country: str, record_key: str, file_id: str):
+    def get_attachment_file(self, country: str, record_key: str, file_id: str) -> Dict[str, Dict]:
         record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
         res = self.http_client.get_attachment_file(country=country, record_key=record_key, file_id=file_id)
         return {
@@ -452,7 +452,7 @@ class Storage:
 
     @validate_model(Country)
     @validate_model(AttachmentRequest)
-    def get_attachment_meta(self, country: str, record_key: str, file_id: str):
+    def get_attachment_meta(self, country: str, record_key: str, file_id: str) -> Dict[str, Union[str, int, datetime]]:
         record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
         return {
             "attachment_meta": self.http_client.get_attachment_meta(
@@ -465,7 +465,7 @@ class Storage:
     @validate_model(AttachmentMetaUpdate)
     def update_attachment_meta(
         self, country: str, record_key: str, file_id: str, filename: str = None, mime_type: str = None
-    ):
+    ) -> Dict[str, Union[str, int, datetime]]:
         record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
         meta = {}
         if filename is not None:
@@ -480,7 +480,7 @@ class Storage:
 
     @validate_model(Country)
     @validate_model(AttachmentRequest)
-    def delete_attachment(self, country: str, record_key: str, file_id: str):
+    def delete_attachment(self, country: str, record_key: str, file_id: str) -> Dict[str, bool]:
         record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
         self.http_client.delete_attachment(country=country, record_key=record_key, file_id=file_id)
         return {"success": True}
