@@ -5,20 +5,33 @@ InCountry Storage SDK
 [![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=incountry_sdk-python&metric=coverage)](https://sonarcloud.io/dashboard?id=incountry_sdk-python)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=incountry_sdk-python&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=incountry_sdk-python)
 
-Installation
------
+## Installation
 To install Python SDK, use `pipenv` (or `pip`), as follows:
 ```
 $ pipenv install incountry
 ```
 
-Countries List
-----
+## Countries List
 To get the full list of supported countries and their codes, please [follow this link](countries.md).
 
-Usage
------
-To access your data in InCountry Platform with Python SDK, you need to create an instance of the `Storage` class.
+
+## Quickstart guide
+To access your data in InCountry Platform by using Python SDK, you need to create an instance of the Storage class. You can retrieve the `client_id`, `client_secret` and `environment_id` variables from your dashboard on InCountry Portal.
+
+```python
+from incountry import Storage, SecretKeyAccessor
+
+storage = Storage(
+    client_id="<client_id>",
+    client_secret="<client_secret>",
+    environment_id="<environment_id>",
+    secret_key_accessor=SecretKeyAccessor(lambda: "<encryption_secret>"),
+)
+```
+
+## Storage Configuration
+Below you can find a full list of possible configuration options for creating a Storage instance.
+
 ```python
 class Storage:
     def __init__(
@@ -41,6 +54,18 @@ class Storage:
 **WARNING**
 
 API Key authorization is being deprecated. The backward compatibility is preserved for the `api_key` parameter but you no longer can access API keys (neither old nor new) from your dashboard.
+
+Below you can find API Key authorization usage example:
+
+```python
+from incountry import Storage, SecretKeyAccessor
+
+storage = Storage(
+    api_key="<api_key>",
+    environment_id="<environment_id>",
+    secret_key_accessor=SecretKeyAccessor(lambda: "<encryption_secret>"),
+)
+```
 
 ---
 
@@ -500,7 +525,7 @@ delete_result = {
 
 **NOTE**
 
-Attachments are currently available for InCountry dedicated instances only. Please check your subscription plan for details. This may require specifying your dedicated instance endpoint when configuring NodeJS SDK Storage.
+Attachments are currently available for InCountry dedicated instances only. Please check your subscription plan for details. This may require specifying your dedicated instance endpoint when configuring Python SDK Storage.
 
 ---
 
