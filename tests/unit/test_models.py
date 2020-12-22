@@ -10,26 +10,62 @@ from incountry.models import (
     CustomEncryptionConfig,
     CustomEncryptionConfigMethodValidation,
     FindFilter,
+    FindFilterNonHashed,
     HttpOptions,
-    InCrypto,
+    InCrypto as InCryptoModel,
     Record,
+    RecordNonHashed,
     RecordFromServer,
     RecordListForBatch,
+    RecordListNonHashedForBatch,
     SecretsData,
     SecretsDataForDefaultEncryption,
     SecretsDataForCustomEncryption,
     SecretKeyAccessor as SecretKeyAccessorModel,
     StorageWithEnv,
+    DEFAULT_HTTP_TIMEOUT_SECONDS,
+    MAX_LEN_NON_HASHED,
+    SEARCH_KEYS,
+    SERVICE_KEYS,
+    INT_KEYS,
 )
-from incountry import SecretKeyAccessor
+from incountry.models.find_filter import SEARCH_KEYS_MAX_LEN, SEARCH_KEYS_MIN_LEN
+from incountry import InCrypto, SecretKeyAccessor
 
-from ..utils import get_test_records, get_invalid_records, get_random_datetime
+from ..utils import (
+    get_test_records,
+    get_invalid_records,
+    get_random_datetime,
+    get_random_str,
+    get_random_int,
+    get_invalid_records_non_hashed,
+)
 
-TEST_RECORDS = get_test_records()
+ALL_KEYS = SEARCH_KEYS + SERVICE_KEYS + INT_KEYS
+
+EMPTY_RECORD = {
+    "record_key": get_random_str(),
+    "key1": "",
+    "key2": "",
+    "key3": "",
+    "key4": "",
+    "key5": "",
+    "key6": "",
+    "key7": "",
+    "key8": "",
+    "key9": "",
+    "key10": "",
+    "service_key1": "",
+    "service_key2": "",
+    "profile_key": "",
+}
+
+TEST_RECORDS = get_test_records() + [EMPTY_RECORD]
 
 INVALID_RECORDS = get_invalid_records()
 
 INVALID_RECORDS = INVALID_RECORDS + [{**INVALID_RECORDS[-1], "version": "version"}]
+
 
 INVALID_RECORDS_FOR_BATCH = [
     [],
@@ -83,7 +119,8 @@ def clear_envs():
 
 
 @pytest.mark.parametrize(
-    "country", ["us", "US", "uS", "Us"],
+    "country",
+    ["us", "US", "uS", "Us"],
 )
 @pytest.mark.happy_path
 def test_valid_country(country):
@@ -93,7 +130,8 @@ def test_valid_country(country):
 
 
 @pytest.mark.parametrize(
-    "country", ["usa", 0, 1, True, False, "", "u", [], {}, ()],
+    "country",
+    ["usa", 0, 1, True, False, "", "u", [], {}, ()],
 )
 @pytest.mark.error_path
 def test_invalid_country(country):
@@ -116,12 +154,30 @@ def test_valid_custom_enc_config(config):
 @pytest.mark.parametrize(
     "config, error_text",
     [
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": True}, "is not callable",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": True}, "is not callable",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": 1}, "str type expected",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": 1}, "value is not a valid boolean",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": lambda text, key, key_version: "text"}, "Invalid signature",),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": lambda text, key, key_version: "text"}, "Invalid signature",),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": True},
+            "is not callable",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": True},
+            "is not callable",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "version": 1},
+            "str type expected",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "isCurrent": 1},
+            "value is not a valid boolean",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "encrypt": lambda text, key, key_version: "text"},
+            "Invalid signature",
+        ),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "decrypt": lambda text, key, key_version: "text"},
+            "Invalid signature",
+        ),
     ],
 )
 @pytest.mark.error_path
@@ -152,7 +208,10 @@ def test_valid_custom_enc_config_method_validation(config):
     "config, error_text",
     [
         ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": 1, "keyVersion": 1}, "value is not valid bytes"),
-        ({**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": "password", "keyVersion": "1"}, "value is not a valid integer",),
+        (
+            {**VALID_CUSTOM_ENCRYPTION_CONFIG, "key": "password", "keyVersion": "1"},
+            "value is not a valid integer",
+        ),
         (
             {
                 **VALID_CUSTOM_ENCRYPTION_CONFIG,
@@ -205,45 +264,74 @@ def test_invalid_custom_enc_config_method_validation(config, error_text):
     CustomEncryptionConfigMethodValidation.when.called_with(**config).should.throw(ValidationError, error_text)
 
 
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.happy_path
-def test_default_find_filter():
-    item = FindFilter()
+def test_default_find_filter(model):
+    item = model()
 
-    assert item.limit == FindFilter.getFindLimit()
+    assert item.limit == model.getFindLimit()
     assert item.offset == 0
 
 
 @pytest.mark.parametrize(
-    "filter", [{"limit": 20, "offset": 20}],
+    "filter",
+    [{"limit": 20, "offset": 20}],
 )
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.happy_path
-def test_valid_limit_offset_find_filter(filter):
-    item = FindFilter(limit=filter["limit"], offset=filter["offset"])
+def test_valid_limit_offset_find_filter(filter, model):
+    item = model(limit=filter["limit"], offset=filter["offset"])
 
     assert item.limit == filter["limit"]
     assert item.offset == filter["offset"]
 
 
-@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key"])
+@pytest.mark.parametrize("filter_key", SERVICE_KEYS + SEARCH_KEYS)
 @pytest.mark.parametrize(
     "filter",
     [
         "single_value",
+        "x" * MAX_LEN_NON_HASHED,
         ["list_value_1", "list_value_2", "list_value_3"],
+        ["x" * MAX_LEN_NON_HASHED, "y" * MAX_LEN_NON_HASHED, "z" * MAX_LEN_NON_HASHED],
         {"$not": "not_single_value"},
+        {"$not": "x" * MAX_LEN_NON_HASHED},
         {"$not": ["list_not_value_1", "list_not_value_2", "list_not_value_3"]},
+        {"$not": ["x" * MAX_LEN_NON_HASHED, "y" * MAX_LEN_NON_HASHED, "z" * MAX_LEN_NON_HASHED]},
     ],
 )
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.happy_path
-def test_valid_str_filters_find_filter(filter_key, filter):
+def test_valid_str_filters_find_filter(filter_key, filter, model):
     kwargs = {}
     kwargs[filter_key] = filter
-    item = FindFilter(**kwargs)
+    item = model(**kwargs)
 
     assert getattr(item, filter_key) == filter
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
+@pytest.mark.parametrize(
+    "filter",
+    [
+        "x" * SEARCH_KEYS_MIN_LEN,
+        "x" * SEARCH_KEYS_MAX_LEN,
+    ],
+)
+@pytest.mark.parametrize("supplementary_key", SERVICE_KEYS + INT_KEYS)
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
+@pytest.mark.happy_path
+def test_valid_search_keys_filters_find_filter(filter, supplementary_key, model):
+    kwargs = {"search_keys": filter}
+    if supplementary_key in SERVICE_KEYS:
+        kwargs[supplementary_key] = get_random_str()
+    else:
+        kwargs[supplementary_key] = get_random_int()
+    item = model(**kwargs)
+
+    assert getattr(item, "search_keys") == filter
+
+
+@pytest.mark.parametrize("filter_key", INT_KEYS)
 @pytest.mark.parametrize(
     "filter",
     [
@@ -261,91 +349,139 @@ def test_valid_str_filters_find_filter(filter_key, filter):
         {"$gte": 1, "$lte": 1},
     ],
 )
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.happy_path
-def test_valid_int_filters_find_filter(filter_key, filter):
+def test_valid_int_filters_find_filter(filter_key, filter, model):
     kwargs = {}
     kwargs[filter_key] = filter
-    item = FindFilter(**kwargs)
+    item = model(**kwargs)
 
     assert getattr(item, filter_key) == filter
 
 
-@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key"])
+@pytest.mark.parametrize("filter_key", SERVICE_KEYS + SEARCH_KEYS)
 @pytest.mark.parametrize("values", [[0, 1, [], {}, (), False, True]])
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path
-def test_invalid_str_filters_find_filter(filter_key, values):
+def test_invalid_str_filters_find_filter(filter_key, values, model):
     kwargs = {}
     kwargs[filter_key] = values
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
     kwargs = {}
     kwargs[filter_key] = {"$not": values}
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
     for value in values:
         kwargs = {}
         kwargs[filter_key] = value
-        FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+        model.when.called_with(**kwargs).should.throw(ValidationError)
 
         kwargs = {}
         kwargs[filter_key] = {"$not": value}
-        FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+        model.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
+@pytest.mark.parametrize("filter_key", INT_KEYS)
 @pytest.mark.parametrize("values", [["text", "", [], {}, (), False, True]])
 @pytest.mark.parametrize("operator", ["$not", "$gt", "$gte", "$lt", "$lte"])
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path
-def test_invalid_int_filters_find_filter(filter_key, values, operator):
+def test_invalid_int_filters_find_filter(filter_key, values, operator, model):
     kwargs = {}
     kwargs[filter_key] = values
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
     kwargs = {}
     kwargs[filter_key] = {}
     kwargs[filter_key][operator] = values
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
     for value in values:
         kwargs = {}
         kwargs[filter_key] = value
-        FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+        model.when.called_with(**kwargs).should.throw(ValidationError)
 
         kwargs = {}
         kwargs[filter_key] = {}
         kwargs[filter_key][operator] = values
-        FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+        model.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["record_key", "key2", "key3", "profile_key", "version", "range_key1"])
+@pytest.mark.parametrize("filter_key", ALL_KEYS + ["version"])
 @pytest.mark.parametrize("operator", ["gt", "gte", "lt", "lte", "not", "$no", "$", "", False, True, 0, 1, ()])
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path
-def test_invalid_operators_find_filter(filter_key, operator):
+def test_invalid_operators_find_filter(filter_key, operator, model):
     kwargs = {}
     kwargs[filter_key] = {}
     kwargs[filter_key][operator] = "value"
-    FindFilter.when.called_with(**kwargs).should.throw(ValidationError)
+    model.when.called_with(**kwargs).should.throw(ValidationError)
 
 
-@pytest.mark.parametrize("filter_key", ["version", "range_key1"])
+@pytest.mark.parametrize("filter_key", INT_KEYS)
 @pytest.mark.parametrize("operators", [["$gt", "$gte"], ["$lt", "$lte"]])
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
 @pytest.mark.error_path
-def test_invalid_int_operators_combinations_find_filter(filter_key, operators):
+def test_invalid_int_operators_combinations_find_filter(filter_key, operators, model):
     kwargs = {}
     kwargs[filter_key] = {}
     for operator in operators:
         kwargs[filter_key][operator] = 1
-    FindFilter.when.called_with(**kwargs).should.throw(
+    model.when.called_with(**kwargs).should.throw(
         ValidationError, "Must contain not more than one key from the following group"
     )
 
 
+@pytest.mark.parametrize("filter_key", SEARCH_KEYS)
 @pytest.mark.parametrize(
-    "http_options", [{}, {"timeout": 1}, {"timeout": 100}],
+    "value",
+    [
+        "x" * (MAX_LEN_NON_HASHED + 1),
+        ["x" * (MAX_LEN_NON_HASHED + 1), "y" * (MAX_LEN_NON_HASHED + 1)],
+        {"$not": "x" * (MAX_LEN_NON_HASHED + 1)},
+        {"$not": ["x" * (MAX_LEN_NON_HASHED + 1), "y" * (MAX_LEN_NON_HASHED + 1)]},
+    ],
+)
+@pytest.mark.error_path
+def test_invalid_non_hashed_find_filter(filter_key, value):
+    FindFilterNonHashed.when.called_with(**{filter_key: value}).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "value", [0, 1, [], {}, (), False, True, "x" * (SEARCH_KEYS_MIN_LEN - 1), "x" * (SEARCH_KEYS_MAX_LEN + 1)]
+)
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
+@pytest.mark.error_path
+def test_invalid_search_keys_find_filter(value, model):
+    kwargs = {"search_keys": value}
+    model.when.called_with(**kwargs).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize("value", ["123"])
+@pytest.mark.parametrize("incompatible_key", SEARCH_KEYS)
+@pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
+@pytest.mark.error_path
+def test_invalid_search_keys_with_keys_find_filter(value, incompatible_key, model):
+    kwargs = {"search_keys": value}
+    kwargs[incompatible_key] = get_random_str()
+    model.when.called_with(**kwargs).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize(
+    "http_options",
+    [{}, {"timeout": 1}, {"timeout": 100}],
 )
 @pytest.mark.error_path
 def test_valid_http_options(http_options):
     HttpOptions.when.called_with(**http_options).should_not.throw(ValidationError)
+
+    item = HttpOptions(**http_options)
+
+    if http_options.get("timeout"):
+        assert item.timeout == http_options["timeout"]
+    else:
+        assert item.timeout == DEFAULT_HTTP_TIMEOUT_SECONDS
 
 
 @pytest.mark.parametrize(
@@ -380,7 +516,13 @@ def test_invalid_http_options(http_options):
             "secret_key_accessor": SecretKeyAccessor(
                 lambda: {
                     "currentVersion": 1,
-                    "secrets": [{"secret": "12345678901234567890123456789012", "version": 1, "isKey": True}],
+                    "secrets": [
+                        {
+                            "secret": InCrypto.b_to_base64(b"12345678901234567890123456789012"),
+                            "version": 1,
+                            "isKey": True,
+                        }
+                    ],
                 }
             )
         },
@@ -388,7 +530,7 @@ def test_invalid_http_options(http_options):
             "secret_key_accessor": SecretKeyAccessor(
                 lambda: {
                     "currentVersion": 1,
-                    "secrets": [{"secret": "123", "version": 1, "isForCustomEncryption": True}],
+                    "secrets": [{"secret": InCrypto.str_to_base64("123"), "version": 1, "isForCustomEncryption": True}],
                 }
             ),
             "custom_encryption_configs": [
@@ -404,7 +546,7 @@ def test_invalid_http_options(http_options):
             "secret_key_accessor": SecretKeyAccessor(
                 lambda: {
                     "currentVersion": 1,
-                    "secrets": [{"secret": "123", "version": 1, "isForCustomEncryption": True}],
+                    "secrets": [{"secret": InCrypto.str_to_base64("123"), "version": 1, "isForCustomEncryption": True}],
                 }
             ),
             "custom_encryption_configs": [
@@ -419,7 +561,7 @@ def test_invalid_http_options(http_options):
 )
 @pytest.mark.happy_path
 def test_valid_incrypto(params):
-    InCrypto.when.called_with(**params).should_not.throw(Exception)
+    InCryptoModel.when.called_with(**params).should_not.throw(Exception)
 
 
 @pytest.mark.parametrize(
@@ -438,7 +580,7 @@ def test_valid_incrypto(params):
 )
 @pytest.mark.happy_path
 def test_invalid_secret_key_accessor_param_for_incrypto(secret_key_accessor):
-    InCrypto.when.called_with(**{"secret_key_accessor": secret_key_accessor}).should.throw(ValidationError)
+    InCryptoModel.when.called_with(**{"secret_key_accessor": secret_key_accessor}).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize(
@@ -463,7 +605,7 @@ def test_invalid_secret_key_accessor_param_for_incrypto(secret_key_accessor):
 )
 @pytest.mark.error_path
 def test_invalid_custom_encryption_configs_param_for_incrypto(custom_encryption_configs):
-    InCrypto.when.called_with(
+    InCryptoModel.when.called_with(
         **{
             "secret_key_accessor": SecretKeyAccessor(lambda: "password"),
             "custom_encryption_configs": custom_encryption_configs,
@@ -473,7 +615,7 @@ def test_invalid_custom_encryption_configs_param_for_incrypto(custom_encryption_
 
 @pytest.mark.error_path
 def test_invalid_params_for_incrypto():
-    InCrypto.when.called_with(
+    InCryptoModel.when.called_with(
         **{
             "secret_key_accessor": None,
             "custom_encryption_configs": [
@@ -494,7 +636,7 @@ def test_no_suitable_enc_key_for_custom_encryption_for_incrypto():
     def enc(input, key, key_version):
         raise Exception("Unsupported key")
 
-    InCrypto.when.called_with(
+    InCryptoModel.when.called_with(
         **{
             "secret_key_accessor": secret_accessor,
             "custom_encryption_configs": [
@@ -511,7 +653,7 @@ def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
     def dec(input, key, key_version):
         raise Exception("Unsupported key")
 
-    InCrypto.when.called_with(
+    InCryptoModel.when.called_with(
         **{
             "secret_key_accessor": secret_accessor,
             "custom_encryption_configs": [
@@ -522,11 +664,13 @@ def test_no_suitable_dec_key_for_custom_encryption_for_incrypto():
 
 
 @pytest.mark.parametrize(
-    "record", TEST_RECORDS,
+    "record",
+    TEST_RECORDS,
 )
+@pytest.mark.parametrize("model", [Record, RecordNonHashed])
 @pytest.mark.happy_path
-def test_valid_record(record):
-    item = Record(**record)
+def test_valid_record(record, model):
+    item = model(**record)
 
     for key, value in record.items():
         assert getattr(item, key) == record[key]
@@ -544,9 +688,10 @@ def test_valid_record(record):
         {**TEST_RECORDS[-1], "created_at": "2020-08-26T14:37:22+00:00", "updated_at": "2020-08-26T14:37:22+00:00"},
     ],
 )
+@pytest.mark.parametrize("model", [Record, RecordNonHashed])
 @pytest.mark.happy_path
-def test_valid_record_with_dates(record):
-    item = Record(**record)
+def test_valid_record_with_dates(record, model):
+    item = model(**record)
 
     assert item.created_at.tzinfo is not None
     assert item.created_at.tzinfo.utcoffset(item.created_at) is not None
@@ -562,9 +707,16 @@ def test_valid_record_with_dates(record):
 
 
 @pytest.mark.parametrize("record", INVALID_RECORDS)
+@pytest.mark.parametrize("model", [Record, RecordNonHashed])
 @pytest.mark.error_path
-def test_invalid_record(record):
-    Record.when.called_with(**record).should.throw(ValidationError)
+def test_invalid_record(record, model):
+    model.when.called_with(**record).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize("record", INVALID_RECORDS + get_invalid_records_non_hashed())
+@pytest.mark.error_path
+def test_invalid_record_non_hashed(record):
+    RecordNonHashed.when.called_with(**record).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize("record", TEST_RECORDS)
@@ -587,30 +739,41 @@ def test_invalid_record_from_server(record, invalid_version):
 
 
 @pytest.mark.happy_path
-def test_valid_records_for_batch():
-    RecordListForBatch.when.called_with(records=TEST_RECORDS).should_not.throw(ValidationError)
+@pytest.mark.parametrize("model", [RecordListForBatch, RecordListNonHashedForBatch])
+def test_valid_records_for_batch(model):
+    model.when.called_with(records=TEST_RECORDS).should_not.throw(ValidationError)
 
 
-@pytest.mark.parametrize("record", INVALID_RECORDS_FOR_BATCH)
+@pytest.mark.parametrize("records", INVALID_RECORDS_FOR_BATCH)
+@pytest.mark.parametrize("model", [RecordListForBatch, RecordListNonHashedForBatch])
 @pytest.mark.error_path
-def test_invalid_records_for_batch(record):
-    RecordListForBatch.when.called_with(records=[record]).should.throw(ValidationError)
+def test_invalid_records_for_batch(records, model):
+    model.when.called_with(records=records).should.throw(ValidationError)
 
 
+@pytest.mark.parametrize("model", [RecordListForBatch, RecordListNonHashedForBatch])
 @pytest.mark.error_path
-def test_invalid_empty_records_for_batch():
-    RecordListForBatch.when.called_with(records=[]).should.throw(ValidationError)
+def test_invalid_empty_records_for_batch(model):
+    model.when.called_with(records=[]).should.throw(ValidationError)
+
+
+@pytest.mark.parametrize("records", INVALID_RECORDS_FOR_BATCH + [INVALID_RECORDS + get_invalid_records_non_hashed()])
+@pytest.mark.error_path
+def test_invalid_records_non_hashed_for_batch(records):
+    RecordListNonHashedForBatch.when.called_with(records=records).should.throw(ValidationError)
 
 
 @pytest.mark.parametrize(
     "keys_data",
     [
         {"currentVersion": 1, "secrets": [{"secret": "password1", "version": 1}]},
+        {"currentVersion": 1, "secrets": [{"secret": b"password1", "version": 1}]},
         {
             "currentVersion": 1,
             "secrets": [
                 {"secret": "password1", "version": 1, "isKey": False},
-                {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
+                {"secret": InCrypto.b_to_base64(b"12345678901234567890123456789012"), "version": 2, "isKey": True},
+                {"secret": b"12345678901234567890123456789012", "version": 3, "isKey": True},
             ],
         },
         {
@@ -626,12 +789,20 @@ def test_valid_secrets_data(keys_data):
 
     assert item.currentVersion == keys_data["currentVersion"]
     for i, secret_data in enumerate(keys_data["secrets"]):
-        for k in ["secret", "version"]:
-            if k in secret_data:
-                assert secret_data[k] == item.secrets[i][k]
-        if "isKey" in secret_data:
+        assert secret_data["version"] == item.secrets[i]["version"]
+        if secret_data.get("isKey", False):
+            secret_bytes = (
+                InCrypto.base64_to_b(secret_data["secret"])
+                if isinstance(secret_data["secret"], str)
+                else secret_data["secret"]
+            )
             assert secret_data["isKey"] == item.secrets[i]["isKey"]
+            assert secret_bytes == item.secrets[i]["secret"]
         else:
+            secret_bytes = (
+                secret_data["secret"].encode() if isinstance(secret_data["secret"], str) else secret_data["secret"]
+            )
+            assert secret_bytes == item.secrets[i]["secret"]
             assert item.secrets[i]["isKey"] is False
 
 
@@ -653,6 +824,7 @@ def test_valid_secrets_data(keys_data):
         {"currentVersion": 1, "secrets": [{"secret": "password", "version": -1}]},
         {"currentVersion": -1, "secrets": [{"secret": "password", "version": 1}]},
         {"currentVersion": 1, "secrets": [{"secret": "short key", "version": 1, "isKey": True}]},
+        {"currentVersion": 1, "secrets": [{"secret": b"short key", "version": 1, "isKey": True}]},
         {
             "currentVersion": 1,
             "secrets": [{"secret": "password", "version": 1, "isKey": True, "isForCustomEncryption": True}],
@@ -665,7 +837,8 @@ def test_invalid_secrets_data(keys_data):
 
 
 @pytest.mark.parametrize(
-    "keys_data", [{"currentVersion": 2, "secrets": [{"secret": "password", "version": 1}]}],
+    "keys_data",
+    [{"currentVersion": 2, "secrets": [{"secret": "password", "version": 1}]}],
 )
 @pytest.mark.error_path
 def test_invalid_secrets_data_current_version_not_found(keys_data):
@@ -679,7 +852,10 @@ def test_invalid_secrets_data_current_version_not_found(keys_data):
     [
         {
             "currentVersion": 1,
-            "secrets": [{"secret": "12345678901234567890123456789012", "version": 1, "isKey": True}],
+            "secrets": [
+                {"secret": InCrypto.b_to_base64(b"12345678901234567890123456789012"), "version": 1, "isKey": True},
+                {"secret": b"12345678901234567890123456789012", "version": 2, "isKey": True},
+            ],
         },
         {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]},
     ],
@@ -690,18 +866,31 @@ def test_valid_secrets_data_for_default_encryption(keys_data):
 
     assert item.currentVersion == keys_data["currentVersion"]
     for i, secret_data in enumerate(keys_data["secrets"]):
-        for k in ["secret", "version"]:
-            if k in secret_data:
-                assert secret_data[k] == item.secrets[i][k]
-        if "isKey" in secret_data:
+        assert secret_data["version"] == item.secrets[i]["version"]
+        if secret_data.get("isKey", False):
+            secret_bytes = (
+                InCrypto.base64_to_b(secret_data["secret"])
+                if isinstance(secret_data["secret"], str)
+                else secret_data["secret"]
+            )
             assert secret_data["isKey"] == item.secrets[i]["isKey"]
+            assert secret_bytes == item.secrets[i]["secret"]
         else:
+            secret_bytes = (
+                secret_data["secret"].encode() if isinstance(secret_data["secret"], str) else secret_data["secret"]
+            )
+            assert secret_bytes == item.secrets[i]["secret"]
             assert item.secrets[i]["isKey"] is False
 
 
 @pytest.mark.parametrize(
     "keys_data",
-    [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1, "isForCustomEncryption": True}]}],
+    [
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": InCrypto.str_to_base64("password1"), "version": 1, "isForCustomEncryption": True}],
+        }
+    ],
 )
 @pytest.mark.error_path
 def test_invalid_secrets_data_for_default_encryption(keys_data):
@@ -712,7 +901,16 @@ def test_invalid_secrets_data_for_default_encryption(keys_data):
 
 @pytest.mark.parametrize(
     "keys_data",
-    [{"currentVersion": 1, "secrets": [{"secret": "password1", "version": 1, "isForCustomEncryption": True}]}],
+    [
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": InCrypto.str_to_base64("password1"), "version": 1, "isForCustomEncryption": True}],
+        },
+        {
+            "currentVersion": 1,
+            "secrets": [{"secret": b"password1", "version": 1, "isForCustomEncryption": True}],
+        },
+    ],
 )
 @pytest.mark.error_path
 def test_valid_secrets_data_for_custom_encryption(keys_data):
@@ -720,23 +918,25 @@ def test_valid_secrets_data_for_custom_encryption(keys_data):
 
     assert item.currentVersion == keys_data["currentVersion"]
     for i, secret_data in enumerate(keys_data["secrets"]):
-        for k in ["secret", "version"]:
-            if k in secret_data:
-                assert secret_data[k] == item.secrets[i][k]
-        if "isKey" in secret_data:
-            assert secret_data["isKey"] == item.secrets[i]["isKey"]
-        else:
-            assert item.secrets[i]["isKey"] is False
+        assert secret_data["version"] == item.secrets[i]["version"]
+        secret_bytes = (
+            InCrypto.base64_to_b(secret_data["secret"])
+            if isinstance(secret_data["secret"], str)
+            else secret_data["secret"]
+        )
+        assert secret_bytes == item.secrets[i]["secret"]
 
 
 @pytest.mark.parametrize(
-    "keys_data", [{"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]}],
+    "keys_data",
+    [
+        {"currentVersion": 1, "secrets": [{"secret": "password", "version": 1}]},
+        {"currentVersion": 1, "secrets": [{"secret": "invalid-b64-key", "version": 1, "isForCustomEncryption": True}]},
+    ],
 )
 @pytest.mark.error_path
 def test_invalid_secrets_data_for_custom_encryption(keys_data):
-    SecretsDataForCustomEncryption.when.called_with(**keys_data).should.have.raised(
-        ValidationError, "custom encryption keys not provided when using custom encryption"
-    )
+    SecretsDataForCustomEncryption.when.called_with(**keys_data).should.have.raised(ValidationError)
 
 
 @pytest.mark.happy_path
@@ -749,7 +949,8 @@ def text_valid_secret_key_accessor():
 
 
 @pytest.mark.parametrize(
-    "accessor_function", [(), [], {}, 0, 1, "", "password", SecretKeyAccessor],
+    "accessor_function",
+    [(), [], {}, 0, 1, "", "password", SecretKeyAccessor],
 )
 @pytest.mark.error_path
 def text_invalid_secret_key_accessor(accessor_function):
@@ -828,7 +1029,6 @@ def test_valid_options_storage(options):
     "options",
     [
         [],
-        {},
         (),
         "",
         -1,
@@ -838,7 +1038,6 @@ def test_valid_options_storage(options):
         True,
         False,
         {"http_options": []},
-        {"http_options": {}},
         {"http_options": ()},
         {"http_options": ""},
         {"http_options": -1},
@@ -1062,7 +1261,8 @@ def test_invalid_storage(storage_params):
 
 
 @pytest.mark.parametrize(
-    "secret_key_accessor", [{}, [], (), "", "password", 0, 1, StorageWithEnv],
+    "secret_key_accessor",
+    [{}, [], (), "", "password", 0, 1, StorageWithEnv],
 )
 @pytest.mark.error_path
 def test_invalid_secret_key_accessor_param_for_storage(secret_key_accessor):
@@ -1072,7 +1272,8 @@ def test_invalid_secret_key_accessor_param_for_storage(secret_key_accessor):
 
 
 @pytest.mark.parametrize(
-    "endpoint", [{}, [], (), "", "not a url", 0, 1, {"url": "http://api.com"}, ["http://api.com"], ("http://api.com",)],
+    "endpoint",
+    [{}, [], (), "", "not a url", 0, 1, {"url": "http://api.com"}, ["http://api.com"], ("http://api.com",)],
 )
 @pytest.mark.error_path
 def test_invalid_endpoint_param_for_storage(endpoint):
@@ -1080,7 +1281,8 @@ def test_invalid_endpoint_param_for_storage(endpoint):
 
 
 @pytest.mark.parametrize(
-    "endpoint", ["", "not a url", "1", "0"],
+    "endpoint",
+    ["", "not a url", "1", "0"],
 )
 @pytest.mark.error_path
 def test_invalid_env_endpoint_param_for_storage(endpoint):

@@ -18,6 +18,8 @@ from incountry import (
     FindFilter,
     RecordListForBatch,
     get_salted_hash,
+    SEARCH_KEYS,
+    INT_KEYS,
 )
 
 from ..utils import (
@@ -80,18 +82,19 @@ def client():
 @httpretty.activate
 @pytest.mark.parametrize("record", TEST_RECORDS)
 @pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("hash_search_keys", [True, False])
 @pytest.mark.happy_path
-def test_write(client, record, encrypt):
+def test_write(client, record, encrypt, hash_search_keys):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
-    write_res = client(encrypt).write(country=COUNTRY, **record)
+    write_res = client(encrypt, options={"hash_search_keys": hash_search_keys}).write(country=COUNTRY, **record)
     write_res.should.have.key("record")
     assert record.items() <= write_res["record"].items()
 
     received_record = json.loads(httpretty.last_request().body)
 
     for key, value in record.items():
-        if isinstance(value, int):
+        if isinstance(value, int) or (not hash_search_keys and key in SEARCH_KEYS):
             assert received_record[key] == record[key]
         else:
             assert received_record[key] != record[key]
@@ -100,11 +103,12 @@ def test_write(client, record, encrypt):
 @httpretty.activate
 @pytest.mark.parametrize("record", get_test_records(use_last_field_value=True, last_field_value=None)[1:])
 @pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("hash_search_keys", [True, False])
 @pytest.mark.happy_path
-def test_write_with_none_fields(client, record, encrypt):
+def test_write_with_none_fields(client, record, encrypt, hash_search_keys):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
-    write_res = client(encrypt).write(country=COUNTRY, **record)
+    write_res = client(encrypt, options={"hash_search_keys": hash_search_keys}).write(country=COUNTRY, **record)
     write_res.should.have.key("record")
     assert record.items() > write_res["record"].items()
 
@@ -113,7 +117,7 @@ def test_write_with_none_fields(client, record, encrypt):
     for key, value in record.items():
         if value is None and key != "body":
             assert key not in received_record
-        elif isinstance(value, int):
+        elif isinstance(value, int) or (not hash_search_keys and key in SEARCH_KEYS):
             assert received_record[key] == record[key]
         else:
             assert received_record[key] != record[key]
@@ -122,14 +126,24 @@ def test_write_with_none_fields(client, record, encrypt):
 @httpretty.activate
 @pytest.mark.parametrize("record", TEST_RECORDS)
 @pytest.mark.parametrize("encrypt", [True, False])
-@pytest.mark.parametrize("keys_data", [{"currentVersion": 1, "secrets": [{"secret": SECRET_KEY, "version": 1}]}])
+@pytest.mark.parametrize("hash_search_keys", [True, False])
+@pytest.mark.parametrize(
+    "keys_data",
+    [
+        {"currentVersion": 1, "secrets": [{"secret": SECRET_KEY, "version": 1}]},
+        {"currentVersion": 1, "secrets": [{"secret": b"x" * 32, "version": 1, "isKey": True}]},
+        {"currentVersion": 1, "secrets": [{"secret": InCrypto.b_to_base64(b"x" * 32), "version": 1, "isKey": True}]},
+    ],
+)
 @pytest.mark.happy_path
-def test_write_with_keys_data(client, record, encrypt, keys_data):
+def test_write_with_keys_data(client, record, encrypt, hash_search_keys, keys_data):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
     secret_accessor = SecretKeyAccessor(lambda: keys_data)
 
-    write_res = client(encrypt=encrypt, secret_accessor=secret_accessor).write(country=COUNTRY, **record)
+    write_res = client(
+        encrypt=encrypt, options={"hash_search_keys": hash_search_keys}, secret_accessor=secret_accessor
+    ).write(country=COUNTRY, **record)
     write_res.should.have.key("record")
     assert record.items() <= write_res["record"].items()
 
@@ -141,7 +155,7 @@ def test_write_with_keys_data(client, record, encrypt, keys_data):
         assert received_record.get("version") == SecretKeyAccessor.DEFAULT_VERSION
 
     for key, value in record.items():
-        if isinstance(value, int):
+        if isinstance(value, int) or (not hash_search_keys and key in SEARCH_KEYS):
             assert received_record[key] == record[key]
         else:
             assert received_record[key] != record[key]
@@ -149,35 +163,48 @@ def test_write_with_keys_data(client, record, encrypt, keys_data):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "record", [get_randomcase_record()],
+    "record",
+    [get_randomcase_record()],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.parametrize("hash_search_keys", [True, False])
 @pytest.mark.happy_path
-def test_write_normalize_keys_option(client, record, encrypt, normalize):
+def test_write_normalize_keys_option(client, record, encrypt, normalize, hash_search_keys):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, body="OK")
 
-    client(encrypt, options={"normalize_keys": normalize}).write(country=COUNTRY, **record)
+    client(encrypt, options={"normalize_keys": normalize, "hash_search_keys": hash_search_keys}).write(
+        country=COUNTRY, **record
+    )
     received_record = json.loads(httpretty.last_request().body)
 
     for key, value in record.items():
         if key in ["body", "precommit_body"] or isinstance(value, int):
             continue
         if normalize:
-            assert received_record[key] != get_key_hash(record[key])
-            assert received_record[key] == get_key_hash(record[key].lower())
+            if key in SEARCH_KEYS and not hash_search_keys:
+                assert received_record[key] == record[key].lower()
+            else:
+                assert received_record[key] != get_key_hash(record[key])
+                assert received_record[key] == get_key_hash(record[key].lower())
         else:
-            assert received_record[key] == get_key_hash(record[key])
+            if key in SEARCH_KEYS and not hash_search_keys:
+                assert received_record[key] == record[key]
+            else:
+                assert received_record[key] == get_key_hash(record[key])
 
 
 @httpretty.activate
 @pytest.mark.parametrize("records", [TEST_RECORDS])
 @pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("hash_search_keys", [True, False])
 @pytest.mark.happy_path
-def test_batch_write(client, records, encrypt):
+def test_batch_write(client, records, encrypt, hash_search_keys):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
 
-    batch_res = client(encrypt).batch_write(country=COUNTRY, records=records)
+    batch_res = client(encrypt, options={"hash_search_keys": hash_search_keys}).batch_write(
+        country=COUNTRY, records=records
+    )
     batch_res.should.have.key("records")
     batch_res["records"].should.be.equal(RecordListForBatch(records=records).records)
 
@@ -191,7 +218,7 @@ def test_batch_write(client, records, encrypt):
         )
 
         for key, value in original_record.items():
-            if isinstance(value, int):
+            if isinstance(value, int) or (not hash_search_keys and key in SEARCH_KEYS):
                 assert received_record[key] == original_record[key]
             else:
                 assert received_record[key] != original_record[key]
@@ -199,14 +226,18 @@ def test_batch_write(client, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "records", [get_test_records(use_last_field_value=True, last_field_value=None)[1:]],
+    "records",
+    [get_test_records(use_last_field_value=True, last_field_value=None)[1:]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("hash_search_keys", [True, False])
 @pytest.mark.happy_path
-def test_batch_write_with_nones(client, records, encrypt):
+def test_batch_write_with_nones(client, records, encrypt, hash_search_keys):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
 
-    batch_res = client(encrypt).batch_write(country=COUNTRY, records=records)
+    batch_res = client(encrypt, options={"hash_search_keys": hash_search_keys}).batch_write(
+        country=COUNTRY, records=records
+    )
     batch_res.should.have.key("records")
     batch_res["records"].should.be.equal(RecordListForBatch(records=records).records)
 
@@ -222,7 +253,7 @@ def test_batch_write_with_nones(client, records, encrypt):
         for key, value in original_record.items():
             if value is None and key != "body":
                 assert key not in received_record
-            elif isinstance(value, int):
+            elif isinstance(value, int) or (not hash_search_keys and key in SEARCH_KEYS):
                 assert received_record[key] == original_record[key]
             else:
                 assert received_record[key] != original_record[key]
@@ -230,14 +261,18 @@ def test_batch_write_with_nones(client, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "records", [[get_randomcase_record(), get_randomcase_record()]],
+    "records",
+    [[get_randomcase_record(), get_randomcase_record()]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.parametrize("hash_search_keys", [True, False])
 @pytest.mark.happy_path
-def test_batch_write_normalize_keys_option(client, records, encrypt, normalize):
+def test_batch_write_normalize_keys_option(client, records, encrypt, normalize, hash_search_keys):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/batchWrite", body="OK")
-    client(encrypt, options={"normalize_keys": normalize}).batch_write(country=COUNTRY, records=records)
+    client(encrypt, options={"normalize_keys": normalize, "hash_search_keys": hash_search_keys}).batch_write(
+        country=COUNTRY, records=records
+    )
 
     received_records = json.loads(httpretty.last_request().body)
     received_records.should.have.key("records")
@@ -259,10 +294,16 @@ def test_batch_write_normalize_keys_option(client, records, encrypt, normalize):
             if key in ["body", "precommit_body"] or isinstance(value, int):
                 continue
             if normalize:
-                assert received_record[key] != get_key_hash(original_record[key])
-                assert received_record[key] == get_key_hash(original_record[key].lower())
+                if key in SEARCH_KEYS and not hash_search_keys:
+                    assert received_record[key] == original_record[key].lower()
+                else:
+                    assert received_record[key] != get_key_hash(original_record[key])
+                    assert received_record[key] == get_key_hash(original_record[key].lower())
             else:
-                assert received_record[key] == get_key_hash(original_record[key])
+                if key in SEARCH_KEYS and not hash_search_keys:
+                    assert received_record[key] == original_record[key]
+                else:
+                    assert received_record[key] == get_key_hash(original_record[key])
 
 
 @httpretty.activate
@@ -311,10 +352,12 @@ def test_read_with_dates(client, record, created_at, updated_at, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "record_1", [get_test_records()[-1]],
+    "record_1",
+    [get_test_records()[-1]],
 )
 @pytest.mark.parametrize(
-    "record_2", [get_test_records()[-1]],
+    "record_2",
+    [get_test_records()[-1]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("keys_data_old", [{"currentVersion": 1, "secrets": [{"secret": SECRET_KEY, "version": 1}]}])
@@ -324,7 +367,11 @@ def test_read_with_dates(client, record, created_at, updated_at, encrypt):
         {
             "currentVersion": 2,
             "secrets": [{"secret": SECRET_KEY, "version": 1}, {"secret": SECRET_KEY + "2", "version": 2}],
-        }
+        },
+        {
+            "currentVersion": 2,
+            "secrets": [{"secret": SECRET_KEY, "version": 1}, {"secret": b"x" * 32, "version": 2, "isKey": True}],
+        },
     ],
 )
 @pytest.mark.happy_path
@@ -366,7 +413,8 @@ def test_read_multiple_keys(client, record_1, record_2, encrypt, keys_data_old, 
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "record", [get_randomcase_record()],
+    "record",
+    [get_randomcase_record()],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -436,17 +484,20 @@ def test_delete_normalize_keys_option(client, record_key, encrypt, normalize):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query", get_valid_find_filter_test_options(),
+    "query",
+    get_valid_find_filter_test_options(),
 )
 @pytest.mark.parametrize(
-    "records", [TEST_RECORDS[-2:]],
+    "records",
+    [TEST_RECORDS[-2:]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
+@pytest.mark.parametrize("hash_search_keys", [True, False])
 @pytest.mark.happy_path
-def test_find(client, query, records, encrypt):
+def test_find(client, query, records, encrypt, hash_search_keys):
     enc_data = [
         {
-            **client(encrypt).encrypt_record(dict(x)),
+            **client(encrypt, options={"hash_search_keys": hash_search_keys}).encrypt_record(dict(x)),
             "updated_at": get_random_datetime(),
             "created_at": get_random_datetime(),
         }
@@ -459,16 +510,21 @@ def test_find(client, query, records, encrypt):
         body=json.dumps(get_default_find_response(len(enc_data), enc_data), default=json_converter),
     )
 
-    find_response = client(encrypt).find(country=COUNTRY, **query)
+    find_response = client(encrypt, options={"hash_search_keys": hash_search_keys}).find(country=COUNTRY, **query)
 
-    received_record = json.loads(httpretty.last_request().body)
-    received_record.should.be.a(dict)
-    received_record.should.have.key("filter")
-    received_record.should.have.key("options")
-    received_record["options"].should.equal(
+    received_data = json.loads(httpretty.last_request().body)
+    received_data.should.be.a(dict)
+    received_data.should.have.key("filter")
+    received_data.should.have.key("options")
+    received_data["options"].should.equal(
         {"limit": query.get("limit", FindFilter.getFindLimit()), "offset": query.get("offset", 0)}
     )
-    received_record["filter"].keys().should.equal(query.keys())
+    received_data["filter"].keys().should.equal(query.keys())
+    for key in received_data["filter"]:
+        if (hash_search_keys or key not in SEARCH_KEYS) and key not in INT_KEYS:
+            assert received_data["filter"][key] != query[key]
+        else:
+            assert received_data["filter"][key] == query[key]
 
     find_response.should.be.a(dict)
 
@@ -484,10 +540,12 @@ def test_find(client, query, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query", [{"key1": "key1"}],
+    "query",
+    [{"key1": "key1"}],
 )
 @pytest.mark.parametrize(
-    "records", [TEST_RECORDS[-2:]],
+    "records",
+    [TEST_RECORDS[-2:]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -522,7 +580,8 @@ def test_find_filters_improper_or_none_keys(client, query, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query,records", [({"record_key": "key1"}, TEST_RECORDS[-2:])],
+    "query,records",
+    [({"record_key": "key1"}, TEST_RECORDS[-2:])],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -561,7 +620,8 @@ def test_find_enc_and_non_enc(client, query, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query,records", [({"record_key": "key1"}, TEST_RECORDS)],
+    "query,records",
+    [({"record_key": "key1"}, TEST_RECORDS)],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
@@ -595,10 +655,12 @@ def test_find_incorrect_records(client, query, records, encrypt):
 
 @httpretty.activate
 @pytest.mark.parametrize(
-    "query", [get_randomcase_record(), get_randomcase_record(use_list_values=True)],
+    "query",
+    [get_randomcase_record(), get_randomcase_record(use_list_values=True)],
 )
 @pytest.mark.parametrize(
-    "records", [TEST_RECORDS[-2:]],
+    "records",
+    [TEST_RECORDS[-2:]],
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.parametrize("normalize", [True, False])
@@ -1014,8 +1076,12 @@ def test_custom_endpoint(client, record, country):
     [
         [
             {
-                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .encrypt(input.encode("utf8"))
+                .decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .decrypt(input.encode("utf8"))
+                .decode("utf8"),
                 "version": "test",
                 "isCurrent": True,
             }
@@ -1051,8 +1117,12 @@ def test_custom_encryption_write(client, record, custom_encryption):
     [
         [
             {
-                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .encrypt(input.encode("utf8"))
+                .decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .decrypt(input.encode("utf8"))
+                .decode("utf8"),
                 "version": "test",
                 "isCurrent": True,
             }
@@ -1086,8 +1156,12 @@ def test_custom_encryption_read(client, record, custom_encryption):
     [
         [
             {
-                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .encrypt(input.encode("utf8"))
+                .decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .decrypt(input.encode("utf8"))
+                .decode("utf8"),
                 "version": "test",
                 "isCurrent": True,
             }
@@ -1137,8 +1211,12 @@ def test_primary_custom_encryption_with_default_encryption(client, custom_encryp
     [
         [
             {
-                "encrypt": lambda input, key, key_version: Fernet(key).encrypt(input.encode("utf8")).decode("utf8"),
-                "decrypt": lambda input, key, key_version: Fernet(key).decrypt(input.encode("utf8")).decode("utf8"),
+                "encrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .encrypt(input.encode("utf8"))
+                .decode("utf8"),
+                "decrypt": lambda input, key, key_version: Fernet(InCrypto.b_to_base64(key))
+                .decrypt(input.encode("utf8"))
+                .decode("utf8"),
                 "version": "test",
             }
         ],
@@ -1232,7 +1310,9 @@ def test_read_not_found(client, record, encrypt):
     stored_record = client(encrypt).encrypt_record(stored_record)
 
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"], status=404,
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
+        status=404,
     )
 
     client(encrypt).read.when.called_with(country=COUNTRY, record_key=record["record_key"]).should.throw(
@@ -1286,10 +1366,14 @@ def test_error_on_popapi_error(client, record, encrypt):
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/find", status=400)
     httpretty.register_uri(httpretty.POST, POPAPI_URL + "/v2/storage/records/" + COUNTRY, status=400)
     httpretty.register_uri(
-        httpretty.GET, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"], status=400,
+        httpretty.GET,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
+        status=400,
     )
     httpretty.register_uri(
-        httpretty.DELETE, POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"], status=400,
+        httpretty.DELETE,
+        POPAPI_URL + "/v2/storage/records/" + COUNTRY + "/" + stored_record["record_key"],
+        status=400,
     )
 
     client(encrypt).write.when.called_with(country=COUNTRY, **record).should.have.raised(StorageServerException)

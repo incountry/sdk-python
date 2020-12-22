@@ -169,11 +169,15 @@ class InCrypto:
         )
 
         if is_key or is_for_custom_encryption:
-            return (secret.encode("utf8"), version)
+            return (secret, version)
 
         return (
             hashlib.pbkdf2_hmac(
-                InCrypto.PBKDF2_DIGEST, secret.encode("utf8"), salt, InCrypto.PBKDF2_ROUNDS, InCrypto.KEY_LENGTH,
+                InCrypto.PBKDF2_DIGEST,
+                secret,
+                salt,
+                InCrypto.PBKDF2_ROUNDS,
+                InCrypto.KEY_LENGTH,
             ),
             version,
         )
@@ -187,12 +191,16 @@ class InCrypto:
         return base64.b64encode(bytes).decode("utf8")
 
     @staticmethod
-    def str_to_base64(enc):
-        return base64.b64encode(enc.encode("utf8")).decode("utf8")
+    def base64_to_b(enc):
+        return base64.b64decode(enc)
 
     @staticmethod
     def base64_to_str(enc):
-        return base64.b64decode(enc).decode("utf8")
+        return InCrypto.base64_to_b(enc).decode("utf8")
+
+    @staticmethod
+    def str_to_base64(enc):
+        return base64.b64encode(enc.encode("utf8")).decode("utf8")
 
     @staticmethod
     def pack_custom_encryption_version(version):
@@ -206,7 +214,7 @@ class InCrypto:
 
     @staticmethod
     def unpack_base64(enc):
-        b_data = base64.b64decode(enc)
+        b_data = InCrypto.base64_to_b(enc)
         min_len = InCrypto.SALT_LENGTH + InCrypto.IV_LENGTH + InCrypto.AUTH_TAG_LENGTH
         if len(b_data) < min_len:
             raise StorageCryptoException("Wrong ciphertext size")

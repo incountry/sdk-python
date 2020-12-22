@@ -12,6 +12,9 @@ from pydantic import (
 )
 
 
+from .record import MAX_LEN_NON_HASHED, SEARCH_KEYS
+
+
 class Operators(str):
     NOT = "$not"
     GT = "$gt"
@@ -21,6 +24,8 @@ class Operators(str):
 
 
 FIND_LIMIT = 100
+SEARCH_KEYS_MIN_LEN = 3
+SEARCH_KEYS_MAX_LEN = 200
 
 STR_OPERATORS = [Operators.NOT]
 COMPARISON_GROUPS = [
@@ -35,13 +40,21 @@ INT_OPERATORS = [
     Operators.LTE,
 ]
 
-NonEmptyStr = constr(min_length=1)
+
+NonEmptyStr = constr(strict=True, min_length=1)
 NonEmptyStrList = conlist(StrictStr, min_items=1)
 NonEmptyIntList = conlist(StrictInt, min_items=1)
+
+MaxLenStr = constr(strict=True, max_length=MAX_LEN_NON_HASHED)
+MaxLenStrList = conlist(MaxLenStr, min_items=1)
+
 OperatorsStrDict = Dict[NonEmptyStr, Union[StrictStr, NonEmptyStrList]]
 OperatorsIntDict = Dict[NonEmptyStr, Union[StrictInt, NonEmptyIntList]]
+OperatorsMaxLenStrDict = Dict[NonEmptyStr, Union[MaxLenStr, MaxLenStrList]]
+
 StrKey = Union[StrictStr, NonEmptyStrList, OperatorsStrDict]
 IntKey = Union[StrictInt, NonEmptyIntList, OperatorsIntDict]
+StrKeyNonHashed = Union[MaxLenStr, MaxLenStrList, OperatorsMaxLenStrDict]
 
 
 class FindFilter(BaseModel):
@@ -61,6 +74,7 @@ class FindFilter(BaseModel):
     key8: StrKey = None
     key9: StrKey = None
     key10: StrKey = None
+    search_keys: constr(strict=True, min_length=SEARCH_KEYS_MIN_LEN, max_length=SEARCH_KEYS_MAX_LEN) = None
     range_key1: IntKey = None
     range_key2: IntKey = None
     range_key3: IntKey = None
@@ -89,7 +103,9 @@ class FindFilter(BaseModel):
                     )
             for operator_group in COMPARISON_GROUPS:
                 total_operators_from_group = reduce(
-                    lambda agg, operator: agg + 1 if operator in value else agg, operator_group, 0,
+                    lambda agg, operator: agg + 1 if operator in value else agg,
+                    operator_group,
+                    0,
                 )
                 if total_operators_from_group > 1:
                     raise ValueError(
@@ -98,7 +114,7 @@ class FindFilter(BaseModel):
                         )
                     )
 
-        if field.type_.__args__[0] is StrictStr:
+        if field.type_.__args__[0] in [StrictStr, MaxLenStr]:
             for key in value:
                 if key not in STR_OPERATORS:
                     raise ValueError(f"Incorrect dict filter. Must contain only the following keys: {STR_OPERATORS}")
@@ -115,6 +131,26 @@ class FindFilter(BaseModel):
 
         return value
 
+    @validator("search_keys")
+    def check_search_keys_without_regular_keys(cls, value, values, config, field):
+        non_empty_string_keys = [key for key in values.keys() if values[key] is not None]
+        if len(set(SEARCH_KEYS).intersection(set(non_empty_string_keys))) > 0:
+            raise ValueError("cannot be used in conjunction with regular key1...key10 lookup")
+        return value
+
     @staticmethod
     def getFindLimit():
         return FIND_LIMIT
+
+
+class FindFilterNonHashed(FindFilter):
+    key1: StrKeyNonHashed = None
+    key2: StrKeyNonHashed = None
+    key3: StrKeyNonHashed = None
+    key4: StrKeyNonHashed = None
+    key5: StrKeyNonHashed = None
+    key6: StrKeyNonHashed = None
+    key7: StrKeyNonHashed = None
+    key8: StrKeyNonHashed = None
+    key9: StrKeyNonHashed = None
+    key10: StrKeyNonHashed = None

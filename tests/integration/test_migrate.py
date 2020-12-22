@@ -22,7 +22,8 @@ COUNTRY = os.environ.get("INT_INC_COUNTRY")
 def test_migrate_should_raise_error_without_encryption(storage: Storage, encrypt: bool, use_oauth: bool) -> None:
 
     storage.migrate.when.called_with(country=COUNTRY).should.have.raised(
-        StorageClientException, re.compile(r"This method is only allowed with encryption enabled"),
+        StorageClientException,
+        re.compile(r"This method is only allowed with encryption enabled"),
     )
 
 
