@@ -36,16 +36,24 @@ Below you can find a full list of possible configuration options for creating a 
 class Storage:
     def __init__(
         self,
-        environment_id: Optional[str] = None,   # Required to be passed in, or as an environment variable INC_API_KEY
-        api_key: Optional[str] = None,          # Required when using API key authorization, or as an environment variable
-        client_id: Optional[str] = None,        # Required when using oAuth authorization, can be also set through the INC_CLIENT_ID variable
-        client_secret: Optional[str] = None,    # Required when using oAuth authorization, can be also set through the INC_CLIENT_SECRET variable
-        endpoint: Optional[str] = None,         # Optional. Defines API URL. Can also be set up through the INC_ENDPOINT environment variable
+        environment_id: Optional[str] = None,   # Required.
+                                                # Can be set via INC_ENVIRONMENT_ID env variable
+        api_key: Optional[str] = None,          # Required when using API key authorization.
+                                                # Can be set via INC_API_KEY env variable
+        client_id: Optional[str] = None,        # Required when using oAuth authorization.
+                                                # Can be set via INC_CLIENT_ID env variable
+        client_secret: Optional[str] = None,    # Required when using oAuth authorization.
+                                                # Can be set via INC_CLIENT_SECRET env variable
+
+        secret_key_accessor: Optional[SecretKeyAccessor] = None,    # Instance of the SecretKeyAccessor class.
+                                                                    # Used to fetch the encryption secret
+
+        endpoint: Optional[str] = None,         # Optional. Defines API URL.
+                                                # Can be set via INC_ENDPOINT env variable
         encrypt: Optional[bool] = True,         # Optional. If False, encryption is not applied
         debug: Optional[bool] = False,          # Optional. If True enables the additional debug logging
         options: Optional[Dict[str, Any]] = {}, # Optional. It is used to fine-tune some configurations
         custom_encryption_configs: Optional[List[dict]] = None, # Optional. List of custom encryption configurations
-        secret_key_accessor: Optional[SecretKeyAccessor] = None, # Instance of the SecretKeyAccessor class. It is used to fetch the encryption secret
     ):
         ...
 ```
@@ -69,72 +77,56 @@ storage = Storage(
 
 ---
 
-The `client_id`, `client_secret`,  and `environment_id` variables can be fetched from your dashboard on `Incountry` Portal.
 
+#### Extra Storage options
+You can use the `options` parameter to tweak some SDK configurations:
 
-The `endpoint` variable defines API URL and is used to override the default one.
-
-You can disable the encryption (not recommended). Set the `encrypt` property to `false` if you want to disable it. Avoid disabling it when working with production data.
-
-The `options` variable allows you to tweak some SDK configurations
 ```python
-{
-    "http_options": {
-        "timeout": int,         # In seconds. Should be greater than 0
-    },
-    "auth_endpoints": dict,     # A custom endpoints regional map that should be used for fetching oAuth tokens
-
-    "countries_endpoint": str,  # If your PoPAPI configuration relies on a custom PoPAPI server
-                                # (rather than the default one) use the `countriesEndpoint` option
-                                # to specify the endpoint responsible for fetching the list of supported countries
-
-    "endpoint_mask": str,       # Defines API base hostname part to use.
-                                # If set, all requests will be sent to https://${country}${endpointMask} host
-                                # instead of the default one (https://${country}-mt-01.api.incountry.io)
-}
-```
-
-Below you can find an example of how to create a storage instance
-```python
-from incountry import Storage, SecretKeyAccessor
-
 storage = Storage(
-    api_key="<api_key>",
-    environment_id="<env_id>",
-    debug=True,
-    secret_key_accessor=SecretKeyAccessor(lambda: "password"),
+    ...,
     options={
         "http_options": {
-            "timeout": 5
-        },
-        "countries_endpoint": "https://private-pop.incountry.io/countries",
-        "endpoint_mask" ".private-pop.incountry.io",
+            "timeout": int,         # In seconds. Should be greater than 0.
+        },                          # Defines http requests timeout
+
+        "auth_endpoints": dict,     # A custom endpoints map that should be used for
+                                    # fetching oAuth tokens
+
+        "countries_endpoint": str,  # If your PoPAPI configuration relies on a custom
+                                    # PoPAPI server (rather than the default one)
+                                    # use the `countries_endpoint` option to specify
+                                    # the endpoint responsible for fetching the list
+                                    # of supported countries
+
+        "endpoint_mask": str,       # Defines API base hostname part to use.
+                                    # If set, all requests will be sent to
+                                    # https://${country}${endpoint_mask} host
+                                    # instead of the default one
+                                    # (https://${country}-mt-01.api.incountry.io)
     }
 )
 ```
 
 
-#### oAuth Authentication
-SDK also supports oAuth authentication credentials instead of plain API key authorization. oAuth authentication flow is mutually exclusive with API key authentication - you need to provide either an API key or oAuth credentials.
+#### oAuth options configuration
+The SDK allows to precisely configure oAuth authorization endpoints (if needed). Use this option only if your plan configuration requires so.
 
-Below you can find an example of how to create a storage instance with oAuth credentials (and also provide a custom oAuth endpoint):
+Below you can find the example of how to create a storage instance with custom oAuth endpoints:
+
 ```python
-from incountry import Storage, SecretKeyAccessor
-
 storage = Storage(
     client_id="<client_id>",
     client_secret="<client_secret>",
-    environment_id="<env_id>",
-    debug=True,
-    secret_key_accessor=SecretKeyAccessor(lambda: "password"),
+    environment_id="<environment_id>",
+    secret_key_accessor=SecretKeyAccessor(lambda: "<encryption_secret>"),
     options={
         "auth_endpoints": {
-            "default": "https://auth-server-default.com",
-            "emea": "https://auth-server-emea.com",
-            "apac": "https://auth-server-apac.com",
-            "amer": "https://auth-server-amer.com",
-        }
-    }
+            "default": "<default_auth_endpoint>",
+            "emea": "<auth_endpoint_for_emea_region>",
+            "apac": "<auth_endpoint_for_apac_region>",
+            "amer": "<auth_endpoint_for_amer_region>",
+        },
+    },
 )
 ```
 
