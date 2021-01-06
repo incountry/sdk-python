@@ -36,24 +36,41 @@ Below you can find a full list of possible configuration options for creating a 
 class Storage:
     def __init__(
         self,
-        environment_id: Optional[str] = None,   # Required.
-                                                # Can be set via INC_ENVIRONMENT_ID env variable
-        api_key: Optional[str] = None,          # Required when using API key authorization.
-                                                # Can be set via INC_API_KEY env variable
-        client_id: Optional[str] = None,        # Required when using oAuth authorization.
-                                                # Can be set via INC_CLIENT_ID env variable
-        client_secret: Optional[str] = None,    # Required when using oAuth authorization.
-                                                # Can be set via INC_CLIENT_SECRET env variable
+        # Required.
+        # Can be set via INC_ENVIRONMENT_ID env variable.
+        environment_id: Optional[str] = None,
 
-        secret_key_accessor: Optional[SecretKeyAccessor] = None,    # Instance of the SecretKeyAccessor class.
-                                                                    # Used to fetch the encryption secret
+        # Required when using API key authorization.
+        # Can be set via INC_API_KEY env variable.
+        api_key: Optional[str] = None,
 
-        endpoint: Optional[str] = None,         # Optional. Defines API URL.
-                                                # Can be set via INC_ENDPOINT env variable
-        encrypt: Optional[bool] = True,         # Optional. If False, encryption is not applied
-        debug: Optional[bool] = False,          # Optional. If True enables the additional debug logging
-        options: Optional[Dict[str, Any]] = {}, # Optional. It is used to fine-tune some configurations
-        custom_encryption_configs: Optional[List[dict]] = None, # Optional. List of custom encryption configurations
+        # Required when using oAuth authorization.
+        # Can be set via INC_CLIENT_ID env variable.
+        client_id: Optional[str] = None,
+
+        # Required when using oAuth authorization.
+        # Can be set via INC_CLIENT_SECRET env variable.
+        client_secret: Optional[str] = None,
+
+        # Instance of the SecretKeyAccessor class.
+        # Used to fetch the encryption secret.
+        secret_key_accessor: Optional[SecretKeyAccessor] = None,
+
+        # Optional. Defines API URL.
+        # Can be set via INC_ENDPOINT env variable.
+        endpoint: Optional[str] = None,
+
+        # Optional. If False, encryption is not applied.
+        encrypt: Optional[bool] = True,
+
+        # Optional. If True enables the additional debug logging.
+        debug: Optional[bool] = False,
+
+         # Optional. Used to fine-tune some configurations.
+        options: Optional[Dict[str, Any]] = {},
+
+        # Optional. List of custom encryption configurations.
+        custom_encryption_configs: Optional[List[dict]] = None,
     ):
         ...
 ```
