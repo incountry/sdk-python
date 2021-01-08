@@ -56,4 +56,12 @@ if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then # Fetch the PR branch with comple
 fi
 
 # Sonar Quality gate. If it fails, it fails the build due to 'sonar.qualitygate.wait=true' (but you could temporarily override this via Travis envvar)
+# Install Sonar-scanner if the variable is set in Travis UI
+if [[ ! -z "$SONARSCANNER_VERSION" ]]; then
+  wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONARSCANNER_VERSION}-linux.zip
+  unzip -q sonar-scanner-cli-${SONARSCANNER_VERSION}-linux.zip -d /home/travis/.sonarscanner/
+  # Deleting files of the default version of Sonar and moving files of the required version
+  rm -rf /home/travis/.sonarscanner/sonar-scanner/* && mv /home/travis/.sonarscanner/sonar-scanner-${SONARSCANNER_VERSION}-linux/* /home/travis/.sonarscanner/sonar-scanner/
+fi
+
 sonar-scanner -Dsonar.qualitygate.wait=${SONAR_QUALITY_GATE_FAILS_BUILD:-true}

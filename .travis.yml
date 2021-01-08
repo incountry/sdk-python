@@ -13,10 +13,6 @@ jobs:
   include:
     - stage: build
       name: "Scan code with Snyk, run tests, run Sonar Quality Gate"
-      before_install:
-        # Install Sonar-scanner
-        - wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONARSCANNER_VERSION}-linux.zip
-        - unzip -q sonar-scanner-cli-${SONARSCANNER_VERSION}-linux.zip -d /home/travis/bin
       script:
         # Print debug information
         - echo "Building for branch=$TRAVIS_BRANCH, PR=${TRAVIS_PULL_REQUEST} ..."; env | grep "COMMIT\|PULL\|BRANCH"
@@ -37,5 +33,3 @@ env:
     # App properties
     - APP_NAME=sdk-python
     - PIPENV_VERBOSITY=-1 # Do not print pipenv 'running in virtual environment' warnings
-    # Versions of deps
-    - SONARSCANNER_VERSION=4.3.0.2102
