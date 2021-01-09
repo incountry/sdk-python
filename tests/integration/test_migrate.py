@@ -33,13 +33,17 @@ def test_migrate_works_with_encryption(
     storage: Storage, encrypt: bool, use_oauth: bool, expected_records: List[Dict]
 ) -> None:
     limit = 3
-    find_all = storage.find(country=COUNTRY, version={"$not": 3})
-    all_records_with_curr_version = find_all["meta"]["total"]
+    find_all = storage.find(country=COUNTRY, version={"$not": 4}, limit=1)
+    total_records_with_non_4_version = find_all["meta"]["total"]
 
     # There are records with ver 2, let's create storage with different version
     secrets_data = {
-        "currentVersion": 3,
-        "secrets": [{"secret": "new super secret", "version": 3}, {"secret": "super secret", "version": 2}],
+        "currentVersion": 4,
+        "secrets": [
+            {"secret": "super secret", "version": 2},
+            {"secret": b"3" * 32, "isKey": True, "version": 3},
+            {"secret": b"4" * 32, "isKey": True, "version": 4},
+        ],
     }
 
     new_storage = copy.deepcopy(storage)
@@ -50,9 +54,7 @@ def test_migrate_works_with_encryption(
     migration_result.should.have.key("total_left")
     migration_result["migrated"].should.be.a("int")
     migration_result["total_left"].should.be.a("int")
-    all_records_with_curr_version.should.be.greater_than_or_equal_to(migration_result["migrated"])
+    total_records_with_non_4_version.should.be.greater_than_or_equal_to(migration_result["migrated"])
 
-    records_after_migration = new_storage.find(country=COUNTRY, version={"$not": 3})
-
-    assert records_after_migration["meta"]["total"] + migration_result["migrated"] == all_records_with_curr_version
-    new_storage.find.when.called_with(country=COUNTRY, version=3, limit=limit).should_not.throw(Exception)
+    records_with_version_4 = new_storage.find(country=COUNTRY, version=4)
+    records_with_version_4["meta"]["total"].should.be.greater_than_or_equal_to(migration_result["migrated"])
