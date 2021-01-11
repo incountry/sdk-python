@@ -18,8 +18,11 @@ ENDPOINT = os.environ.get("INT_INC_ENDPOINT")
 COUNTRY = os.environ.get("INT_INC_COUNTRY")
 
 SECRETS_DATA = {
-    "secrets": [{"secret": "super secret", "version": 2}],
-    "currentVersion": 2,
+    "secrets": [
+        {"secret": "super secret", "version": 2},
+        {"secret": b"3" * 32, "version": 3},
+    ],
+    "currentVersion": 3,
 }
 
 
