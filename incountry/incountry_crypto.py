@@ -187,23 +187,23 @@ class InCrypto:
         return version
 
     @staticmethod
-    def b_to_base64(bytes):
+    def b_to_base64(bytes: bytes) -> str:
         return base64.b64encode(bytes).decode("utf8")
 
     @staticmethod
-    def base64_to_b(enc):
+    def base64_to_b(enc: str) -> bytes:
         return base64.b64decode(enc)
 
     @staticmethod
-    def base64_to_str(enc):
+    def base64_to_str(enc: bytes) -> str:
         return InCrypto.base64_to_b(enc).decode("utf8")
 
     @staticmethod
-    def str_to_base64(enc):
+    def str_to_base64(enc: str) -> str:
         return base64.b64encode(enc.encode("utf8")).decode("utf8")
 
     @staticmethod
-    def pack_custom_encryption_version(version):
+    def pack_custom_encryption_version(version: str) -> str:
         return InCrypto.CUSTOM_ENCRYPTION_VERSION_PREFIX + base64.b64encode(version.encode("utf8")).decode("utf8")
 
     @staticmethod
