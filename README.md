@@ -726,6 +726,16 @@ Note: the maximum number of records that can be migrated per one request is 100.
 
 For a detailed example of a migration script, please see `/examples/full_migration.py`
 
+
+## AWS KMS encryption keys support
+
+InCountry Python SDK supports usage of AWS KMS encryption keys of type `AES_256` produced by symmetric master key (CMK).
+ 
+The suggested use case assumes that AWS user already got his KMS encrypted data key generated. Afterwards the key gets decrypted using AWS Python client library (`boto3`) and then provided to InCountry Python SDK's `SecretKeyAccessor`.
+ 
+For a detailed example of AWS KMS keys usage please see [examples/aws-kms.py](examples/aws-kms.py)
+
+
 Error Handling
 -----
 
