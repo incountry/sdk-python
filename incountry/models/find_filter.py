@@ -48,13 +48,13 @@ NonEmptyIntList = conlist(StrictInt, min_items=1)
 MaxLenStr = constr(strict=True, max_length=MAX_LEN_NON_HASHED)
 MaxLenStrList = conlist(MaxLenStr, min_items=1)
 
-OperatorsStrDict = Dict[NonEmptyStr, Union[StrictStr, NonEmptyStrList]]
-OperatorsIntDict = Dict[NonEmptyStr, Union[StrictInt, NonEmptyIntList]]
-OperatorsMaxLenStrDict = Dict[NonEmptyStr, Union[MaxLenStr, MaxLenStrList]]
+OperatorsStrDict = Dict[NonEmptyStr, Union[StrictStr, NonEmptyStrList, None]]
+OperatorsIntDict = Dict[NonEmptyStr, Union[StrictInt, NonEmptyIntList, None]]
+OperatorsMaxLenStrDict = Dict[NonEmptyStr, Union[MaxLenStr, MaxLenStrList, None]]
 
-StrKey = Union[StrictStr, NonEmptyStrList, OperatorsStrDict]
-IntKey = Union[StrictInt, NonEmptyIntList, OperatorsIntDict]
-StrKeyNonHashed = Union[MaxLenStr, MaxLenStrList, OperatorsMaxLenStrDict]
+StrKey = Union[StrictStr, NonEmptyStrList, None, OperatorsStrDict]
+IntKey = Union[StrictInt, NonEmptyIntList, None, OperatorsIntDict]
+StrKeyNonHashed = Union[MaxLenStr, MaxLenStrList, None, OperatorsMaxLenStrDict]
 
 
 class FindFilter(BaseModel):
@@ -64,6 +64,7 @@ class FindFilter(BaseModel):
     profile_key: StrKey = None
     service_key1: StrKey = None
     service_key2: StrKey = None
+    parent_key: StrKey = None
     key1: StrKey = None
     key2: StrKey = None
     key3: StrKey = None
@@ -74,6 +75,16 @@ class FindFilter(BaseModel):
     key8: StrKey = None
     key9: StrKey = None
     key10: StrKey = None
+    key11: StrKey = None
+    key12: StrKey = None
+    key13: StrKey = None
+    key14: StrKey = None
+    key15: StrKey = None
+    key16: StrKey = None
+    key17: StrKey = None
+    key18: StrKey = None
+    key19: StrKey = None
+    key20: StrKey = None
     search_keys: constr(strict=True, min_length=SEARCH_KEYS_MIN_LEN, max_length=SEARCH_KEYS_MAX_LEN) = None
     range_key1: IntKey = None
     range_key2: IntKey = None
@@ -135,7 +146,7 @@ class FindFilter(BaseModel):
     def check_search_keys_without_regular_keys(cls, value, values, config, field):
         non_empty_string_keys = [key for key in values.keys() if values[key] is not None]
         if len(set(SEARCH_KEYS).intersection(set(non_empty_string_keys))) > 0:
-            raise ValueError("cannot be used in conjunction with regular key1...key10 lookup")
+            raise ValueError("cannot be used in conjunction with regular key1...key20 lookup")
         return value
 
     @staticmethod
@@ -154,3 +165,13 @@ class FindFilterNonHashed(FindFilter):
     key8: StrKeyNonHashed = None
     key9: StrKeyNonHashed = None
     key10: StrKeyNonHashed = None
+    key11: StrKeyNonHashed = None
+    key12: StrKeyNonHashed = None
+    key13: StrKeyNonHashed = None
+    key14: StrKeyNonHashed = None
+    key15: StrKeyNonHashed = None
+    key16: StrKeyNonHashed = None
+    key17: StrKeyNonHashed = None
+    key18: StrKeyNonHashed = None
+    key19: StrKeyNonHashed = None
+    key20: StrKeyNonHashed = None

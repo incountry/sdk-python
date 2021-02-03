@@ -22,6 +22,8 @@ from incountry import (
     INT_KEYS,
 )
 
+from incountry.models import FindFilterOperators
+
 from ..utils import (
     omit,
     get_test_records,
@@ -29,6 +31,7 @@ from ..utils import (
     get_randomcase_record,
     get_random_str,
     get_random_datetime,
+    STRING_FIELDS,
 )
 
 POPAPI_URL = "https://popapi.com:8082"
@@ -521,10 +524,17 @@ def test_find(client, query, records, encrypt, hash_search_keys):
     )
     received_data["filter"].keys().should.equal(query.keys())
     for key in received_data["filter"]:
-        if (hash_search_keys or key not in SEARCH_KEYS) and key not in INT_KEYS:
-            assert received_data["filter"][key] != query[key]
+        received_value = received_data["filter"][key]
+        query_value = query[key]
+
+        if query_value is not None and key in STRING_FIELDS and FindFilterOperators.NOT in query_value:
+            received_value = received_value[FindFilterOperators.NOT]
+            query_value = query_value[FindFilterOperators.NOT]
+
+        if (hash_search_keys or key not in SEARCH_KEYS) and key not in INT_KEYS and query_value is not None:
+            assert received_value != query_value
         else:
-            assert received_data["filter"][key] == query[key]
+            assert received_value == query_value
 
     find_response.should.be.a(dict)
 
@@ -549,14 +559,10 @@ def test_find(client, query, records, encrypt, hash_search_keys):
 )
 @pytest.mark.parametrize("encrypt", [True, False])
 @pytest.mark.happy_path
-def test_find_filters_improper_or_none_keys(client, query, records, encrypt):
+def test_find_filters_improper_keys(client, query, records, encrypt):
     enc_data = [client(encrypt).encrypt_record(dict(x)) for x in records]
     incorrect_random_key = get_random_str()
-    incorrect_key = "key11"
-    none_key = "key2"
     query[incorrect_random_key] = get_random_str()
-    query[incorrect_key] = get_random_str()
-    query[none_key] = None
 
     httpretty.register_uri(
         httpretty.POST,
@@ -569,9 +575,7 @@ def test_find_filters_improper_or_none_keys(client, query, records, encrypt):
     received_record = json.loads(httpretty.last_request().body)
     received_record.should.be.a(dict)
     received_record.should.have.key("filter")
-    received_record["filter"].should_not.have.key(incorrect_key)
     received_record["filter"].should_not.have.key(incorrect_random_key)
-    received_record["filter"].should_not.have.key(none_key)
     received_record.should.have.key("options")
     received_record["options"].should.equal(
         {"limit": query.get("limit", FindFilter.getFindLimit()), "offset": query.get("offset", 0)}

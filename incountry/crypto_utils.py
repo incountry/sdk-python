@@ -46,6 +46,8 @@ def normalize_key(key, normalize=False):
 
 
 def normalize_key_value(value, normalize=False):
+    if value is None:
+        return None
     if isinstance(value, list):
         return [normalize_key(x, normalize=normalize) for x in value]
     return normalize_key(value, normalize=normalize)
@@ -58,15 +60,17 @@ def get_salted_hash(value, salt):
 
 
 def hash_string_key_value(value, salt, normalize=False):
+    if value is None:
+        return None
     if isinstance(value, list):
         return [get_salted_hash(normalize_key(x, normalize=normalize), salt) for x in value]
     return get_salted_hash(normalize_key(value, normalize=normalize), salt)
 
 
-def sanitize_obj_for_model(obj: dict, model: BaseModel):
+def sanitize_obj_for_model(obj: dict, model: BaseModel, omit_none=True):
     res = deepcopy(obj)
     for key in obj:
-        if key not in model.__fields__ or obj[key] is None:
+        if key not in model.__fields__ or (obj[key] is None and omit_none):
             del res[key]
     return res
 
@@ -75,10 +79,11 @@ def hash_object_record_keys(obj, salt, normalize_keys=False, hash_search_keys=Tr
     res = {}
 
     for key, value in obj.items():
-        if value is None:
+        if key not in KEYS_TO_HASH:
+            res[key] = value
             continue
 
-        if key not in KEYS_TO_HASH:
+        if value is None:
             res[key] = value
             continue
 

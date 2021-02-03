@@ -11,6 +11,7 @@ SERVICE_KEYS = [
     "profile_key",
     "service_key1",
     "service_key2",
+    "parent_key",
 ]
 
 SEARCH_KEYS = [
@@ -24,6 +25,16 @@ SEARCH_KEYS = [
     "key8",
     "key9",
     "key10",
+    "key11",
+    "key12",
+    "key13",
+    "key14",
+    "key15",
+    "key16",
+    "key17",
+    "key18",
+    "key19",
+    "key20",
 ]
 
 INT_KEYS = [
@@ -48,6 +59,7 @@ class Record(BaseModel):
     profile_key: StrictStr = None
     service_key1: StrictStr = None
     service_key2: StrictStr = None
+    parent_key: StrictStr = None
     key1: StrictStr = None
     key2: StrictStr = None
     key3: StrictStr = None
@@ -58,6 +70,16 @@ class Record(BaseModel):
     key8: StrictStr = None
     key9: StrictStr = None
     key10: StrictStr = None
+    key11: StrictStr = None
+    key12: StrictStr = None
+    key13: StrictStr = None
+    key14: StrictStr = None
+    key15: StrictStr = None
+    key16: StrictStr = None
+    key17: StrictStr = None
+    key18: StrictStr = None
+    key19: StrictStr = None
+    key20: StrictStr = None
     range_key1: StrictInt = None
     range_key2: StrictInt = None
     range_key3: StrictInt = None
@@ -85,3 +107,13 @@ class RecordNonHashed(Record):
     key8: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
     key9: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
     key10: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key11: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key12: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key13: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key14: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key15: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key16: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key17: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key18: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key19: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None
+    key20: constr(strict=True, min_length=0, max_length=MAX_LEN_NON_HASHED) = None

@@ -278,7 +278,7 @@ class Storage:
         """
 
         filter_params = hash_object_record_keys(
-            sanitize_obj_for_model(filters, FindFilter),
+            sanitize_obj_for_model(filters, FindFilter, False),
             self.env_id,
             normalize_keys=self.options.normalize_keys,
             hash_search_keys=self.options.hash_search_keys,

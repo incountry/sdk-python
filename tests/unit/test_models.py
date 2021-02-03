@@ -294,10 +294,12 @@ def test_valid_limit_offset_find_filter(filter, model):
         "x" * MAX_LEN_NON_HASHED,
         ["list_value_1", "list_value_2", "list_value_3"],
         ["x" * MAX_LEN_NON_HASHED, "y" * MAX_LEN_NON_HASHED, "z" * MAX_LEN_NON_HASHED],
+        None,
         {"$not": "not_single_value"},
         {"$not": "x" * MAX_LEN_NON_HASHED},
         {"$not": ["list_not_value_1", "list_not_value_2", "list_not_value_3"]},
         {"$not": ["x" * MAX_LEN_NON_HASHED, "y" * MAX_LEN_NON_HASHED, "z" * MAX_LEN_NON_HASHED]},
+        {"$not": None},
     ],
 )
 @pytest.mark.parametrize("model", [FindFilter, FindFilterNonHashed])
@@ -337,8 +339,10 @@ def test_valid_search_keys_filters_find_filter(filter, supplementary_key, model)
     [
         1,
         [1, 2, 3],
+        None,
         {"$not": 1},
         {"$not": [1, 2, 3]},
+        {"$not": None},
         {"$gt": 1},
         {"$gte": 1},
         {"$lt": 1},

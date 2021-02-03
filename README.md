@@ -244,9 +244,20 @@ key7
 key8
 key9
 key10
+key11
+key12
+key13
+key14
+key15
+key16
+key17
+key18
+key19
+key20
 profile_key
 service_key1
 service_key2
+parent_key
 
 # String fields, encrypted
 body
@@ -376,14 +387,14 @@ key3={"$not": "value1"} # records with key3 not equal "value1"
 key4={"$not": ["value1", "value2"]} # records with key4 equal to neither "value1" or "value2"
 ```
 
-You can use special `search_keys` filter to search records by partial match (similar to `LIKE` SQL operator) among record's text fields `key1, ..., key10`.
+You can use special `search_keys` filter to search records by partial match (similar to `LIKE` SQL operator) among record's text fields `key1, ..., key20`.
 ```python
 search_keys="text to find"
 ```
 ---
 **NOTE**
 
-`search_keys` cannot be used in combination with any of `key1, key2, ..., key10` keys and works only in combination with non-hashing Storage mode (with `hash_search_keys` Storage option set to `False`).
+`search_keys` cannot be used in combination with any of `key1, key2, ..., key20` keys and works only in combination with non-hashing Storage mode (with `hash_search_keys` Storage option set to `False`).
 
 ---
 

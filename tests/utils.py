@@ -15,6 +15,7 @@ STRING_FIELDS = [
     "service_key1",
     "service_key2",
     "profile_key",
+    "parent_key",
     "key1",
     "key2",
     "key3",
@@ -25,6 +26,16 @@ STRING_FIELDS = [
     "key8",
     "key9",
     "key10",
+    "key11",
+    "key12",
+    "key13",
+    "key14",
+    "key15",
+    "key16",
+    "key17",
+    "key18",
+    "key19",
+    "key20",
 ]
 INT_FIELDS = [
     "range_key1",
@@ -118,10 +129,20 @@ def get_valid_find_filter_test_options():
         if field in STRING_FIELDS:
             res.append({field: get_random_str()})
             res.append({field: [get_random_str(), get_random_str()]})
+
+            res.append({field: None})
             res.append({field: {"$not": get_random_str()}})
+            res.append({field: {"$not": [get_random_str(), get_random_str()]}})
+            res.append({field: {"$not": None}})
+
         if field in INT_FIELDS:
             res.append({field: get_random_int()})
             res.append({field: [get_random_int(), get_random_int()]})
+            res.append({field: None})
+
+            res.append({field: {"$not": get_random_int()}})
+            res.append({field: {"$not": [get_random_int(), get_random_int()]}})
+            res.append({field: {"$not": None}})
 
             res.append({field: {"$gt": get_random_int()}})
             res.append({field: {"$lt": get_random_int()}})
@@ -164,9 +185,20 @@ def get_randomcase_record(use_list_values=False):
         "key8": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
         "key9": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
         "key10": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key11": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key12": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key13": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key14": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key15": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key16": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key17": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key18": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key19": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "key20": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
         "profile_key": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
         "service_key1": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
         "service_key2": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
+        "parent_key": [get_random_str(), get_random_str()] if use_list_values else get_random_str(),
         "range_key1": 42,
         "range_key2": 42,
         "range_key3": 42,
