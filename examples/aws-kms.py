@@ -61,7 +61,7 @@ def run():
         "key10": "key10",
         "profile_key": "profileKey",
         "range_key1": 125,
-        "body": json.dumps({"test": "Test AWS KMS keys in Node.js SDK"}),
+        "body": json.dumps({"test": "Test AWS KMS keys in Python SDK"}),
     }
 
     storage.write(country=COUNTRY_CODE, **new_record)
