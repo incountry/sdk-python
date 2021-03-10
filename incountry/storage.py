@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import os
 from typing import List, Dict, Union, Any, Optional, BinaryIO
 from datetime import datetime
 
@@ -10,17 +11,19 @@ from .crypto_utils import (
     normalize_key,
     sanitize_obj_for_model,
 )
-from .exceptions import StorageCryptoException
+from .exceptions import StorageCryptoException, StorageClientException
 from .incountry_crypto import InCrypto
 from .http_client import HttpClient
 from .models import (
     AttachmentCreate,
     AttachmentMetaUpdate,
     AttachmentRequest,
+    ATTACHMENT_TOO_LARGE_ERROR_MESSAGE,
     Country,
     FindFilter,
     FindFilterNonHashed,
     FIND_LIMIT,
+    MAX_BODY_LENGTH,
     Record,
     RecordNonHashed,
     RecordListForBatch,
@@ -434,6 +437,16 @@ class Storage:
     def add_attachment(
         self, country: str, record_key: str, file: Union[BinaryIO, str], mime_type: str = None, upsert: bool = False
     ) -> Dict[str, Union[str, int, datetime]]:
+        file_size = 0
+        if file.seekable():
+            position = file.tell()
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+            file.seek(position, os.SEEK_SET)
+
+        if file_size > MAX_BODY_LENGTH:
+            raise StorageClientException(ATTACHMENT_TOO_LARGE_ERROR_MESSAGE)
+
         record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
         return {
             "attachment_meta": self.http_client.add_attachment(

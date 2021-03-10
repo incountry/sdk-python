@@ -1,4 +1,4 @@
-from .attachment_create import AttachmentCreate
+from .attachment_create import AttachmentCreate, ATTACHMENT_TOO_LARGE_ERROR_MESSAGE, MAX_BODY_LENGTH
 from .attachment_meta_update import AttachmentMetaUpdate
 from .attachment_request import AttachmentRequest
 from .country import Country

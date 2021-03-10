@@ -2,6 +2,12 @@ from io import BufferedIOBase
 from typing import Union
 from pydantic import BaseModel, constr, StrictBool, validator, FilePath
 
+MAX_BODY_LENGTH = 100 * 1024 * 1024  # 100 Mb
+ATTACHMENT_TOO_LARGE_ERROR_MESSAGE = (
+    f"Validation failed during Storage.add_attachment(). "
+    f"Attachment is too large. Max allowed attachment size is {MAX_BODY_LENGTH} bytes"
+)
+
 
 class AttachmentCreate(BaseModel):
     file: Union[BufferedIOBase, FilePath]

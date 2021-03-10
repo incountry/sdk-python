@@ -24,6 +24,11 @@ from ..utils import (
     get_attachment_meta_invalid_responses,
 )
 
+from incountry.models import (
+    ATTACHMENT_TOO_LARGE_ERROR_MESSAGE,
+    MAX_BODY_LENGTH,
+)
+
 POPAPI_URL = "https://popapi.com:8082"
 COUNTRY = "us"
 SECRET_KEY = "password"
@@ -146,6 +151,61 @@ def test_add_attachment_by_file_object(client, file_body, response, upsert, mime
 
     res.should.have.key("attachment_meta")
     assert res["attachment_meta"] == response
+
+
+@httpretty.activate
+@pytest.mark.parametrize("upsert", [True, False])
+@pytest.mark.error_path
+def test_add_too_large_attachment_by_filepath(client, upsert, tmpdir):
+    tmp_file = tmpdir.join("large_test_file.txt")
+    with open(tmp_file, "wb") as f:
+        f.write(b"test")
+        f.truncate(MAX_BODY_LENGTH)
+        f.seek(MAX_BODY_LENGTH)
+        f.write(b"t")
+        f.close()
+
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
+
+    httpretty.register_uri(
+        httpretty.PUT if upsert else httpretty.POST,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments",
+        body=json.dumps(dict(get_attachment_meta_valid_response(), **{"size": 0}), default=json_converter),
+    )
+
+    params = {"country": COUNTRY, "record_key": record_key, "file": tmp_file, "upsert": upsert}
+
+    with pytest.raises(StorageClientException) as exc:
+        client().add_attachment(**params)
+
+    assert str(exc.value) == ATTACHMENT_TOO_LARGE_ERROR_MESSAGE
+
+
+@httpretty.activate
+@pytest.mark.parametrize("upsert", [True, False])
+@pytest.mark.error_path
+def test_add_too_large_attachment_by_file_object(client, upsert):
+    f = io.BytesIO()
+    f.truncate(MAX_BODY_LENGTH)
+    f.seek(MAX_BODY_LENGTH)
+    f.write(b"t")
+
+    record_key = str(uuid.uuid1())
+    record_key_hash = get_key_hash(record_key)
+
+    httpretty.register_uri(
+        httpretty.PUT if upsert else httpretty.POST,
+        f"{POPAPI_URL}/v2/storage/records/{COUNTRY}/{record_key_hash}/attachments",
+        body=json.dumps(dict(get_attachment_meta_valid_response(), **{"size": 0}), default=json_converter),
+    )
+
+    params = {"country": COUNTRY, "record_key": record_key, "file": f, "upsert": upsert}
+
+    with pytest.raises(StorageClientException) as exc:
+        client().add_attachment(**params)
+
+    assert str(exc.value) == ATTACHMENT_TOO_LARGE_ERROR_MESSAGE
 
 
 @httpretty.activate
