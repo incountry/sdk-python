@@ -3,7 +3,7 @@ from ..models import CustomEncryptionConfigMethodValidation
 
 def try_custom_encryption_with_key(custom_encryption_config, key, key_version):
     try:
-        config_with_key = {**custom_encryption_config, "key": key.encode("utf8"), "keyVersion": key_version}
+        config_with_key = {**custom_encryption_config, "key": key, "keyVersion": key_version}
         CustomEncryptionConfigMethodValidation.validate(config_with_key)
     except Exception as e:
         return (False, e)

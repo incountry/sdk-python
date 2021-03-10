@@ -1,11 +1,33 @@
 from __future__ import absolute_import
-from typing import List, Dict, Union, Any, Optional
+from typing import List, Dict, Union, Any, Optional, BinaryIO
+from datetime import datetime
 
-from .crypto_utils import decrypt_record, encrypt_record, get_salted_hash, HASHABLE_KEYS, normalize_key
+from .crypto_utils import (
+    hash_object_record_keys,
+    decrypt_record,
+    encrypt_record,
+    get_salted_hash,
+    normalize_key,
+    sanitize_obj_for_model,
+)
 from .exceptions import StorageCryptoException
 from .incountry_crypto import InCrypto
 from .http_client import HttpClient
-from .models import Country, FindFilter, FindFilterOperators, FIND_LIMIT, Record, RecordListForBatch, StorageWithEnv
+from .models import (
+    AttachmentCreate,
+    AttachmentMetaUpdate,
+    AttachmentRequest,
+    Country,
+    FindFilter,
+    FindFilterNonHashed,
+    FIND_LIMIT,
+    Record,
+    RecordNonHashed,
+    RecordListForBatch,
+    RecordListNonHashedForBatch,
+    StorageWithEnv,
+    StorageOptions,
+)
 from .secret_key_accessor import SecretKeyAccessor
 from .token_clients import ApiKeyTokenClient, OAuthTokenClient
 from .types import TIntFilter, TStringFilter, TRecord
@@ -13,7 +35,7 @@ from .validation import validate_model, validate_encryption_enabled
 
 
 class Storage:
-    @validate_model(StorageWithEnv)
+    @validate_model(StorageWithEnv, exclude_to_dict={"options"})
     def __init__(
         self,
         environment_id: Optional[str] = None,
@@ -65,7 +87,7 @@ class Storage:
         self.debug = debug
         self.env_id = environment_id
         self.encrypt = encrypt
-        self.normalize_keys = options.get("normalize_keys", False)
+        self.options = StorageOptions(**options)
         self.crypto = InCrypto(secret_key_accessor, custom_encryption_configs) if self.encrypt else InCrypto()
 
         token_client = (
@@ -75,8 +97,8 @@ class Storage:
                 client_id=client_id,
                 client_secret=client_secret,
                 scope=self.env_id,
-                auth_endpoints=options.get("auth_endpoints"),
-                options=options.get("http_options", {}),
+                auth_endpoints=self.options.auth_endpoints,
+                options=self.options.http_options,
             )
         )
         self.http_client = HttpClient(
@@ -84,15 +106,23 @@ class Storage:
             token_client=token_client,
             endpoint=endpoint,
             debug=self.debug,
-            endpoint_mask=options.get("endpoint_mask", None),
-            countries_endpoint=options.get("countries_endpoint", None),
-            options=options.get("http_options", {}),
+            endpoint_mask=self.options.endpoint_mask,
+            countries_endpoint=self.options.countries_endpoint,
+            options=self.options.http_options,
         )
 
         self.log("Using API key: ", api_key)
 
     @validate_model(Country)
-    @validate_model(Record)
+    @validate_model(
+        {
+            "condition": ("options", "hash_search_keys"),
+            "values": [
+                {"value": True, "model": Record},
+                {"value": False, "model": RecordNonHashed},
+            ],
+        }
+    )
     def write(self, country: str, record_key: str, **record_data: Union[str, int]) -> Dict[str, TRecord]:
         """Writes record to InCountry storage network.
 
@@ -116,15 +146,22 @@ class Storage:
             StorageException: in any other cases.
         """
 
-        record = {"record_key": record_key}
-        record.update({k: v for k, v in record_data.items() if k in Record.__fields__ and v is not None})
+        record = sanitize_obj_for_model({"record_key": record_key, **record_data}, Record)
 
         data_to_send = self.encrypt_record(record)
         self.http_client.write(country=country, data=data_to_send)
         return {"record": record}
 
     @validate_model(Country)
-    @validate_model(RecordListForBatch)
+    @validate_model(
+        {
+            "condition": ("options", "hash_search_keys"),
+            "values": [
+                {"value": True, "model": RecordListForBatch},
+                {"value": False, "model": RecordListNonHashedForBatch},
+            ],
+        }
+    )
     def batch_write(self, country: str, records: List[TRecord]) -> Dict[str, List[TRecord]]:
         """Writes multiple records to InCountry storage network.
 
@@ -174,6 +211,15 @@ class Storage:
 
     @validate_model(Country)
     @validate_model(FindFilter)
+    @validate_model(
+        {
+            "condition": ("options", "hash_search_keys"),
+            "values": [
+                {"value": True, "model": FindFilter},
+                {"value": False, "model": FindFilterNonHashed},
+            ],
+        }
+    )
     def find(
         self,
         country: str,
@@ -231,7 +277,12 @@ class Storage:
             StorageException: in any other cases.
         """
 
-        filter_params = self.prepare_filter_params(**filters)
+        filter_params = hash_object_record_keys(
+            sanitize_obj_for_model(filters, FindFilter),
+            self.env_id,
+            normalize_keys=self.options.normalize_keys,
+            hash_search_keys=self.options.hash_search_keys,
+        )
         options = {"limit": limit, "offset": offset}
 
         response = self.http_client.find(country=country, data={"filter": filter_params, "options": options})
@@ -254,9 +305,20 @@ class Storage:
         return result
 
     @validate_model(Country)
-    @validate_model(FindFilter)
+    @validate_model(
+        {
+            "condition": ("options", "hash_search_keys"),
+            "values": [
+                {"value": True, "model": FindFilter},
+                {"value": False, "model": FindFilterNonHashed},
+            ],
+        }
+    )
     def find_one(
-        self, country: str, offset: Optional[int] = 0, **filters: Union[TIntFilter, TStringFilter],
+        self,
+        country: str,
+        offset: Optional[int] = 0,
+        **filters: Union[TIntFilter, TStringFilter],
     ) -> Union[None, Dict[str, Dict]]:
         """Finds record that satisfies provided filters
 
@@ -265,7 +327,8 @@ class Storage:
             offset: Search offset. Should be non-negative int. Defaults to 0.
             **filters: Various filters to tweak the search query.
                 Available String filter keys:
-                - profile_key, service_key1, service_key2, key1, ..., key10.
+                - profile_key, service_key1, service_key2, key1, ..., key10,
+                - search_keys - for partial match search on key1, ..., key10.
                 Available String filter types:
                 - single value: Storage.find_one(..., key1="v1"),
                 - list of values: Storage.find_one(..., key1=["v1", "v2"]),
@@ -366,6 +429,62 @@ class Storage:
 
         return return_data
 
+    @validate_model(Country)
+    @validate_model(AttachmentCreate)
+    def add_attachment(
+        self, country: str, record_key: str, file: Union[BinaryIO, str], mime_type: str = None, upsert: bool = False
+    ) -> Dict[str, Union[str, int, datetime]]:
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        return {
+            "attachment_meta": self.http_client.add_attachment(
+                country=country, record_key=record_key, file=file, upsert=upsert, mime_type=mime_type
+            )
+        }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    def get_attachment_file(self, country: str, record_key: str, file_id: str) -> Dict[str, Dict]:
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        res = self.http_client.get_attachment_file(country=country, record_key=record_key, file_id=file_id)
+        return {
+            "attachment_data": res,
+        }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    def get_attachment_meta(self, country: str, record_key: str, file_id: str) -> Dict[str, Union[str, int, datetime]]:
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        return {
+            "attachment_meta": self.http_client.get_attachment_meta(
+                country=country, record_key=record_key, file_id=file_id
+            )
+        }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    @validate_model(AttachmentMetaUpdate)
+    def update_attachment_meta(
+        self, country: str, record_key: str, file_id: str, filename: str = None, mime_type: str = None
+    ) -> Dict[str, Union[str, int, datetime]]:
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        meta = {}
+        if filename is not None:
+            meta["filename"] = filename
+        if mime_type is not None:
+            meta["mime_type"] = mime_type
+        return {
+            "attachment_meta": self.http_client.update_attachment_meta(
+                country=country, record_key=record_key, file_id=file_id, meta=meta
+            )
+        }
+
+    @validate_model(Country)
+    @validate_model(AttachmentRequest)
+    def delete_attachment(self, country: str, record_key: str, file_id: str) -> Dict[str, bool]:
+        record_key = get_salted_hash(self.normalize_key(record_key), self.env_id)
+        self.http_client.delete_attachment(country=country, record_key=record_key, file_id=file_id)
+        return {"success": True}
+
     ###########################################
     # Common functions
     ###########################################
@@ -373,34 +492,17 @@ class Storage:
         if self.debug:
             print("[incountry] ", args)
 
-    def prepare_filter_string_param(self, value):
-        if isinstance(value, list):
-            return [get_salted_hash(self.normalize_key(x), self.env_id) for x in value]
-        return get_salted_hash(self.normalize_key(value), self.env_id)
-
-    def prepare_filter_params(self, **filter_kwargs):
-        filter_params = {}
-        for filter_key, filter_value in filter_kwargs.items():
-            if filter_key not in FindFilter.__fields__ or filter_value is None:
-                continue
-            if filter_key not in HASHABLE_KEYS:
-                filter_params[filter_key] = filter_value
-                continue
-            if FindFilterOperators.NOT in filter_value:
-                filter_params[filter_key] = {}
-                filter_params[filter_key][FindFilterOperators.NOT] = self.prepare_filter_string_param(
-                    filter_value[FindFilterOperators.NOT]
-                )
-            else:
-                filter_params[filter_key] = self.prepare_filter_string_param(filter_value)
-
-        return filter_params
-
     def encrypt_record(self, record):
-        return encrypt_record(self.crypto, record, self.env_id, self.normalize_keys)
+        return encrypt_record(
+            self.crypto,
+            record,
+            self.env_id,
+            normalize_keys=self.options.normalize_keys,
+            hash_search_keys=self.options.hash_search_keys,
+        )
 
     def decrypt_record(self, record):
         return decrypt_record(self.crypto, record)
 
     def normalize_key(self, key):
-        return normalize_key(key, self.normalize_keys)
+        return normalize_key(key, self.options.normalize_keys)

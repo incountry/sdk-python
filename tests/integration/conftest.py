@@ -18,20 +18,27 @@ ENDPOINT = os.environ.get("INT_INC_ENDPOINT")
 COUNTRY = os.environ.get("INT_INC_COUNTRY")
 
 SECRETS_DATA = {
-    "secrets": [{"secret": "super secret", "version": 2}],
-    "currentVersion": 2,
+    "secrets": [
+        {"secret": "super secret", "version": 2},
+        {"secret": b"3" * 32, "version": 3},
+    ],
+    "currentVersion": 3,
 }
 
 
 @pytest.fixture
-def storage(encrypt: bool, normalize_keys: bool, use_oauth: bool) -> Storage:
+def storage(encrypt: bool, normalize_keys: bool, use_oauth: bool, hash_search_keys: bool) -> Storage:
     args = {
         "encrypt": encrypt,
         "debug": True,
         "api_key": API_KEY,
         "environment_id": ENVIRONMENT_ID,
         "endpoint": ENDPOINT,
-        "options": {"normalize_keys": normalize_keys, "countries_endpoint": COUNTRIES_LIST_ENDPOINT},
+        "options": {
+            "normalize_keys": normalize_keys,
+            "countries_endpoint": COUNTRIES_LIST_ENDPOINT,
+            "hash_search_keys": True if hash_search_keys is None else hash_search_keys,
+        },
     }
 
     if use_oauth:
@@ -96,6 +103,11 @@ def normalize_keys() -> bool:
     yield False
 
 
+@pytest.fixture(autouse=True)
+def hash_search_keys() -> bool:
+    yield True
+
+
 @pytest.fixture
 def expected_records(
     storage: Storage, number_of_records: int, normalize_keys: bool, country: str = COUNTRY
@@ -125,3 +137,15 @@ def clean_up_records(
     elif isinstance(record_key, str):
         deletion = storage.delete(country=country, record_key=record_key)
         assert deletion == {"success": True}
+
+
+@pytest.fixture
+def tempfile(filename: str, filebody: str) -> Generator[None, None, None]:
+    filepath = f"./{filename}"
+    with open(filepath, "wb") as f:
+        f.write(filebody)
+        f.close()
+
+    yield {"path": filepath}
+
+    os.remove(filepath)

@@ -32,12 +32,12 @@ INVALID_SECRETS_DATA_WITH_SHORT_KEY = [
 ]
 
 
-@pytest.mark.parametrize("password", ["password"])
+@pytest.mark.parametrize("password", ["password", b"password"])
 @pytest.mark.happy_path
 def test_get_secret_old(password):
     secret_accessor = SecretKeyAccessor(lambda: password)
     [secret, secret_version, is_key] = secret_accessor.get_secret()
-    assert secret == password
+    assert secret == password.encode("utf-8") if isinstance(password, str) else password
     assert secret_version == SecretKeyAccessor.DEFAULT_VERSION
     assert is_key is False
 
@@ -58,7 +58,7 @@ def test_get_secret_old(password):
             "currentVersion": 2,
             "secrets": [
                 {"secret": "password1", "version": 1},
-                {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
+                {"secret": b"12345678901234567890123456789012", "version": 2, "isKey": True},
             ],
         },
     ],
@@ -68,36 +68,45 @@ def test_get_secret(secrets_data):
     secret_accessor = SecretKeyAccessor(lambda: secrets_data)
     [secret, secret_version, is_key] = secret_accessor.get_secret()
 
-    current_secret_data = next(
-        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]), None,
+    current_secret = next(
+        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]),
+        None,
+    )
+    current_secret_bytes = (
+        current_secret["secret"].encode("utf-8")
+        if isinstance(current_secret["secret"], str)
+        else current_secret["secret"]
     )
 
-    assert secret_version == current_secret_data["version"]
-    assert secret == current_secret_data["secret"]
-    assert is_key == current_secret_data.get("isKey", False)
+    assert secret_version == current_secret["version"]
+    assert secret == current_secret_bytes
+    assert is_key == current_secret.get("isKey", False)
 
     for secret_data in secrets_data["secrets"]:
         [secret, secret_version, is_key] = secret_accessor.get_secret(secret_data["version"])
+        secret_bytes = (
+            secret_data["secret"].encode("utf-8") if isinstance(secret_data["secret"], str) else secret_data["secret"]
+        )
         assert secret_version == secret_data["version"]
-        assert secret == secret_data["secret"]
+        assert secret == secret_bytes
         assert is_key == secret_data.get("isKey", False)
 
 
 @pytest.mark.parametrize(
     "secrets_data",
     [
-        {"currentVersion": 0, "secrets": [{"secret": "custom key", "version": 0, "isForCustomEncryption": True}]},
+        {"currentVersion": 0, "secrets": [{"secret": b"custom key", "version": 0, "isForCustomEncryption": True}]},
         {
             "currentVersion": 1,
             "secrets": [
-                {"secret": "custom key", "version": 1, "isForCustomEncryption": True},
+                {"secret": b"custom key", "version": 1, "isForCustomEncryption": True},
                 {"secret": "password2", "version": 2},
             ],
         },
         {
             "currentVersion": 2,
             "secrets": [
-                {"secret": "custom key", "version": 1, "isForCustomEncryption": True},
+                {"secret": b"custom key", "version": 1, "isForCustomEncryption": True},
                 {"secret": "password2", "version": 2},
             ],
         },
@@ -105,8 +114,8 @@ def test_get_secret(secrets_data):
             "currentVersion": 2,
             "secrets": [
                 {"secret": "password1", "version": 1},
-                {"secret": "12345678901234567890123456789012", "version": 2, "isKey": True},
-                {"secret": "custom key", "version": 3, "isForCustomEncryption": True},
+                {"secret": b"12345678901234567890123456789012", "version": 2, "isKey": True},
+                {"secret": b"custom key", "version": 3, "isForCustomEncryption": True},
             ],
         },
     ],
@@ -115,25 +124,35 @@ def test_get_secret(secrets_data):
 def test_get_secret_with_custom_keys(secrets_data):
     secret_accessor = SecretKeyAccessor(lambda: secrets_data)
     secret_accessor.enable_custom_encryption_keys()
-    [secret, secret_version, is_key] = secret_accessor.get_secret()
+    (secret, secret_version, is_key) = secret_accessor.get_secret()
 
     current_secret = next(
-        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]), None,
+        (secret for secret in secrets_data["secrets"] if secret["version"] == secrets_data["currentVersion"]),
+        None,
+    )
+    current_secret_bytes = (
+        current_secret["secret"].encode("utf-8")
+        if isinstance(current_secret["secret"], str)
+        else current_secret["secret"]
     )
 
     assert secret_version == current_secret["version"]
-    assert secret == current_secret["secret"]
+    assert secret == current_secret_bytes
     assert is_key == current_secret.get("isKey", False)
 
     for secret_data in secrets_data["secrets"]:
         [secret, secret_version, is_key] = secret_accessor.get_secret(secret_data["version"])
+        secret_bytes = (
+            secret_data["secret"].encode("utf-8") if isinstance(secret_data["secret"], str) else secret_data["secret"]
+        )
         assert secret_version == secret_data["version"]
-        assert secret == secret_data["secret"]
+        assert secret == secret_bytes
         assert is_key == secret_data.get("isKey", False)
 
 
 @pytest.mark.parametrize(
-    "secrets_data", [{"currentVersion": 0, "secrets": [{"secret": "custom key", "version": 0}]}],
+    "secrets_data",
+    [{"currentVersion": 0, "secrets": [{"secret": b"custom key", "version": 0}]}],
 )
 @pytest.mark.error_path
 def test_get_secret_returning_non_custom_key_for_custom_request(secrets_data):
@@ -162,7 +181,8 @@ def test_non_existing_version_requested(keys_data):
 
 
 @pytest.mark.parametrize(
-    "keys_data", INVALID_SECRETS_DATA,
+    "keys_data",
+    INVALID_SECRETS_DATA,
 )
 @pytest.mark.error_path
 def test_validation_failure_invalid_keys_object(keys_data):

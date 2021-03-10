@@ -12,10 +12,11 @@ pytest-cov = "*"
 pytest-tldr = "*"
 flake8 = "*"
 darglint = "*"
+requests-toolbelt = "*"
 
 [packages]
 requests = "*"
-cryptography = "*"
+cryptography = "==3.4.6"
 pydantic = "*"
 wrapt = "*"
 

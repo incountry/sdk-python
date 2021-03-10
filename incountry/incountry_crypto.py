@@ -169,11 +169,15 @@ class InCrypto:
         )
 
         if is_key or is_for_custom_encryption:
-            return (secret.encode("utf8"), version)
+            return (secret, version)
 
         return (
             hashlib.pbkdf2_hmac(
-                InCrypto.PBKDF2_DIGEST, secret.encode("utf8"), salt, InCrypto.PBKDF2_ROUNDS, InCrypto.KEY_LENGTH,
+                InCrypto.PBKDF2_DIGEST,
+                secret,
+                salt,
+                InCrypto.PBKDF2_ROUNDS,
+                InCrypto.KEY_LENGTH,
             ),
             version,
         )
@@ -183,19 +187,23 @@ class InCrypto:
         return version
 
     @staticmethod
-    def b_to_base64(bytes):
+    def b_to_base64(bytes: bytes) -> str:
         return base64.b64encode(bytes).decode("utf8")
 
     @staticmethod
-    def str_to_base64(enc):
+    def base64_to_b(enc: str) -> bytes:
+        return base64.b64decode(enc)
+
+    @staticmethod
+    def base64_to_str(enc: bytes) -> str:
+        return InCrypto.base64_to_b(enc).decode("utf8")
+
+    @staticmethod
+    def str_to_base64(enc: str) -> str:
         return base64.b64encode(enc.encode("utf8")).decode("utf8")
 
     @staticmethod
-    def base64_to_str(enc):
-        return base64.b64decode(enc).decode("utf8")
-
-    @staticmethod
-    def pack_custom_encryption_version(version):
+    def pack_custom_encryption_version(version: str) -> str:
         return InCrypto.CUSTOM_ENCRYPTION_VERSION_PREFIX + base64.b64encode(version.encode("utf8")).decode("utf8")
 
     @staticmethod
@@ -206,7 +214,7 @@ class InCrypto:
 
     @staticmethod
     def unpack_base64(enc):
-        b_data = base64.b64decode(enc)
+        b_data = InCrypto.base64_to_b(enc)
         min_len = InCrypto.SALT_LENGTH + InCrypto.IV_LENGTH + InCrypto.AUTH_TAG_LENGTH
         if len(b_data) < min_len:
             raise StorageCryptoException("Wrong ciphertext size")

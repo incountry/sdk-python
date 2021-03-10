@@ -20,7 +20,12 @@ class OAuthTokenClient(TokenClient):
     }
 
     def __init__(
-        self, client_id: str, client_secret: str, scope: str, auth_endpoints: dict = None, options: dict = {},
+        self,
+        client_id: str,
+        client_secret: str,
+        scope: str,
+        auth_endpoints: dict = None,
+        options: dict = {},
     ):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -62,7 +67,8 @@ class OAuthTokenClient(TokenClient):
     def refresh_access_token(self, audience, region):
         token_data = self.fetch_token(audience=audience, region=region)
         self.tokens[audience] = Token(
-            access_token=token_data["access_token"], expires_at=time.time() + token_data["expires_in"],
+            access_token=token_data["access_token"],
+            expires_at=time.time() + token_data["expires_in"],
         )
 
     def can_refetch(self):

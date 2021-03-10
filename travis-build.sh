@@ -43,8 +43,14 @@ else
 fi
 
 # Bandit security scan
-pip3 install bandit && bandit --ini bandit.ini -r -o bandit.json -f json
-
+pip3 install bandit
+BANDIT_OUTPUT="$(bandit -v --ini bandit.ini -r -o bandit.json -f json --exclude './venv,./tests,./.gitlint-rules,./queue_worker/test,./queue_watcher/test,./scripts,./setup.py' || cat bandit.json | jq -r '.results[] as $res | "[\($res.issue_severity)] File \($res.filename), line \($res.line_number) - \($res.issue_text)\nRelated code:\n\($res.code)Rationale: \($res.more_info)\n"')"
+if [[ -z "${BANDIT_OUTPUT}" ]]; then
+  log_info "No Bandit issues found"
+else
+  log_info "Some Bandit issues found. If Sonar Quality Gate will decide they are critical Sonar will fail the build:\n"
+  log_info "${BANDIT_OUTPUT}"
+fi
 if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then # Fetch the PR branch with complete history for Travis PR builds in order to let Sonar properly display annotations in coverage details
   git fetch --no-tags https://github.com/${TRAVIS_PULL_REQUEST_SLUG}.git +refs/heads/${TRAVIS_BRANCH}:refs/remotes/origin/${TRAVIS_BRANCH}
 fi
