@@ -176,10 +176,9 @@ def test_add_too_large_attachment_by_filepath(client, upsert, tmpdir):
 
     params = {"country": COUNTRY, "record_key": record_key, "file": tmp_file, "upsert": upsert}
 
-    with pytest.raises(StorageClientException) as exc:
-        client().add_attachment(**params)
-
-    assert str(exc.value) == ATTACHMENT_TOO_LARGE_ERROR_MESSAGE
+    client().add_attachment.when.called_with(**params).should.throw(
+        StorageClientException, ATTACHMENT_TOO_LARGE_ERROR_MESSAGE
+    )
 
 
 @httpretty.activate
@@ -202,10 +201,9 @@ def test_add_too_large_attachment_by_file_object(client, upsert):
 
     params = {"country": COUNTRY, "record_key": record_key, "file": f, "upsert": upsert}
 
-    with pytest.raises(StorageClientException) as exc:
-        client().add_attachment(**params)
-
-    assert str(exc.value) == ATTACHMENT_TOO_LARGE_ERROR_MESSAGE
+    client().add_attachment.when.called_with(**params).should.throw(
+        StorageClientException, ATTACHMENT_TOO_LARGE_ERROR_MESSAGE
+    )
 
 
 @httpretty.activate
