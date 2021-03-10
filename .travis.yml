@@ -7,14 +7,16 @@ git:
 
 language: python
 python: 3.7
-node_js: 11
+node_js: 12.16
 
 jobs:
   include:
     - stage: build
       name: "Scan code with Snyk, run tests, run Sonar Quality Gate"
       before_install:
-        - nvm use v11.0.0 # Switch to newer NodeJS to prevent SNYK scan issues
+        # Switch to newer NodeJS to prevent SNYK scan issues
+        - nvm install v12.16.0
+        - nvm use v12.16.0
         # Install Sonar-scanner
         - wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONARSCANNER_VERSION}-linux.zip
         - unzip -q sonar-scanner-cli-${SONARSCANNER_VERSION}-linux.zip -d /home/travis/bin
