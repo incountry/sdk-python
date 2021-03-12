@@ -39,11 +39,9 @@ def run():
 
     decrypted_key = response["Plaintext"]
 
-    decoded_key = base64.b64encode(decrypted_key).decode("utf8")
-
     secrets = {
         "currentVersion": 1,
-        "secrets": [{"secret": decoded_key, "version": 1, "is_key": True}],
+        "secrets": [{"secret": decrypted_key, "version": 1, "is_key": True}],
     }
 
     storage = Storage(
